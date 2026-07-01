@@ -1,0 +1,40 @@
+name: dortfolio-local
+
+# 로컬 개발 전용 compose 파일.
+# - Spring 서버는 컨테이너로 띄우지 않고 gradlew bootRun(local profile)으로 호스트에서 직접 실행합니다.
+#   (코드 변경 시 재빌드 없이 바로 반영되도록 하기 위함)
+# - postgres 포트는 127.0.0.1(루프백)에만 바인딩해서, 같은 네트워크(와이파이 등)의
+#   다른 기기에서는 접근할 수 없고 이 컴퓨터 안에서만(Spring, psql, DBeaver 등) 접근 가능합니다.
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: dortfolio-postgres-local
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dortfolio}
+      POSTGRES_USER: ${POSTGRES_USER:-dortfolio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dortfolio}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-local-data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dortfolio} -d ${POSTGRES_DB:-dortfolio}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  fastapi:
+    build:
+      context: ./fastapi
+    container_name: dortfolio-fastapi-local
+    restart: unless-stopped
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports:
+      - "127.0.0.1:${FASTAPI_PORT:-8000}:8000"
+
+volumes:
+  postgres-local-data:
