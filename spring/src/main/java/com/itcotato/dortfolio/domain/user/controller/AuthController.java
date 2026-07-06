@@ -1,6 +1,8 @@
 package com.itcotato.dortfolio.domain.user.controller;
 
+import com.itcotato.dortfolio.domain.user.dto.LoginRequest;
 import com.itcotato.dortfolio.domain.user.dto.SignUpRequest;
+import com.itcotato.dortfolio.domain.user.dto.TokenResponse;
 import com.itcotato.dortfolio.domain.user.service.AuthService;
 import com.itcotato.dortfolio.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,11 +25,13 @@ public class AuthController {
 
     private final AuthService authService;
 
+    /* 자체 회원가입 API */
     @Operation(
             summary = "자체 회원가입",
             description = "이메일 계정, 비밀번호, 이름을 입력받아 새로운 유저를 등록합니다." +
                     "엄격한 이메일/비밀번호 정규식 검증이 포함되어 있습니다."
     )
+
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "201",
@@ -39,6 +43,7 @@ public class AuthController {
                             "U001: 이미 가입된 이메일 주소 사용 시 발생"
             )
     })
+
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<Void>> signUp(
             @Valid @RequestBody SignUpRequest request
@@ -48,6 +53,35 @@ public class AuthController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success("회원가입이 성공적으로 완료되었습니다."));
+    }
+
+    /* 자체 로그인 API */
+    @Operation(
+            summary = "자체 로그인",
+            description = "이메일 계정과 비밀번호를 받아 유저를 검증하고, 인증에 필요한 JWT Access 및 Refresh 토큰을 발급합니다."
+    )
+
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "로그인 성공 (Access/Refresh 토큰 묶음 반환)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "G001: 이메일 형식이 누락되었거나 바르지 않은 경우\n\n" +
+                            "INVALID_INPUT_VALUE: 비밀번호가 일치하지 않거나 가입되지 않은 이메일인 경우"
+            )
+    })
+
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<TokenResponse>> login(
+            @Valid @RequestBody LoginRequest request
+    ) {
+        TokenResponse tokenResponse = authService.login(request);
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.success("로그인이 성공적으로 완료되었습니다.", tokenResponse));
     }
 
 }

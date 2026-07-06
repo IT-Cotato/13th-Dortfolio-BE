@@ -1,12 +1,16 @@
 package com.itcotato.dortfolio.domain.user.service;
 
-
+import com.itcotato.dortfolio.domain.user.dto.LoginRequest;
 import com.itcotato.dortfolio.domain.user.dto.SignUpRequest;
+import com.itcotato.dortfolio.domain.user.dto.TokenResponse;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
+import com.itcotato.dortfolio.global.auth.JwtTokenProvider;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,8 +22,10 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final CustomUserDetailsService userDetailsService;
+    private final JwtTokenProvider jwtTokenProvider;
 
-    /* 회원가입 로직 */
+    /* 회원가입 비즈니스 로직 */
     @Transactional
     public void signUp(SignUpRequest request) {
 
@@ -44,5 +50,32 @@ public class AuthService {
 
         // DB 저장
         userRepository.save(user);
+    }
+
+    /* 로그인 비즈니스 로직 */
+    public TokenResponse login(LoginRequest request) {
+
+        // 유저 정보 조회
+        UserDetails userDetails = userDetailsService.loadUserByUsername(request.email());
+
+        // 비밀번호 비교
+        if (!passwordEncoder.matches(request.password(), userDetails.getPassword())) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE) {
+                @Override
+                public String getMessage() {
+                    return "비밀번호가 일치하지 않습니다.";
+                }
+            };
+        }
+
+        // 비밀번호가 일치하면 인증 객체 생성
+        UsernamePasswordAuthenticationToken authenticationToken
+                = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+
+        // Access, Refresh 토큰 발급 후 DTO 반환
+        String accessToken = jwtTokenProvider.generateAccessToken(authenticationToken);
+        String refreshToken = jwtTokenProvider.generateRefreshToken(authenticationToken);
+
+        return TokenResponse.of(accessToken, refreshToken);
     }
 }
