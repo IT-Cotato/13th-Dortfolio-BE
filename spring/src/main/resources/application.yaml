@@ -7,3 +7,8 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
+
+jwt:
+  secret: ${JWT_SECRET:c3ByaW5nLWJvb3Qtc2VjdXJpdHktand0LWNvdGF0by1kb3J0Zm9saW8tc2VjcmV0LWtleS1nZW5lcmF0ZS0zMmJ5dGUK}
+  access-expiration: 1800000      # Access Token 만료 시간: 30분
+  refresh-expiration: 1209600000  # Refresh Token 만료 시간: 14일
