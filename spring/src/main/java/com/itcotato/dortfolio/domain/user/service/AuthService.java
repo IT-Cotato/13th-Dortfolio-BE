@@ -43,9 +43,13 @@ public class AuthService {
         String encodedPassword = passwordEncoder.encode(request.password());
 
         // 객체 생성
-        User user = User.of(request.email(),
+        User user = User.of(
+                request.email(),
                 encodedPassword,
-                request.name()
+                request.name(),
+                request.isTermsAgreed(),
+                request.isPrivacyAgreed(),
+                request.isMarketingAgreed()
         );
 
         // DB 저장

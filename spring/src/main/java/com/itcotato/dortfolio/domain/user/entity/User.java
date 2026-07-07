@@ -35,20 +35,40 @@ public class User {
     @Column(nullable = false)
     private Role role;
 
+    // 이용 약관
+    @Column(nullable = false)
+    private boolean isTermsAgreed;
+
+    // 개인정보 수집 및 이용 동의
+    @Column(nullable = false)
+    private boolean isPrivacyAgreed;
+
+    // 선택 사항
+    @Column(nullable = false)
+    private boolean isMarketingAgreed;
+
     @Builder(access = AccessLevel.PRIVATE)
-    private User(String email, String password, String name, Role role) {
+    private User(String email, String password, String name, Role role,
+                 boolean isTermsAgreed, boolean isPrivacyAgreed, boolean isMarketingAgreed) {
         this.email = email;
         this.password = password;
         this.name = name;
         this.role = role;
+        this.isTermsAgreed = isTermsAgreed;
+        this.isPrivacyAgreed = isPrivacyAgreed;
+        this.isMarketingAgreed = isMarketingAgreed;
     }
 
-    public static User of(String email, String encodedPassword, String name) {
+    public static User of(String email, String encodedPassword, String name,
+                          boolean isTermsAgreed, boolean isPrivacyAgreed, boolean isMarketingAgreed) {
         return User.builder()
                 .email(email)
                 .password(encodedPassword)
                 .name(name)
                 .role(Role.USER)
+                .isTermsAgreed(isTermsAgreed)
+                .isPrivacyAgreed(isPrivacyAgreed)
+                .isMarketingAgreed(isMarketingAgreed)
                 .build();
     }
 

@@ -1,5 +1,6 @@
 package com.itcotato.dortfolio.domain.user.dto;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -7,7 +8,7 @@ import jakarta.validation.constraints.Size;
 public record SignUpRequest(
 
     // 이메일 검증
-    @NotBlank(message = "이메일은 필수 입력 항복입니다.")
+    @NotBlank(message = "이메일은 필수 입력 항목입니다.")
     @Size(max = 254, message = "이메일 전체 길이는 254자를 초과할 수 없습니다.")
     @Pattern(
             regexp = "^(?!\\.)(?!.*\\.\\.)[A-Za-z0-9._+\\-]{1,64}(?<!\\.)@[A-Za-z0-9\\-]+(\\.[A-Za-z0-9\\-]+)*\\.[A-Za-z]{2,}$",
@@ -25,7 +26,17 @@ public record SignUpRequest(
 
     // 이름 검증
     @NotBlank(message = "이름은 필수 입력 항목입니다.")
-    String name
+    String name,
+
+    // 약관 동의
+    @AssertTrue(message = "이용약관 동의는 필수입니다.")
+    Boolean isTermsAgreed,
+
+    @AssertTrue(message = "개인정보 수집 및 이용 동의는 필수입니다.")
+    Boolean isPrivacyAgreed,
+
+    // 선택 사항
+    Boolean isMarketingAgreed
 ) {
 
 }
