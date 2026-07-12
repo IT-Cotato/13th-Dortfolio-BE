@@ -1,0 +1,28 @@
+package com.itcotato.dortfolio.domain.template.repository;
+
+import com.itcotato.dortfolio.domain.template.entity.Template;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+public interface TemplateRepository extends JpaRepository<Template, UUID> {
+
+	boolean existsByTitleAndIsBuiltinTrue(String title);
+
+	@EntityGraph(attributePaths = "questions")
+	@Query("""
+		select t
+		from Template t
+		where t.deletedAt is null
+			and (t.isBuiltin = true or t.userId = :userId)
+		order by t.isBuiltin desc, t.createdAt desc
+		""")
+	List<Template> findAvailableTemplates(@Param("userId") UUID userId);
+
+	@EntityGraph(attributePaths = "questions")
+	Optional<Template> findByIdAndDeletedAtIsNull(UUID id);
+}
