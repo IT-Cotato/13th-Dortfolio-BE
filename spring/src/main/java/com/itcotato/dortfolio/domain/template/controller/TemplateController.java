@@ -16,11 +16,12 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+// TODO: auth 도메인 완성되면 @RequestParam UUID userId를 @AuthenticationPrincipal로 교체
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/templates")
@@ -29,13 +30,13 @@ public class TemplateController {
 	private final TemplateService templateService;
 
 	@GetMapping
-	public ApiResponse<List<TemplateResponse>> getTemplates(@RequestHeader("X-User-Id") UUID userId) {
+	public ApiResponse<List<TemplateResponse>> getTemplates(@RequestParam UUID userId) {
 		return ApiResponse.success("템플릿 목록을 조회했습니다.", templateService.getTemplates(userId));
 	}
 
 	@GetMapping("/{templateId}")
 	public ApiResponse<TemplateResponse> getTemplate(
-		@RequestHeader("X-User-Id") UUID userId,
+		@RequestParam UUID userId,
 		@PathVariable UUID templateId
 	) {
 		return ApiResponse.success("템플릿을 조회했습니다.", templateService.getTemplate(userId, templateId));
@@ -44,7 +45,7 @@ public class TemplateController {
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public ApiResponse<TemplateResponse> createTemplate(
-		@RequestHeader("X-User-Id") UUID userId,
+		@RequestParam UUID userId,
 		@Valid @RequestBody TemplateCreateRequest request
 	) {
 		return ApiResponse.success("템플릿을 등록했습니다.", templateService.createTemplate(userId, request));
@@ -52,7 +53,7 @@ public class TemplateController {
 
 	@PatchMapping("/{templateId}")
 	public ApiResponse<TemplateResponse> updateTemplate(
-		@RequestHeader("X-User-Id") UUID userId,
+		@RequestParam UUID userId,
 		@PathVariable UUID templateId,
 		@Valid @RequestBody TemplateUpdateRequest request
 	) {
@@ -61,7 +62,7 @@ public class TemplateController {
 
 	@DeleteMapping("/{templateId}")
 	public ApiResponse<Void> deleteTemplate(
-		@RequestHeader("X-User-Id") UUID userId,
+		@RequestParam UUID userId,
 		@PathVariable UUID templateId
 	) {
 		templateService.deleteTemplate(userId, templateId);

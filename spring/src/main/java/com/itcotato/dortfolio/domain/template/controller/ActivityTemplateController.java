@@ -12,10 +12,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+// TODO: auth 도메인 완성되면 @RequestParam UUID userId를 @AuthenticationPrincipal로 교체
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/activities/{activityId}/templates")
@@ -25,7 +26,7 @@ public class ActivityTemplateController {
 
 	@GetMapping
 	public ApiResponse<List<TemplateResponse>> getActivityTemplates(
-		@RequestHeader("X-User-Id") UUID userId,
+		@RequestParam UUID userId,
 		@PathVariable UUID activityId
 	) {
 		return ApiResponse.success(
@@ -36,7 +37,7 @@ public class ActivityTemplateController {
 
 	@PutMapping
 	public ApiResponse<List<TemplateResponse>> updateActivityTemplates(
-		@RequestHeader("X-User-Id") UUID userId,
+		@RequestParam UUID userId,
 		@PathVariable UUID activityId,
 		@Valid @RequestBody ActivityTemplateUpdateRequest request
 	) {
