@@ -7,6 +7,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -19,10 +20,14 @@ public class TemplateQuestion extends BaseEntity {
 
 	public static final int QUESTION_TEXT_MAX_LENGTH = 30;
 	public static final int DESCRIPTION_MAX_LENGTH = 100;
+	public static final int BUILTIN_CODE_MAX_LENGTH = 80;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "template_id", nullable = false)
 	private Template template;
+
+	@Column(name = "builtin_code", unique = true, length = BUILTIN_CODE_MAX_LENGTH)
+	private String builtinCode;
 
 	@Column(nullable = false, length = QUESTION_TEXT_MAX_LENGTH)
 	private String questionText;
@@ -36,7 +41,11 @@ public class TemplateQuestion extends BaseEntity {
 	@Column(nullable = false)
 	private int sortOrder;
 
-	private TemplateQuestion(String questionText, String description, boolean required, int sortOrder) {
+	@Column
+	private LocalDateTime deletedAt;
+
+	private TemplateQuestion(String builtinCode, String questionText, String description, boolean required, int sortOrder) {
+		this.builtinCode = builtinCode;
 		this.questionText = questionText;
 		this.description = description;
 		this.required = required;
@@ -44,7 +53,33 @@ public class TemplateQuestion extends BaseEntity {
 	}
 
 	public static TemplateQuestion create(String questionText, String description, boolean required, int sortOrder) {
-		return new TemplateQuestion(questionText, description, required, sortOrder);
+		return new TemplateQuestion(null, questionText, description, required, sortOrder);
+	}
+
+	public static TemplateQuestion createBuiltin(
+		String builtinCode,
+		String questionText,
+		String description,
+		boolean required,
+		int sortOrder
+	) {
+		return new TemplateQuestion(builtinCode, questionText, description, required, sortOrder);
+	}
+
+	public void updateBuiltin(String questionText, String description, boolean required, int sortOrder) {
+		this.questionText = questionText;
+		this.description = description;
+		this.required = required;
+		this.sortOrder = sortOrder;
+		this.deletedAt = null;
+	}
+
+	public void delete() {
+		this.deletedAt = LocalDateTime.now();
+	}
+
+	public boolean isDeleted() {
+		return deletedAt != null;
 	}
 
 	void assignTemplate(Template template) {

@@ -11,7 +11,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface TemplateRepository extends JpaRepository<Template, UUID> {
 
-	boolean existsByTitleAndIsBuiltinTrue(String title);
+	@EntityGraph(attributePaths = "questions")
+	Optional<Template> findByBuiltinCode(String builtinCode);
 
 	@EntityGraph(attributePaths = "questions")
 	@Query("""

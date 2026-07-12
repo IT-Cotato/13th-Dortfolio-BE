@@ -98,7 +98,7 @@ class TemplateServiceTest {
 	@Test
 	void builtinTemplateCannotBeUpdatedOrDeleted() {
 		UUID userId = UUID.randomUUID();
-		Template builtin = Template.createBuiltin("기본", "기본 설명");
+		Template builtin = Template.createBuiltin("BASIC", 1, "기본", "기본 설명");
 		builtin.addQuestion(TemplateQuestionRequestFixture.requiredQuestion("질문"));
 		Template saved = templateRepository.save(builtin);
 

@@ -1,7 +1,7 @@
 package com.itcotato.dortfolio.domain.template.controller;
 
 import com.itcotato.dortfolio.domain.template.dto.ActivityTemplateUpdateRequest;
-import com.itcotato.dortfolio.domain.template.dto.TemplateResponse;
+import com.itcotato.dortfolio.domain.template.dto.ActivityTemplateResponse;
 import com.itcotato.dortfolio.domain.template.service.ActivityTemplateService;
 import com.itcotato.dortfolio.global.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -25,7 +25,7 @@ public class ActivityTemplateController {
 	private final ActivityTemplateService activityTemplateService;
 
 	@GetMapping
-	public ApiResponse<List<TemplateResponse>> getActivityTemplates(
+	public ApiResponse<List<ActivityTemplateResponse>> getActivityTemplates(
 		@RequestParam UUID userId,
 		@PathVariable UUID activityId
 	) {
@@ -36,7 +36,7 @@ public class ActivityTemplateController {
 	}
 
 	@PutMapping
-	public ApiResponse<List<TemplateResponse>> updateActivityTemplates(
+	public ApiResponse<List<ActivityTemplateResponse>> updateActivityTemplates(
 		@RequestParam UUID userId,
 		@PathVariable UUID activityId,
 		@Valid @RequestBody ActivityTemplateUpdateRequest request

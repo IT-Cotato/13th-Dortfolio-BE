@@ -1,6 +1,7 @@
 package com.itcotato.dortfolio.domain.template.service;
 
 import com.itcotato.dortfolio.domain.template.dto.ActivityTemplateUpdateRequest;
+import com.itcotato.dortfolio.domain.template.dto.ActivityTemplateResponse;
 import com.itcotato.dortfolio.domain.template.dto.TemplateResponse;
 import com.itcotato.dortfolio.domain.template.entity.ActivityTemplate;
 import com.itcotato.dortfolio.domain.template.entity.Template;
@@ -28,8 +29,11 @@ public class ActivityTemplateService {
 	private final TemplateRepository templateRepository;
 
 	@Transactional(readOnly = true)
-	public List<TemplateResponse> getActivityTemplates(UUID userId, UUID activityId) {
-		List<UUID> templateIds = activityTemplateRepository.findAllByActivityIdOrderBySortOrderAsc(activityId).stream()
+	public List<ActivityTemplateResponse> getActivityTemplates(UUID userId, UUID activityId) {
+		validateActivityAccess(userId, activityId);
+
+		List<ActivityTemplate> activityTemplates = activityTemplateRepository.findAllByActivityIdOrderBySortOrderAsc(activityId);
+		List<UUID> templateIds = activityTemplates.stream()
 			.map(ActivityTemplate::getTemplateId)
 			.toList();
 
@@ -38,19 +42,22 @@ public class ActivityTemplateService {
 			.peek(template -> validateReadable(template, userId))
 			.collect(java.util.stream.Collectors.toMap(Template::getId, Function.identity()));
 
-		return templateIds.stream()
-			.map(templates::get)
-			.filter(template -> template != null)
-			.map(TemplateResponse::from)
+		return activityTemplates.stream()
+			.filter(activityTemplate -> templates.containsKey(activityTemplate.getTemplateId()))
+			.map(activityTemplate -> ActivityTemplateResponse.of(
+				templates.get(activityTemplate.getTemplateId()),
+				activityTemplate.getSortOrder()
+			))
 			.toList();
 	}
 
 	@Transactional
-	public List<TemplateResponse> updateActivityTemplates(
+	public List<ActivityTemplateResponse> updateActivityTemplates(
 		UUID userId,
 		UUID activityId,
 		ActivityTemplateUpdateRequest request
 	) {
+		validateActivityAccess(userId, activityId);
 		validateSelection(request.templateIds());
 		List<Template> templates = request.templateIds().stream()
 			.map(templateId -> getReadableTemplate(userId, templateId))
@@ -62,9 +69,13 @@ public class ActivityTemplateService {
 			.toList();
 		activityTemplateRepository.saveAll(activityTemplates);
 
-		return templates.stream()
-			.map(TemplateResponse::from)
+		return IntStream.range(0, templates.size())
+			.mapToObj(index -> ActivityTemplateResponse.of(templates.get(index), index + 1))
 			.toList();
+	}
+
+	private void validateActivityAccess(UUID userId, UUID activityId) {
+		// TODO: Activity 도메인 병합 후 activityId 존재 여부와 userId 소유 여부를 함께 검증한다.
 	}
 
 	private void validateSelection(List<UUID> templateIds) {

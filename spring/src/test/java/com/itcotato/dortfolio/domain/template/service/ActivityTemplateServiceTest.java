@@ -3,6 +3,7 @@ package com.itcotato.dortfolio.domain.template.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.itcotato.dortfolio.domain.template.dto.ActivityTemplateResponse;
 import com.itcotato.dortfolio.domain.template.dto.ActivityTemplateUpdateRequest;
 import com.itcotato.dortfolio.domain.template.dto.TemplateCreateRequest;
 import com.itcotato.dortfolio.domain.template.dto.TemplateQuestionRequest;
@@ -48,15 +49,15 @@ class ActivityTemplateServiceTest {
 		TemplateResponse first = createTemplate(userId, "템플릿1");
 		TemplateResponse second = createTemplate(userId, "템플릿2");
 
-		List<TemplateResponse> responses = activityTemplateService.updateActivityTemplates(
+		List<ActivityTemplateResponse> responses = activityTemplateService.updateActivityTemplates(
 			userId,
 			activityId,
 			new ActivityTemplateUpdateRequest(List.of(first.id(), second.id()))
 		);
 
-		assertThat(responses).extracting(TemplateResponse::id).containsExactly(first.id(), second.id());
+		assertThat(responses).extracting(ActivityTemplateResponse::id).containsExactly(first.id(), second.id());
 		assertThat(activityTemplateService.getActivityTemplates(userId, activityId))
-			.extracting(TemplateResponse::id)
+			.extracting(ActivityTemplateResponse::id)
 			.containsExactly(first.id(), second.id());
 	}
 
