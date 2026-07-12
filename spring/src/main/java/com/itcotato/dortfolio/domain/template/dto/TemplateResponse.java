@@ -1,0 +1,34 @@
+package com.itcotato.dortfolio.domain.template.dto;
+
+import com.itcotato.dortfolio.domain.template.entity.Template;
+import java.util.Comparator;
+import java.util.List;
+import java.util.UUID;
+
+public record TemplateResponse(
+	UUID id,
+	String title,
+	String description,
+	boolean isDefault,
+	boolean isBuiltin,
+	int questionCount,
+	List<TemplateQuestionResponse> questions
+) {
+
+	public static TemplateResponse from(Template template) {
+		List<TemplateQuestionResponse> questions = template.getQuestions().stream()
+			.sorted(Comparator.comparingInt(question -> question.getSortOrder()))
+			.map(TemplateQuestionResponse::from)
+			.toList();
+
+		return new TemplateResponse(
+			template.getId(),
+			template.getTitle(),
+			template.getDescription(),
+			template.isDefault(),
+			template.isBuiltin(),
+			questions.size(),
+			questions
+		);
+	}
+}
