@@ -1,8 +1,8 @@
 package com.itcotato.dortfolio.domain.template.controller;
 
-import com.itcotato.dortfolio.domain.template.dto.TemplateCreateRequest;
-import com.itcotato.dortfolio.domain.template.dto.TemplateResponse;
-import com.itcotato.dortfolio.domain.template.dto.TemplateUpdateRequest;
+import com.itcotato.dortfolio.domain.template.dto.req.TemplateCreateRequest;
+import com.itcotato.dortfolio.domain.template.dto.res.TemplateResponse;
+import com.itcotato.dortfolio.domain.template.dto.req.TemplateUpdateRequest;
 import com.itcotato.dortfolio.domain.template.service.TemplateService;
 import com.itcotato.dortfolio.global.response.ApiResponse;
 import jakarta.validation.Valid;

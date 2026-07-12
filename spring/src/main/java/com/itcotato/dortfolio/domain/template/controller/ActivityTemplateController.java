@@ -1,7 +1,7 @@
 package com.itcotato.dortfolio.domain.template.controller;
 
-import com.itcotato.dortfolio.domain.template.dto.ActivityTemplateUpdateRequest;
-import com.itcotato.dortfolio.domain.template.dto.ActivityTemplateResponse;
+import com.itcotato.dortfolio.domain.template.dto.req.ActivityTemplateUpdateRequest;
+import com.itcotato.dortfolio.domain.template.dto.res.ActivityTemplateResponse;
 import com.itcotato.dortfolio.domain.template.service.ActivityTemplateService;
 import com.itcotato.dortfolio.global.response.ApiResponse;
 import jakarta.validation.Valid;

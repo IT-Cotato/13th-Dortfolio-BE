@@ -3,11 +3,11 @@ package com.itcotato.dortfolio.domain.template.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.itcotato.dortfolio.domain.template.dto.ActivityTemplateResponse;
-import com.itcotato.dortfolio.domain.template.dto.ActivityTemplateUpdateRequest;
-import com.itcotato.dortfolio.domain.template.dto.TemplateCreateRequest;
-import com.itcotato.dortfolio.domain.template.dto.TemplateQuestionRequest;
-import com.itcotato.dortfolio.domain.template.dto.TemplateResponse;
+import com.itcotato.dortfolio.domain.template.dto.res.ActivityTemplateResponse;
+import com.itcotato.dortfolio.domain.template.dto.req.ActivityTemplateUpdateRequest;
+import com.itcotato.dortfolio.domain.template.dto.req.TemplateCreateRequest;
+import com.itcotato.dortfolio.domain.template.dto.req.TemplateQuestionRequest;
+import com.itcotato.dortfolio.domain.template.dto.res.TemplateResponse;
 import com.itcotato.dortfolio.domain.template.repository.ActivityTemplateRepository;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;

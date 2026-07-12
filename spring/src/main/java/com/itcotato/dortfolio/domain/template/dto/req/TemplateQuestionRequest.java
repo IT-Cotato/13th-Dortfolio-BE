@@ -1,4 +1,4 @@
-package com.itcotato.dortfolio.domain.template.dto;
+package com.itcotato.dortfolio.domain.template.dto.req;
 
 import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
 import jakarta.validation.constraints.NotBlank;

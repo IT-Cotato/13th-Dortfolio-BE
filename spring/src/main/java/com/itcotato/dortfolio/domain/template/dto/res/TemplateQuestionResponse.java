@@ -1,4 +1,4 @@
-package com.itcotato.dortfolio.domain.template.dto;
+package com.itcotato.dortfolio.domain.template.dto.res;
 
 import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
 import java.util.UUID;

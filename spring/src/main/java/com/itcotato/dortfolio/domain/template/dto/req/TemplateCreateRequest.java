@@ -1,4 +1,4 @@
-package com.itcotato.dortfolio.domain.template.dto;
+package com.itcotato.dortfolio.domain.template.dto.req;
 
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import jakarta.validation.Valid;
@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 
-public record TemplateUpdateRequest(
+public record TemplateCreateRequest(
 	@NotBlank(message = "템플릿 제목은 필수입니다.")
 	@Size(max = Template.TITLE_MAX_LENGTH, message = "템플릿 제목은 최대 20자까지 입력할 수 있습니다.")
 	String title,
