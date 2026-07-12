@@ -63,7 +63,8 @@ public class ActivityTemplateService {
 			.map(templateId -> getReadableTemplate(userId, templateId))
 			.toList();
 
-		activityTemplateRepository.deleteAllByActivityId(activityId);
+		activityTemplateRepository.deleteAllByActivityIdInBulk(activityId);
+		activityTemplateRepository.flush();
 		List<ActivityTemplate> activityTemplates = IntStream.range(0, request.templateIds().size())
 			.mapToObj(index -> ActivityTemplate.create(activityId, request.templateIds().get(index), index + 1))
 			.toList();

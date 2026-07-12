@@ -62,6 +62,34 @@ class ActivityTemplateServiceTest {
 	}
 
 	@Test
+	void updateActivityTemplatesReplacesExistingSelection() {
+		UUID userId = UUID.randomUUID();
+		UUID activityId = UUID.randomUUID();
+		TemplateResponse first = createTemplate(userId, "템플릿1");
+		TemplateResponse second = createTemplate(userId, "템플릿2");
+
+		activityTemplateService.updateActivityTemplates(
+			userId,
+			activityId,
+			new ActivityTemplateUpdateRequest(List.of(first.id(), second.id()))
+		);
+		List<ActivityTemplateResponse> reorderedResponses = activityTemplateService.updateActivityTemplates(
+			userId,
+			activityId,
+			new ActivityTemplateUpdateRequest(List.of(second.id(), first.id()))
+		);
+		List<ActivityTemplateResponse> narrowedResponses = activityTemplateService.updateActivityTemplates(
+			userId,
+			activityId,
+			new ActivityTemplateUpdateRequest(List.of(first.id()))
+		);
+
+		assertThat(reorderedResponses).extracting(ActivityTemplateResponse::id).containsExactly(second.id(), first.id());
+		assertThat(narrowedResponses).extracting(ActivityTemplateResponse::id).containsExactly(first.id());
+		assertThat(activityTemplateRepository.findAllByActivityIdOrderBySortOrderAsc(activityId)).hasSize(1);
+	}
+
+	@Test
 	void updateActivityTemplatesRejectsMoreThanFourTemplates() {
 		UUID userId = UUID.randomUUID();
 		UUID activityId = UUID.randomUUID();
