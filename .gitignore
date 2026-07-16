@@ -1,2 +1,9 @@
 .env
 .idea/
+out/
+build/
+.gradle/
+spring/out/
+spring/build/
+spring/.gradle/
+*.class
