@@ -39,4 +39,8 @@ public class ActivityTemplate extends BaseEntity {
 	public static ActivityTemplate create(UUID activityId, UUID templateId, int sortOrder) {
 		return new ActivityTemplate(activityId, templateId, sortOrder);
 	}
+
+	public void updateSortOrder(int sortOrder) {
+		this.sortOrder = sortOrder;
+	}
 }

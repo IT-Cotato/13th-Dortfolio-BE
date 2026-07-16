@@ -26,4 +26,7 @@ public interface TemplateRepository extends JpaRepository<Template, UUID> {
 
 	@EntityGraph(attributePaths = "questions")
 	Optional<Template> findByIdAndDeletedAtIsNull(UUID id);
+
+	@EntityGraph(attributePaths = "questions")
+	List<Template> findAllByIdInAndDeletedAtIsNull(List<UUID> ids);
 }

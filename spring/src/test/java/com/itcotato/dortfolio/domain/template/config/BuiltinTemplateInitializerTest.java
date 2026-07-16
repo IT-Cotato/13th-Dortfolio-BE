@@ -10,8 +10,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.DefaultApplicationArguments;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -53,7 +53,7 @@ class BuiltinTemplateInitializerTest {
 		));
 		templateRepository.save(oldTemplate);
 
-		initializeBuiltinTemplates.run(new EmptyApplicationArguments());
+		initializeBuiltinTemplates.run(new DefaultApplicationArguments());
 
 		Template template = templateRepository.findByBuiltinCode("PROJECT_EXPERIENCE").orElseThrow();
 		UUID firstQuestionId = template.getQuestions().stream()
@@ -62,7 +62,7 @@ class BuiltinTemplateInitializerTest {
 			.orElseThrow()
 			.getId();
 
-		initializeBuiltinTemplates.run(new EmptyApplicationArguments());
+		initializeBuiltinTemplates.run(new DefaultApplicationArguments());
 
 		Template reloadedTemplate = templateRepository.findByBuiltinCode("PROJECT_EXPERIENCE").orElseThrow();
 		UUID reloadedQuestionId = reloadedTemplate.getQuestions().stream()
@@ -84,31 +84,4 @@ class BuiltinTemplateInitializerTest {
 		assertThat(templateRepository.findAll().stream().filter(Template::isBuiltin)).hasSize(4);
 	}
 
-	private static class EmptyApplicationArguments implements ApplicationArguments {
-
-		@Override
-		public String[] getSourceArgs() {
-			return new String[0];
-		}
-
-		@Override
-		public java.util.Set<String> getOptionNames() {
-			return java.util.Set.of();
-		}
-
-		@Override
-		public boolean containsOption(String name) {
-			return false;
-		}
-
-		@Override
-		public java.util.List<String> getOptionValues(String name) {
-			return java.util.List.of();
-		}
-
-		@Override
-		public java.util.List<String> getNonOptionArgs() {
-			return java.util.List.of();
-		}
-	}
 }

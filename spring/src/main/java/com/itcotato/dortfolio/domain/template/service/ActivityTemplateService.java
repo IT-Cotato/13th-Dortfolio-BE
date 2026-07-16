@@ -2,7 +2,6 @@ package com.itcotato.dortfolio.domain.template.service;
 
 import com.itcotato.dortfolio.domain.template.dto.req.ActivityTemplateUpdateRequest;
 import com.itcotato.dortfolio.domain.template.dto.res.ActivityTemplateResponse;
-import com.itcotato.dortfolio.domain.template.dto.res.TemplateResponse;
 import com.itcotato.dortfolio.domain.template.entity.ActivityTemplate;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.repository.ActivityTemplateRepository;
@@ -12,9 +11,9 @@ import com.itcotato.dortfolio.global.exception.ErrorCode;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
-import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,10 +36,9 @@ public class ActivityTemplateService {
 			.map(ActivityTemplate::getTemplateId)
 			.toList();
 
-		Map<UUID, Template> templates = templateRepository.findAllById(templateIds).stream()
-			.filter(template -> !template.isDeleted())
-			.peek(template -> validateReadable(template, userId))
+		Map<UUID, Template> templates = templateRepository.findAllByIdInAndDeletedAtIsNull(templateIds).stream()
 			.collect(java.util.stream.Collectors.toMap(Template::getId, Function.identity()));
+		templates.values().forEach(template -> validateReadable(template, userId));
 
 		return activityTemplates.stream()
 			.filter(activityTemplate -> templates.containsKey(activityTemplate.getTemplateId()))
@@ -59,20 +57,10 @@ public class ActivityTemplateService {
 	) {
 		validateActivityAccess(userId, activityId);
 		validateSelection(request.templateIds());
-		List<Template> templates = request.templateIds().stream()
-			.map(templateId -> getReadableTemplate(userId, templateId))
-			.toList();
+		List<Template> templates = getReadableTemplates(userId, request.templateIds());
+		List<ActivityTemplate> activityTemplates = replaceActivityTemplates(activityId, request.templateIds());
 
-		activityTemplateRepository.deleteAllByActivityIdInBulk(activityId);
-		activityTemplateRepository.flush();
-		List<ActivityTemplate> activityTemplates = IntStream.range(0, request.templateIds().size())
-			.mapToObj(index -> ActivityTemplate.create(activityId, request.templateIds().get(index), index + 1))
-			.toList();
-		activityTemplateRepository.saveAll(activityTemplates);
-
-		return IntStream.range(0, templates.size())
-			.mapToObj(index -> ActivityTemplateResponse.of(templates.get(index), index + 1))
-			.toList();
+		return toResponses(activityTemplates, templates);
 	}
 
 	private void validateActivityAccess(UUID userId, UUID activityId) {
@@ -88,11 +76,58 @@ public class ActivityTemplateService {
 		}
 	}
 
-	private Template getReadableTemplate(UUID userId, UUID templateId) {
-		Template template = templateRepository.findByIdAndDeletedAtIsNull(templateId)
-			.orElseThrow(() -> new CustomException(ErrorCode.TEMPLATE_NOT_FOUND));
-		validateReadable(template, userId);
-		return template;
+	private List<Template> getReadableTemplates(UUID userId, List<UUID> templateIds) {
+		Map<UUID, Template> templates = templateRepository.findAllByIdInAndDeletedAtIsNull(templateIds).stream()
+			.collect(java.util.stream.Collectors.toMap(Template::getId, Function.identity()));
+		return templateIds.stream()
+			.map(templateId -> {
+				Template template = templates.get(templateId);
+				if (template == null) {
+					throw new CustomException(ErrorCode.TEMPLATE_NOT_FOUND);
+				}
+				validateReadable(template, userId);
+				return template;
+			})
+			.toList();
+	}
+
+	private List<ActivityTemplate> replaceActivityTemplates(UUID activityId, List<UUID> templateIds) {
+		List<ActivityTemplate> existingActivityTemplates =
+			activityTemplateRepository.findAllByActivityIdOrderBySortOrderAsc(activityId);
+		Map<UUID, ActivityTemplate> existingActivityTemplatesByTemplateId = existingActivityTemplates.stream()
+			.collect(java.util.stream.Collectors.toMap(ActivityTemplate::getTemplateId, Function.identity()));
+		Set<UUID> selectedTemplateIds = new HashSet<>(templateIds);
+
+		List<ActivityTemplate> removedActivityTemplates = existingActivityTemplates.stream()
+			.filter(activityTemplate -> !selectedTemplateIds.contains(activityTemplate.getTemplateId()))
+			.toList();
+		activityTemplateRepository.deleteAll(removedActivityTemplates);
+
+		List<ActivityTemplate> activityTemplates = new java.util.ArrayList<>();
+		for (int index = 0; index < templateIds.size(); index++) {
+			UUID templateId = templateIds.get(index);
+			ActivityTemplate activityTemplate = existingActivityTemplatesByTemplateId.get(templateId);
+			if (activityTemplate == null) {
+				activityTemplate = ActivityTemplate.create(activityId, templateId, index + 1);
+			} else {
+				activityTemplate.updateSortOrder(index + 1);
+			}
+			activityTemplates.add(activityTemplate);
+		}
+
+		return activityTemplateRepository.saveAll(activityTemplates);
+	}
+
+	private List<ActivityTemplateResponse> toResponses(List<ActivityTemplate> activityTemplates, List<Template> templates) {
+		Map<UUID, Template> templatesById = templates.stream()
+			.collect(java.util.stream.Collectors.toMap(Template::getId, Function.identity()));
+
+		return activityTemplates.stream()
+			.map(activityTemplate -> ActivityTemplateResponse.of(
+				templatesById.get(activityTemplate.getTemplateId()),
+				activityTemplate.getSortOrder()
+			))
+			.toList();
 	}
 
 	private void validateReadable(Template template, UUID userId) {

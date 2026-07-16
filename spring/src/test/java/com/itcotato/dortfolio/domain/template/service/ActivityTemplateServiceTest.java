@@ -127,6 +127,38 @@ class ActivityTemplateServiceTest {
 			.isEqualTo(ErrorCode.DUPLICATE_TEMPLATE_SELECTION);
 	}
 
+	@Test
+	void updateActivityTemplatesRejectsMissingTemplate() {
+		UUID userId = UUID.randomUUID();
+		UUID activityId = UUID.randomUUID();
+
+		assertThatThrownBy(() -> activityTemplateService.updateActivityTemplates(
+			userId,
+			activityId,
+			new ActivityTemplateUpdateRequest(List.of(UUID.randomUUID()))
+		))
+			.isInstanceOf(CustomException.class)
+			.extracting("errorCode")
+			.isEqualTo(ErrorCode.TEMPLATE_NOT_FOUND);
+	}
+
+	@Test
+	void updateActivityTemplatesRejectsOtherUsersTemplate() {
+		UUID userId = UUID.randomUUID();
+		UUID otherUserId = UUID.randomUUID();
+		UUID activityId = UUID.randomUUID();
+		TemplateResponse otherUserTemplate = createTemplate(otherUserId, "다른 사용자 템플릿");
+
+		assertThatThrownBy(() -> activityTemplateService.updateActivityTemplates(
+			userId,
+			activityId,
+			new ActivityTemplateUpdateRequest(List.of(otherUserTemplate.id()))
+		))
+			.isInstanceOf(CustomException.class)
+			.extracting("errorCode")
+			.isEqualTo(ErrorCode.TEMPLATE_FORBIDDEN);
+	}
+
 	private TemplateResponse createTemplate(UUID userId, String title) {
 		return templateService.createTemplate(userId, new TemplateCreateRequest(
 			title,
