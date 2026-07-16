@@ -9,6 +9,7 @@ import com.itcotato.dortfolio.global.auth.JwtTokenProvider;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,6 +35,7 @@ public class AuthService {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE) {
                 @Override
                 public String getMessage() {
+
                     return "이미 가입된 이메일 주소입니다. 다른 이메일을 입력해주세요.";
                 }
             };
@@ -52,8 +54,19 @@ public class AuthService {
                 request.isMarketingAgreed()
         );
 
-        // DB 저장
-        userRepository.save(user);
+        // DB 저장 및 동시성 중복 가입 예외 처리
+        try {
+            userRepository.save(user);
+        } catch (DataIntegrityViolationException e) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE) {
+                @Override
+                public String getMessage() {
+                    return "이미 가입된 이메일 주소입니다. 다른 이메일을 입력해주세요.";
+                }
+            };
+        }
+
+
     }
 
     /* 로그인 비즈니스 로직 */
