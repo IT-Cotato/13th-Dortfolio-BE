@@ -5,6 +5,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import java.util.UUID;
 
 @Entity
 @Table(name = "users")
@@ -14,9 +15,8 @@ public class User {
 
     // PK
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "user_id")
-    private Long id;
+    @Column(name = "user_id", updatable = false, nullable = false, length = 36)
+    private String id;
 
     // 이메일
     @Column(nullable = false, unique = true, length = 100)
@@ -46,6 +46,11 @@ public class User {
     // 선택 사항
     @Column(nullable = false)
     private boolean isMarketingAgreed;
+
+    @PrePersist
+    public void createUuid() {
+        this.id = UUID.randomUUID().toString();
+    }
 
     @Builder(access = AccessLevel.PRIVATE)
     private User(String email, String password, String name, Role role,
