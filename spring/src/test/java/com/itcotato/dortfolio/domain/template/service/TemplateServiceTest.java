@@ -8,8 +8,12 @@ import com.itcotato.dortfolio.domain.template.dto.req.TemplateQuestionRequest;
 import com.itcotato.dortfolio.domain.template.dto.res.TemplateResponse;
 import com.itcotato.dortfolio.domain.template.dto.req.TemplateUpdateRequest;
 import com.itcotato.dortfolio.domain.template.entity.Template;
+import com.itcotato.dortfolio.activity.repository.ActivityRepository;
+import com.itcotato.dortfolio.activity.repository.ActivityTypeRepository;
 import com.itcotato.dortfolio.domain.template.repository.ActivityTemplateRepository;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
+import com.itcotato.dortfolio.domain.user.entity.User;
+import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.ErrorCode;
 import java.util.List;
@@ -33,15 +37,27 @@ class TemplateServiceTest {
 	@Autowired
 	private ActivityTemplateRepository activityTemplateRepository;
 
+	@Autowired
+	private UserRepository userRepository;
+
+	@Autowired
+	private ActivityRepository activityRepository;
+
+	@Autowired
+	private ActivityTypeRepository activityTypeRepository;
+
 	@BeforeEach
 	void setUp() {
 		activityTemplateRepository.deleteAll();
 		templateRepository.deleteAll();
+		activityRepository.deleteAll();
+		activityTypeRepository.deleteAll();
+		userRepository.deleteAll();
 	}
 
 	@Test
 	void createTemplate() {
-		UUID userId = UUID.randomUUID();
+		UUID userId = createUser().getId();
 		TemplateCreateRequest request = new TemplateCreateRequest(
 			"커스텀",
 			"설명",
@@ -58,7 +74,7 @@ class TemplateServiceTest {
 
 	@Test
 	void updateTemplate() {
-		UUID userId = UUID.randomUUID();
+		UUID userId = createUser().getId();
 		TemplateResponse created = templateService.createTemplate(userId, new TemplateCreateRequest(
 			"수정 전",
 			null,
@@ -81,7 +97,7 @@ class TemplateServiceTest {
 
 	@Test
 	void deleteTemplateExcludesFromList() {
-		UUID userId = UUID.randomUUID();
+		UUID userId = createUser().getId();
 		TemplateResponse created = templateService.createTemplate(userId, new TemplateCreateRequest(
 			"삭제 대상",
 			null,
@@ -97,7 +113,7 @@ class TemplateServiceTest {
 
 	@Test
 	void builtinTemplateCannotBeUpdatedOrDeleted() {
-		UUID userId = UUID.randomUUID();
+		UUID userId = createUser().getId();
 		Template builtin = Template.createBuiltin("BASIC", 1, "기본", "기본 설명");
 		builtin.addQuestion(TemplateQuestionRequestFixture.requiredQuestion("질문"));
 		Template saved = templateRepository.save(builtin);
@@ -123,5 +139,16 @@ class TemplateServiceTest {
 		private static com.itcotato.dortfolio.domain.template.entity.TemplateQuestion requiredQuestion(String text) {
 			return com.itcotato.dortfolio.domain.template.entity.TemplateQuestion.create(text, null, true, 1);
 		}
+	}
+
+	private User createUser() {
+		return userRepository.save(User.of(
+			UUID.randomUUID() + "@test.com",
+			"encoded-password",
+			"테스터",
+			true,
+			true,
+			false
+		));
 	}
 }

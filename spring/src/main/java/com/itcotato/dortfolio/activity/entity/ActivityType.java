@@ -1,10 +1,13 @@
 package com.itcotato.dortfolio.activity.entity;
 
+import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -15,8 +18,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ActivityType extends BaseEntity {
 
-    @Column(nullable = false)
-    private UUID userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Column(nullable = false)
     private String name;
@@ -24,17 +28,17 @@ public class ActivityType extends BaseEntity {
     @Column(nullable = false)
     private boolean isDefault;
 
-    private ActivityType(UUID userId, String name, boolean isDefault) {
-        this.userId = userId;
+    private ActivityType(User user, String name, boolean isDefault) {
+        this.user = user;
         this.name = name;
         this.isDefault = isDefault;
     }
 
-    public static ActivityType create(UUID userId, String name) {
-        return new ActivityType(userId, name, false);
+    public static ActivityType create(User user, String name) {
+        return new ActivityType(user, name, false);
     }
 
-    public static ActivityType createDefault(UUID userId, String name) {
-        return new ActivityType(userId, name, true);
+    public static ActivityType createDefault(User user, String name) {
+        return new ActivityType(user, name, true);
     }
 }

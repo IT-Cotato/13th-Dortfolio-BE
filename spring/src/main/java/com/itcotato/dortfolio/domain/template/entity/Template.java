@@ -1,9 +1,13 @@
 package com.itcotato.dortfolio.domain.template.entity;
 
+import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.global.entity.BaseEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
@@ -14,7 +18,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -29,8 +32,9 @@ public class Template extends BaseEntity {
 	public static final int DESCRIPTION_MAX_LENGTH = 50;
 	public static final int BUILTIN_CODE_MAX_LENGTH = 50;
 
-	@Column(name = "user_id")
-	private UUID userId;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "user_id")
+	private User user;
 
 	@Column(name = "builtin_code", unique = true, length = BUILTIN_CODE_MAX_LENGTH)
 	private String builtinCode;
@@ -53,8 +57,8 @@ public class Template extends BaseEntity {
 	@OneToMany(mappedBy = "template", cascade = CascadeType.ALL, orphanRemoval = true)
 	private final List<TemplateQuestion> questions = new ArrayList<>();
 
-	private Template(UUID userId, String builtinCode, Integer builtinVersion, String title, String description, boolean isBuiltin) {
-		this.userId = userId;
+	private Template(User user, String builtinCode, Integer builtinVersion, String title, String description, boolean isBuiltin) {
+		this.user = user;
 		this.builtinCode = builtinCode;
 		this.builtinVersion = builtinVersion;
 		this.title = title;
@@ -62,8 +66,8 @@ public class Template extends BaseEntity {
 		this.isBuiltin = isBuiltin;
 	}
 
-	public static Template createCustom(UUID userId, String title, String description) {
-		return new Template(userId, null, null, title, description, false);
+	public static Template createCustom(User user, String title, String description) {
+		return new Template(user, null, null, title, description, false);
 	}
 
 	public static Template createBuiltin(String builtinCode, int builtinVersion, String title, String description) {
@@ -130,5 +134,9 @@ public class Template extends BaseEntity {
 
 	public boolean isDeleted() {
 		return deletedAt != null;
+	}
+
+	public java.util.UUID getUserId() {
+		return user == null ? null : user.getId();
 	}
 }

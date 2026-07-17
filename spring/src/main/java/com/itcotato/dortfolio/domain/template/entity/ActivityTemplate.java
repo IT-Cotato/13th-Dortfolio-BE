@@ -1,8 +1,12 @@
 package com.itcotato.dortfolio.domain.template.entity;
 
+import com.itcotato.dortfolio.activity.entity.Activity;
 import com.itcotato.dortfolio.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.util.UUID;
@@ -21,26 +25,36 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ActivityTemplate extends BaseEntity {
 
-	@Column(name = "activity_id", nullable = false)
-	private UUID activityId;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "activity_id", nullable = false)
+	private Activity activity;
 
-	@Column(name = "template_id", nullable = false)
-	private UUID templateId;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "template_id", nullable = false)
+	private Template template;
 
 	@Column(nullable = false)
 	private int sortOrder;
 
-	private ActivityTemplate(UUID activityId, UUID templateId, int sortOrder) {
-		this.activityId = activityId;
-		this.templateId = templateId;
+	private ActivityTemplate(Activity activity, Template template, int sortOrder) {
+		this.activity = activity;
+		this.template = template;
 		this.sortOrder = sortOrder;
 	}
 
-	public static ActivityTemplate create(UUID activityId, UUID templateId, int sortOrder) {
-		return new ActivityTemplate(activityId, templateId, sortOrder);
+	public static ActivityTemplate create(Activity activity, Template template, int sortOrder) {
+		return new ActivityTemplate(activity, template, sortOrder);
 	}
 
 	public void updateSortOrder(int sortOrder) {
 		this.sortOrder = sortOrder;
+	}
+
+	public UUID getActivityId() {
+		return activity.getId();
+	}
+
+	public UUID getTemplateId() {
+		return template.getId();
 	}
 }
