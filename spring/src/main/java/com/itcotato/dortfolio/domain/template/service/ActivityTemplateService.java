@@ -1,5 +1,7 @@
 package com.itcotato.dortfolio.domain.template.service;
 
+import com.itcotato.dortfolio.activity.entity.Activity;
+import com.itcotato.dortfolio.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.template.dto.req.ActivityTemplateUpdateRequest;
 import com.itcotato.dortfolio.domain.template.dto.res.ActivityTemplateResponse;
 import com.itcotato.dortfolio.domain.template.entity.ActivityTemplate;
@@ -26,12 +28,13 @@ public class ActivityTemplateService {
 
 	private final ActivityTemplateRepository activityTemplateRepository;
 	private final TemplateRepository templateRepository;
+	private final ActivityRepository activityRepository;
 
 	@Transactional(readOnly = true)
 	public List<ActivityTemplateResponse> getActivityTemplates(UUID userId, UUID activityId) {
 		validateActivityAccess(userId, activityId);
 
-		List<ActivityTemplate> activityTemplates = activityTemplateRepository.findAllByActivityIdOrderBySortOrderAsc(activityId);
+		List<ActivityTemplate> activityTemplates = activityTemplateRepository.findAllByActivity_IdOrderBySortOrderAsc(activityId);
 		List<UUID> templateIds = activityTemplates.stream()
 			.map(ActivityTemplate::getTemplateId)
 			.toList();
@@ -55,16 +58,17 @@ public class ActivityTemplateService {
 		UUID activityId,
 		ActivityTemplateUpdateRequest request
 	) {
-		validateActivityAccess(userId, activityId);
 		validateSelection(request.templateIds());
+		Activity activity = validateActivityAccess(userId, activityId);
 		List<Template> templates = getReadableTemplates(userId, request.templateIds());
-		List<ActivityTemplate> activityTemplates = replaceActivityTemplates(activityId, request.templateIds());
+		List<ActivityTemplate> activityTemplates = replaceActivityTemplates(activity, templates);
 
 		return toResponses(activityTemplates, templates);
 	}
 
-	private void validateActivityAccess(UUID userId, UUID activityId) {
-		// TODO: Activity 도메인 병합 후 activityId 존재 여부와 userId 소유 여부를 함께 검증한다.
+	private Activity validateActivityAccess(UUID userId, UUID activityId) {
+		return activityRepository.findByIdAndUser_Id(activityId, userId)
+			.orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE));
 	}
 
 	private void validateSelection(List<UUID> templateIds) {
@@ -91,9 +95,13 @@ public class ActivityTemplateService {
 			.toList();
 	}
 
-	private List<ActivityTemplate> replaceActivityTemplates(UUID activityId, List<UUID> templateIds) {
+	private List<ActivityTemplate> replaceActivityTemplates(Activity activity, List<Template> templates) {
+		UUID activityId = activity.getId();
+		List<UUID> templateIds = templates.stream()
+			.map(Template::getId)
+			.toList();
 		List<ActivityTemplate> existingActivityTemplates =
-			activityTemplateRepository.findAllByActivityIdOrderBySortOrderAsc(activityId);
+			activityTemplateRepository.findAllByActivity_IdOrderBySortOrderAsc(activityId);
 		Map<UUID, ActivityTemplate> existingActivityTemplatesByTemplateId = existingActivityTemplates.stream()
 			.collect(java.util.stream.Collectors.toMap(ActivityTemplate::getTemplateId, Function.identity()));
 		Set<UUID> selectedTemplateIds = new HashSet<>(templateIds);
@@ -108,7 +116,7 @@ public class ActivityTemplateService {
 			UUID templateId = templateIds.get(index);
 			ActivityTemplate activityTemplate = existingActivityTemplatesByTemplateId.get(templateId);
 			if (activityTemplate == null) {
-				activityTemplate = ActivityTemplate.create(activityId, templateId, index + 1);
+				activityTemplate = ActivityTemplate.create(activity, templates.get(index), index + 1);
 			} else {
 				activityTemplate.updateSortOrder(index + 1);
 			}

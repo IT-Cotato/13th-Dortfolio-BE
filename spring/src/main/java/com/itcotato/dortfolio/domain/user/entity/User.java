@@ -1,22 +1,20 @@
 package com.itcotato.dortfolio.domain.user.entity;
 
-import jakarta.persistence.*;
+import com.itcotato.dortfolio.global.entity.BaseEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import java.util.UUID;
 
 @Entity
 @Table(name = "users")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class User {
-
-    // PK
-    @Id
-    @Column(name = "user_id", updatable = false, nullable = false, length = 36)
-    private String id;
+public class User extends BaseEntity {
 
     // 이메일
     @Column(nullable = false, unique = true, length = 100)
@@ -47,12 +45,6 @@ public class User {
     @Column(nullable = false)
     private boolean isMarketingAgreed;
 
-    @PrePersist
-    public void createUuid() {
-        this.id = UUID.randomUUID().toString();
-    }
-
-    @Builder(access = AccessLevel.PRIVATE)
     private User(String email, String password, String name, Role role,
                  boolean isTermsAgreed, boolean isPrivacyAgreed, boolean isMarketingAgreed) {
         this.email = email;
@@ -66,15 +58,15 @@ public class User {
 
     public static User of(String email, String encodedPassword, String name,
                           boolean isTermsAgreed, boolean isPrivacyAgreed, boolean isMarketingAgreed) {
-        return User.builder()
-                .email(email)
-                .password(encodedPassword)
-                .name(name)
-                .role(Role.USER)
-                .isTermsAgreed(isTermsAgreed)
-                .isPrivacyAgreed(isPrivacyAgreed)
-                .isMarketingAgreed(isMarketingAgreed)
-                .build();
+        return new User(
+                email,
+                encodedPassword,
+                name,
+                Role.USER,
+                isTermsAgreed,
+                isPrivacyAgreed,
+                isMarketingAgreed
+        );
     }
 
 }

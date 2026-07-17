@@ -7,6 +7,8 @@ import com.itcotato.dortfolio.domain.template.dto.req.TemplateUpdateRequest;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
+import com.itcotato.dortfolio.domain.user.entity.User;
+import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.ErrorCode;
 import java.util.List;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class TemplateService {
 
 	private final TemplateRepository templateRepository;
+	private final UserRepository userRepository;
 
 	@Transactional(readOnly = true)
 	public List<TemplateResponse> getTemplates(UUID userId) {
@@ -38,7 +41,8 @@ public class TemplateService {
 
 	@Transactional
 	public TemplateResponse createTemplate(UUID userId, TemplateCreateRequest request) {
-		Template template = Template.createCustom(userId, request.title(), request.description());
+		User user = getUserOrThrow(userId);
+		Template template = Template.createCustom(user, request.title(), request.description());
 		template.replaceQuestions(toQuestions(request.questions()));
 		return TemplateResponse.from(templateRepository.save(template));
 	}
@@ -94,5 +98,10 @@ public class TemplateService {
 				);
 			})
 			.toList();
+	}
+
+	private User getUserOrThrow(UUID userId) {
+		return userRepository.findById(userId)
+			.orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE));
 	}
 }
