@@ -7,6 +7,8 @@ import com.itcotato.dortfolio.activity.entity.Activity;
 import com.itcotato.dortfolio.activity.entity.ActivityType;
 import com.itcotato.dortfolio.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.activity.repository.ActivityTypeRepository;
+import com.itcotato.dortfolio.domain.user.entity.User;
+import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -22,13 +24,15 @@ public class ActivityService {
 
     private final ActivityRepository activityRepository;
     private final ActivityTypeRepository activityTypeRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public UUID createActivity(UUID userId, ActivityCreateRequest request) {
+        User user = getUserOrThrow(userId);
         ActivityType activityType = getActivityTypeOrThrow(request.activityTypeId(), userId);
 
         Activity activity = Activity.create(
-                userId,
+                user,
                 activityType,
                 request.title(),
                 request.description(),
@@ -41,7 +45,7 @@ public class ActivityService {
     }
 
     public List<ActivityResponse> getActivities(UUID userId) {
-        return activityRepository.findAllByUserIdAndDeletedAtIsNull(userId).stream()
+        return activityRepository.findAllByUser_IdAndDeletedAtIsNull(userId).stream()
                 .map(ActivityResponse::from)
                 .toList();
     }
@@ -77,12 +81,17 @@ public class ActivityService {
     }
 
     private Activity getActivityOrThrow(UUID activityId, UUID userId) {
-        return activityRepository.findByIdAndUserId(activityId, userId)
+        return activityRepository.findByIdAndUser_Id(activityId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 활동입니다."));
     }
 
     private ActivityType getActivityTypeOrThrow(UUID activityTypeId, UUID userId) {
-        return activityTypeRepository.findByIdAndUserId(activityTypeId, userId)
+        return activityTypeRepository.findByIdAndUser_Id(activityTypeId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 활동 종류입니다."));
+    }
+
+    private User getUserOrThrow(UUID userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
     }
 }

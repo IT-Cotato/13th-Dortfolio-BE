@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ActivityTypeRepository extends JpaRepository<ActivityType, UUID> {
 
-    List<ActivityType> findAllByUserId(UUID userId);
+    List<ActivityType> findAllByUser_Id(UUID userId);
 
-    Optional<ActivityType> findByIdAndUserId(UUID id, UUID userId);
+    Optional<ActivityType> findByIdAndUser_Id(UUID id, UUID userId);
 }
