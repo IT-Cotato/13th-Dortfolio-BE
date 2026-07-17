@@ -77,4 +77,8 @@ public class User {
                 .build();
     }
 
+    public void updatePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
+
 }
