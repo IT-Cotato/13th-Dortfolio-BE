@@ -1,0 +1,88 @@
+package com.itcotato.dortfolio.domain.template.entity;
+
+import com.itcotato.dortfolio.global.entity.BaseEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import java.time.LocalDateTime;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Getter
+@Entity
+@Table(name = "template_questions")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class TemplateQuestion extends BaseEntity {
+
+	public static final int QUESTION_TEXT_MAX_LENGTH = 30;
+	public static final int DESCRIPTION_MAX_LENGTH = 100;
+	public static final int BUILTIN_CODE_MAX_LENGTH = 80;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "template_id", nullable = false)
+	private Template template;
+
+	@Column(name = "builtin_code", unique = true, length = BUILTIN_CODE_MAX_LENGTH)
+	private String builtinCode;
+
+	@Column(nullable = false, length = QUESTION_TEXT_MAX_LENGTH)
+	private String questionText;
+
+	@Column(length = DESCRIPTION_MAX_LENGTH)
+	private String description;
+
+	@Column(nullable = false)
+	private boolean required;
+
+	@Column(nullable = false)
+	private int sortOrder;
+
+	@Column
+	private LocalDateTime deletedAt;
+
+	private TemplateQuestion(String builtinCode, String questionText, String description, boolean required, int sortOrder) {
+		this.builtinCode = builtinCode;
+		this.questionText = questionText;
+		this.description = description;
+		this.required = required;
+		this.sortOrder = sortOrder;
+	}
+
+	public static TemplateQuestion create(String questionText, String description, boolean required, int sortOrder) {
+		return new TemplateQuestion(null, questionText, description, required, sortOrder);
+	}
+
+	public static TemplateQuestion createBuiltin(
+		String builtinCode,
+		String questionText,
+		String description,
+		boolean required,
+		int sortOrder
+	) {
+		return new TemplateQuestion(builtinCode, questionText, description, required, sortOrder);
+	}
+
+	public void updateBuiltin(String questionText, String description, boolean required, int sortOrder) {
+		this.questionText = questionText;
+		this.description = description;
+		this.required = required;
+		this.sortOrder = sortOrder;
+		this.deletedAt = null;
+	}
+
+	public void delete() {
+		this.deletedAt = LocalDateTime.now();
+	}
+
+	public boolean isDeleted() {
+		return deletedAt != null;
+	}
+
+	void assignTemplate(Template template) {
+		this.template = template;
+	}
+}
