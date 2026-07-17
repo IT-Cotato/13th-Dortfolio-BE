@@ -7,5 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ActivityTemplateRepository extends JpaRepository<ActivityTemplate, UUID> {
 
-	List<ActivityTemplate> findAllByActivityIdOrderBySortOrderAsc(UUID activityId);
+	List<ActivityTemplate> findAllByActivity_IdOrderBySortOrderAsc(UUID activityId);
 }

@@ -1,5 +1,6 @@
 package com.itcotato.dortfolio.activity.entity;
 
+import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,7 +12,6 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,9 +22,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Activity extends BaseEntity {
 
-    // auth 도메인의 User 엔티티가 준비되면 @ManyToOne 연관관계로 교체
-    @Column(nullable = false)
-    private UUID userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "activity_type_id", nullable = false)
@@ -53,9 +53,9 @@ public class Activity extends BaseEntity {
 
     private LocalDateTime deletePendingUntil;
 
-    private Activity(UUID userId, ActivityType activityType, String title, String description,
+    private Activity(User user, ActivityType activityType, String title, String description,
                       LocalDate startedAt, LocalDate endedAt, boolean isOngoing) {
-        this.userId = userId;
+        this.user = user;
         this.activityType = activityType;
         this.title = title;
         this.description = description;
@@ -65,10 +65,10 @@ public class Activity extends BaseEntity {
         this.status = ActivityStatus.IN_PROGRESS;
     }
 
-    public static Activity create(UUID userId, ActivityType activityType, String title, String description,
+    public static Activity create(User user, ActivityType activityType, String title, String description,
                                    LocalDate startedAt, LocalDate endedAt, boolean isOngoing) {
         validatePeriod(startedAt, endedAt, isOngoing);
-        return new Activity(userId, activityType, title, description, startedAt, endedAt, isOngoing);
+        return new Activity(user, activityType, title, description, startedAt, endedAt, isOngoing);
     }
 
     public void update(ActivityType activityType, String title, String description,

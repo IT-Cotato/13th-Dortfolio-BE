@@ -19,7 +19,7 @@ public interface TemplateRepository extends JpaRepository<Template, UUID> {
 		select t
 		from Template t
 		where t.deletedAt is null
-			and (t.isBuiltin = true or t.userId = :userId)
+			and (t.isBuiltin = true or t.user.id = :userId)
 		order by t.isBuiltin desc, t.createdAt desc
 		""")
 	List<Template> findAvailableTemplates(@Param("userId") UUID userId);

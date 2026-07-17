@@ -4,6 +4,8 @@ import com.itcotato.dortfolio.activity.dto.ActivityTypeCreateRequest;
 import com.itcotato.dortfolio.activity.dto.ActivityTypeResponse;
 import com.itcotato.dortfolio.activity.entity.ActivityType;
 import com.itcotato.dortfolio.activity.repository.ActivityTypeRepository;
+import com.itcotato.dortfolio.domain.user.entity.User;
+import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -16,16 +18,23 @@ import org.springframework.transaction.annotation.Transactional;
 public class ActivityTypeService {
 
     private final ActivityTypeRepository activityTypeRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public UUID createActivityType(UUID userId, ActivityTypeCreateRequest request) {
-        ActivityType activityType = ActivityType.create(userId, request.name());
+        User user = getUserOrThrow(userId);
+        ActivityType activityType = ActivityType.create(user, request.name());
         return activityTypeRepository.save(activityType).getId();
     }
 
     public List<ActivityTypeResponse> getActivityTypes(UUID userId) {
-        return activityTypeRepository.findAllByUserId(userId).stream()
+        return activityTypeRepository.findAllByUser_Id(userId).stream()
                 .map(ActivityTypeResponse::from)
                 .toList();
+    }
+
+    private User getUserOrThrow(UUID userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
     }
 }
