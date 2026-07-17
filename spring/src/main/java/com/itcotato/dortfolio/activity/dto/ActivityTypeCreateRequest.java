@@ -1,6 +1,8 @@
 package com.itcotato.dortfolio.activity.dto;
 
+import jakarta.validation.constraints.NotBlank;
+
 public record ActivityTypeCreateRequest(
-        String name
+        @NotBlank String name
 ) {
 }
