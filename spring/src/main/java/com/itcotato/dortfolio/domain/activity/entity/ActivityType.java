@@ -1,4 +1,4 @@
-package com.itcotato.dortfolio.activity.entity;
+package com.itcotato.dortfolio.domain.activity.entity;
 
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.global.entity.BaseEntity;

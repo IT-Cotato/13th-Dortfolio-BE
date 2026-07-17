@@ -1,9 +1,9 @@
-package com.itcotato.dortfolio.activity.service;
+package com.itcotato.dortfolio.domain.activity.service;
 
-import com.itcotato.dortfolio.activity.dto.ActivityTypeCreateRequest;
-import com.itcotato.dortfolio.activity.dto.ActivityTypeResponse;
-import com.itcotato.dortfolio.activity.entity.ActivityType;
-import com.itcotato.dortfolio.activity.repository.ActivityTypeRepository;
+import com.itcotato.dortfolio.domain.activity.dto.ActivityTypeCreateRequest;
+import com.itcotato.dortfolio.domain.activity.dto.ActivityTypeResponse;
+import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
+import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import java.util.List;

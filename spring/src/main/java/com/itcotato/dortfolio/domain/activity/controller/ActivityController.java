@@ -1,9 +1,9 @@
-package com.itcotato.dortfolio.activity.controller;
+package com.itcotato.dortfolio.domain.activity.controller;
 
-import com.itcotato.dortfolio.activity.dto.ActivityCreateRequest;
-import com.itcotato.dortfolio.activity.dto.ActivityResponse;
-import com.itcotato.dortfolio.activity.dto.ActivityUpdateRequest;
-import com.itcotato.dortfolio.activity.service.ActivityService;
+import com.itcotato.dortfolio.domain.activity.dto.ActivityCreateRequest;
+import com.itcotato.dortfolio.domain.activity.dto.ActivityResponse;
+import com.itcotato.dortfolio.domain.activity.dto.ActivityUpdateRequest;
+import com.itcotato.dortfolio.domain.activity.service.ActivityService;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;

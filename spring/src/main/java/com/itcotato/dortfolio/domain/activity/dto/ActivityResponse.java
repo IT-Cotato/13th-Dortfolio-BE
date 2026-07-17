@@ -1,6 +1,6 @@
-package com.itcotato.dortfolio.activity.dto;
+package com.itcotato.dortfolio.domain.activity.dto;
 
-import com.itcotato.dortfolio.activity.entity.Activity;
+import com.itcotato.dortfolio.domain.activity.entity.Activity;
 import java.time.LocalDate;
 import java.util.UUID;
 

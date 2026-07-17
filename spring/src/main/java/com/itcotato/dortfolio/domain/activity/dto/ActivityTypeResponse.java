@@ -1,6 +1,6 @@
-package com.itcotato.dortfolio.activity.dto;
+package com.itcotato.dortfolio.domain.activity.dto;
 
-import com.itcotato.dortfolio.activity.entity.ActivityType;
+import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
 import java.util.UUID;
 
 public record ActivityTypeResponse(

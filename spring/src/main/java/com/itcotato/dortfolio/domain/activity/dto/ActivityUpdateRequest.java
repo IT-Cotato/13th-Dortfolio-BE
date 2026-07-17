@@ -1,11 +1,11 @@
-package com.itcotato.dortfolio.activity.dto;
+package com.itcotato.dortfolio.domain.activity.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.util.UUID;
 
-public record ActivityCreateRequest(
+public record ActivityUpdateRequest(
         @NotNull UUID activityTypeId,
         @NotBlank String title,
         String description,

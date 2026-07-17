@@ -1,6 +1,6 @@
-package com.itcotato.dortfolio.activity.repository;
+package com.itcotato.dortfolio.domain.activity.repository;
 
-import com.itcotato.dortfolio.activity.entity.ActivityType;
+import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

@@ -1,8 +1,8 @@
-package com.itcotato.dortfolio.activity.controller;
+package com.itcotato.dortfolio.domain.activity.controller;
 
-import com.itcotato.dortfolio.activity.dto.ActivityTypeCreateRequest;
-import com.itcotato.dortfolio.activity.dto.ActivityTypeResponse;
-import com.itcotato.dortfolio.activity.service.ActivityTypeService;
+import com.itcotato.dortfolio.domain.activity.dto.ActivityTypeCreateRequest;
+import com.itcotato.dortfolio.domain.activity.dto.ActivityTypeResponse;
+import com.itcotato.dortfolio.domain.activity.service.ActivityTypeService;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
