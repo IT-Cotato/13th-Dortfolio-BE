@@ -4,6 +4,7 @@ import com.itcotato.dortfolio.activity.dto.ActivityCreateRequest;
 import com.itcotato.dortfolio.activity.dto.ActivityResponse;
 import com.itcotato.dortfolio.activity.dto.ActivityUpdateRequest;
 import com.itcotato.dortfolio.activity.service.ActivityService;
+import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
@@ -30,7 +31,7 @@ public class ActivityController {
     @PostMapping
     public ResponseEntity<Void> createActivity(
             @RequestParam UUID userId,
-            @RequestBody ActivityCreateRequest request
+            @Valid @RequestBody ActivityCreateRequest request
     ) {
         UUID activityId = activityService.createActivity(userId, request);
         return ResponseEntity.created(URI.create("/api/activities/" + activityId)).build();
@@ -43,22 +44,29 @@ public class ActivityController {
 
     @PatchMapping("/{activityId}")
     public ResponseEntity<Void> updateActivity(
+            @RequestParam UUID userId,
             @PathVariable UUID activityId,
-            @RequestBody ActivityUpdateRequest request
+            @Valid @RequestBody ActivityUpdateRequest request
     ) {
-        activityService.updateActivity(activityId, request);
+        activityService.updateActivity(userId, activityId, request);
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{activityId}/archive")
-    public ResponseEntity<Void> archiveActivity(@PathVariable UUID activityId) {
-        activityService.archiveActivity(activityId);
+    public ResponseEntity<Void> archiveActivity(
+            @RequestParam UUID userId,
+            @PathVariable UUID activityId
+    ) {
+        activityService.archiveActivity(userId, activityId);
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{activityId}")
-    public ResponseEntity<Void> deleteActivity(@PathVariable UUID activityId) {
-        activityService.deleteActivity(activityId);
+    public ResponseEntity<Void> deleteActivity(
+            @RequestParam UUID userId,
+            @PathVariable UUID activityId
+    ) {
+        activityService.deleteActivity(userId, activityId);
         return ResponseEntity.noContent().build();
     }
 }

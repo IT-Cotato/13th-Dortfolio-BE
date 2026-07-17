@@ -25,7 +25,7 @@ public class ActivityService {
 
     @Transactional
     public UUID createActivity(UUID userId, ActivityCreateRequest request) {
-        ActivityType activityType = getActivityTypeOrThrow(request.activityTypeId());
+        ActivityType activityType = getActivityTypeOrThrow(request.activityTypeId(), userId);
 
         Activity activity = Activity.create(
                 userId,
@@ -47,9 +47,9 @@ public class ActivityService {
     }
 
     @Transactional
-    public void updateActivity(UUID activityId, ActivityUpdateRequest request) {
-        Activity activity = getActivityOrThrow(activityId);
-        ActivityType activityType = getActivityTypeOrThrow(request.activityTypeId());
+    public void updateActivity(UUID userId, UUID activityId, ActivityUpdateRequest request) {
+        Activity activity = getActivityOrThrow(activityId, userId);
+        ActivityType activityType = getActivityTypeOrThrow(request.activityTypeId(), userId);
 
         activity.update(
                 activityType,
@@ -62,27 +62,27 @@ public class ActivityService {
     }
 
     @Transactional
-    public void archiveActivity(UUID activityId) {
-        getActivityOrThrow(activityId).archive();
+    public void archiveActivity(UUID userId, UUID activityId) {
+        getActivityOrThrow(activityId, userId).archive();
     }
 
     @Transactional
-    public void deleteActivity(UUID activityId) {
-        getActivityOrThrow(activityId).markDeleted(DELETE_GRACE_PERIOD_DAYS);
+    public void deleteActivity(UUID userId, UUID activityId) {
+        getActivityOrThrow(activityId, userId).markDeleted(DELETE_GRACE_PERIOD_DAYS);
     }
 
     @Transactional
-    public void restoreActivity(UUID activityId) {
-        getActivityOrThrow(activityId).restore();
+    public void restoreActivity(UUID userId, UUID activityId) {
+        getActivityOrThrow(activityId, userId).restore();
     }
 
-    private Activity getActivityOrThrow(UUID activityId) {
-        return activityRepository.findById(activityId)
+    private Activity getActivityOrThrow(UUID activityId, UUID userId) {
+        return activityRepository.findByIdAndUserId(activityId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 활동입니다."));
     }
 
-    private ActivityType getActivityTypeOrThrow(UUID activityTypeId) {
-        return activityTypeRepository.findById(activityTypeId)
+    private ActivityType getActivityTypeOrThrow(UUID activityTypeId, UUID userId) {
+        return activityTypeRepository.findByIdAndUserId(activityTypeId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 활동 종류입니다."));
     }
 }

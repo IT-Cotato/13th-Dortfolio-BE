@@ -3,6 +3,7 @@ package com.itcotato.dortfolio.activity.controller;
 import com.itcotato.dortfolio.activity.dto.ActivityTypeCreateRequest;
 import com.itcotato.dortfolio.activity.dto.ActivityTypeResponse;
 import com.itcotato.dortfolio.activity.service.ActivityTypeService;
+import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
@@ -26,7 +27,7 @@ public class ActivityTypeController {
     @PostMapping
     public ResponseEntity<Void> createActivityType(
             @RequestParam UUID userId,
-            @RequestBody ActivityTypeCreateRequest request
+            @Valid @RequestBody ActivityTypeCreateRequest request
     ) {
         UUID activityTypeId = activityTypeService.createActivityType(userId, request);
         return ResponseEntity.created(URI.create("/api/activity-types/" + activityTypeId)).build();
