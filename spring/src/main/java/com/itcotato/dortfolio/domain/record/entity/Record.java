@@ -1,6 +1,6 @@
 package com.itcotato.dortfolio.domain.record.entity;
 
-import com.itcotato.dortfolio.activity.entity.Activity;
+import com.itcotato.dortfolio.domain.activity.entity.Activity;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.global.entity.BaseEntity;

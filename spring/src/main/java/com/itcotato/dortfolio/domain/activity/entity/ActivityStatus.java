@@ -1,4 +1,4 @@
-package com.itcotato.dortfolio.activity.entity;
+package com.itcotato.dortfolio.domain.activity.entity;
 
 public enum ActivityStatus {
     IN_PROGRESS,
