@@ -1,5 +1,6 @@
 package com.itcotato.dortfolio.global.config;
 
+import com.itcotato.dortfolio.domain.user.service.CustomOAuth2UserService;
 import com.itcotato.dortfolio.global.auth.JwtAuthenticationFilter;
 import com.itcotato.dortfolio.global.auth.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final CustomOAuth2UserService customOAuth2UserService;
 
 	private static final String[] SWAGGER_PATHS = {
 		"/swagger-ui/**",
@@ -42,7 +44,14 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(SWAGGER_PATHS).permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/login/oauth2/**", "/oauth2/**").permitAll()
                         .anyRequest().authenticated())
+
+                .oauth2Login(oauth2 -> oauth2
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(customOAuth2UserService)
+                        )
+                )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)
                 .build();
 	}
