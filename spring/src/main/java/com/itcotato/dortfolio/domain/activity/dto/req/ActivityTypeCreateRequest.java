@@ -1,4 +1,4 @@
-package com.itcotato.dortfolio.domain.activity.dto;
+package com.itcotato.dortfolio.domain.activity.dto.req;
 
 import jakarta.validation.constraints.NotBlank;
 

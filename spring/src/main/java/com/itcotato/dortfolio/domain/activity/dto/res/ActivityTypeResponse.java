@@ -1,4 +1,4 @@
-package com.itcotato.dortfolio.domain.activity.dto;
+package com.itcotato.dortfolio.domain.activity.dto.res;
 
 import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
 import java.util.UUID;

@@ -1,7 +1,7 @@
 package com.itcotato.dortfolio.domain.activity.service;
 
-import com.itcotato.dortfolio.domain.activity.dto.ActivityTypeCreateRequest;
-import com.itcotato.dortfolio.domain.activity.dto.ActivityTypeResponse;
+import com.itcotato.dortfolio.domain.activity.dto.req.ActivityTypeCreateRequest;
+import com.itcotato.dortfolio.domain.activity.dto.res.ActivityTypeResponse;
 import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
