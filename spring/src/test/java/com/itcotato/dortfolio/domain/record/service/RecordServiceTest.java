@@ -4,10 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
-import com.itcotato.dortfolio.activity.entity.Activity;
-import com.itcotato.dortfolio.activity.entity.ActivityType;
-import com.itcotato.dortfolio.activity.repository.ActivityRepository;
-import com.itcotato.dortfolio.activity.repository.ActivityTypeRepository;
+import com.itcotato.dortfolio.domain.activity.entity.Activity;
+import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
+import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
+import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
 import com.itcotato.dortfolio.domain.memo.entity.Memo;
 import com.itcotato.dortfolio.domain.memo.repository.MemoRepository;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordAnswerRequest;

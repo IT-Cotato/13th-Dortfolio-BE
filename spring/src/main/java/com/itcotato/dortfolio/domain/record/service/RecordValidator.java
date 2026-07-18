@@ -1,7 +1,7 @@
 package com.itcotato.dortfolio.domain.record.service;
 
-import com.itcotato.dortfolio.activity.entity.Activity;
-import com.itcotato.dortfolio.activity.repository.ActivityRepository;
+import com.itcotato.dortfolio.domain.activity.entity.Activity;
+import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.repository.ActivityTemplateRepository;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;

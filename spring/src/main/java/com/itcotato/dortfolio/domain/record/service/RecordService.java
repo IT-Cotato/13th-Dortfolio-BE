@@ -1,6 +1,6 @@
 package com.itcotato.dortfolio.domain.record.service;
 
-import com.itcotato.dortfolio.activity.entity.Activity;
+import com.itcotato.dortfolio.domain.activity.entity.Activity;
 import com.itcotato.dortfolio.domain.record.config.RecordProperties;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordSearchCondition;
