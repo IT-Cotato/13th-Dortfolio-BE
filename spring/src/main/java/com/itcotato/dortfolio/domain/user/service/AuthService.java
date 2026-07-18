@@ -35,13 +35,7 @@ public class AuthService {
 
         // 이메일 중복 체크
         if (userRepository.existsByEmail(request.email())) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE) {
-                @Override
-                public String getMessage() {
-
-                    return "이미 가입된 이메일 주소입니다. 다른 이메일을 입력해주세요.";
-                }
-            };
+            throw new CustomException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
         // 비밀번호 암호화 (BCrypt 해싱)
@@ -58,12 +52,7 @@ public class AuthService {
         try {
             userRepository.save(user);
         } catch (DataIntegrityViolationException e) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE) {
-                @Override
-                public String getMessage() {
-                    return "이미 가입된 이메일 주소입니다. 다른 이메일을 입력해주세요.";
-                }
-            };
+            throw new CustomException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
         // 개별 동의 내역 저장
@@ -86,12 +75,7 @@ public class AuthService {
 
         // 비밀번호 비교
         if (!passwordEncoder.matches(request.password(), userDetails.getPassword())) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE) {
-                @Override
-                public String getMessage() {
-                    return "비밀번호가 일치하지 않습니다.";
-                }
-            };
+            throw new CustomException(ErrorCode.INVALID_LOGIN_CREDENTIALS);
         }
 
         // 비밀번호가 일치하면 인증 객체 생성

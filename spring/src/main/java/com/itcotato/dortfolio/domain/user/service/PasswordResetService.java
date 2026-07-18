@@ -63,7 +63,7 @@ public class PasswordResetService {
         User user = userRepository.findByEmail(redisEmail)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        String encodedPassword = passwordEncoder.encode(request.password());
+        String encodedPassword = passwordEncoder.encode(request.newPassword());
         user.updatePassword(encodedPassword);
 
         redisUtil.deleteData(request.token());

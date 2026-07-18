@@ -7,6 +7,9 @@ public record PasswordResetResponse(
         @NotBlank(message = "인증 토큰은 필수 입력 항목입니다.")
         String token,
 
+        @NotBlank(message = "이메일은 필수 입력 항목입니다.")
+        String email,
+
         @NotBlank(message = "비밀번호는 필수 입력 항목입니다.")
         @Pattern(
                 regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[@$!%*#?&])[A-Za-z\\d@$!%*#?&]{8,16}$",
