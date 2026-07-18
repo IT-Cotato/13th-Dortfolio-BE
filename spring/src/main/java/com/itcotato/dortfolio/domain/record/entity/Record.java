@@ -12,6 +12,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -45,6 +46,9 @@ public class Record extends BaseEntity {
 
 	@Column
 	private LocalDateTime completedAt;
+
+	@Version
+	private Long version;
 
 	@Column
 	private LocalDateTime deletedAt;
