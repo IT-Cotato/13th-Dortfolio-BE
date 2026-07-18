@@ -25,11 +25,13 @@ public class Memo extends BaseEntity {
 	@JoinColumn(name = "user_id", nullable = false)
 	private User user;
 
+	// 기능명세서상 활동 태그는 선택 입력이라 nullable
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "activity_id", nullable = false)
+	@JoinColumn(name = "activity_id")
 	private Activity activity;
 
-	@Column(nullable = false)
+	// 기능명세서상 제목은 선택 입력이라 nullable
+	@Column
 	private String title;
 
 	@Lob
@@ -57,6 +59,8 @@ public class Memo extends BaseEntity {
 	@Column
 	private LocalDateTime expiresAt;
 
+	private static final int EXPIRE_AFTER_DAYS = 30;
+
 	private Memo(User user, Activity activity, String title, String content, String color, int sortOrder) {
 		this.user = user;
 		this.activity = activity;
@@ -66,10 +70,18 @@ public class Memo extends BaseEntity {
 		this.sortOrder = sortOrder;
 		this.isImportant = false;
 		this.useCount = 0;
+		this.expiresAt = LocalDateTime.now().plusDays(EXPIRE_AFTER_DAYS);
 	}
 
 	public static Memo create(User user, Activity activity, String title, String content, String color, int sortOrder) {
 		return new Memo(user, activity, title, content, color, sortOrder);
+	}
+
+	public void update(Activity activity, String title, String content, String color) {
+		this.activity = activity;
+		this.title = title;
+		this.content = content;
+		this.color = color;
 	}
 
 	public void markImportant(boolean important) {
