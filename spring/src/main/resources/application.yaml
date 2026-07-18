@@ -12,3 +12,7 @@ jwt:
   secret: ${JWT_SECRET}
   access-expiration: 1800000      # Access Token 만료 시간: 30분
   refresh-expiration: 1209600000  # Refresh Token 만료 시간: 14일
+
+record:
+  delete-grace-period-days: ${RECORD_DELETE_GRACE_PERIOD_DAYS:30}
+  recent-record-limit: ${RECORD_RECENT_RECORD_LIMIT:5}

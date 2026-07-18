@@ -7,3 +7,12 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+
+jwt:
+  secret: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
+  access-expiration: 1800000
+  refresh-expiration: 1209600000
+
+record:
+  delete-grace-period-days: 30
+  recent-record-limit: 5

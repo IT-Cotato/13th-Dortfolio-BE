@@ -97,6 +97,10 @@ public class Activity extends BaseEntity {
         this.deletePendingUntil = null;
     }
 
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
+
     private static void validatePeriod(LocalDate startedAt, LocalDate endedAt, boolean isOngoing) {
         if (!isOngoing && endedAt == null) {
             throw new IllegalArgumentException("종료일 미정이 아니면 종료일을 입력해야 합니다.");
