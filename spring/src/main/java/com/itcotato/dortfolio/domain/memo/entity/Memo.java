@@ -80,6 +80,12 @@ public class Memo extends BaseEntity {
 		this.useCount++;
 	}
 
+	public void decreaseUseCount() {
+		if (this.useCount > 0) {
+			this.useCount--;
+		}
+	}
+
 	public void markDeleted(int gracePeriodDays) {
 		this.deletedAt = LocalDateTime.now();
 		this.deletePendingUntil = LocalDateTime.now().plusDays(gracePeriodDays);
@@ -88,5 +94,9 @@ public class Memo extends BaseEntity {
 	public void restore() {
 		this.deletedAt = null;
 		this.deletePendingUntil = null;
+	}
+
+	public boolean isDeleted() {
+		return deletedAt != null;
 	}
 }
