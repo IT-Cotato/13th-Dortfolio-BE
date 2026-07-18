@@ -197,9 +197,9 @@ class ActivityTemplateServiceTest {
 			UUID.randomUUID() + "@test.com",
 			"encoded-password",
 			"테스터",
-			true,
-			true,
-			false
+            true,
+            true,
+            false
 		));
 	}
 

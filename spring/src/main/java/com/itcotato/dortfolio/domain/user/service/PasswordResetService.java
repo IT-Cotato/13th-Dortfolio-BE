@@ -43,7 +43,7 @@ public class PasswordResetService {
         }
 
         String token = UUID.randomUUID().toString();
-        redisUtil.setDataExpire(token, user.getEmail(), TOKEN_EXPIRATION_MINUTES * 60);
+        redisUtil.setDataExpire(token, user.getEmail(), TOKEN_EXPIRATION_MINUTES * 60 * 1000);
         sendEmail(user.getEmail(), token);
     }
 
