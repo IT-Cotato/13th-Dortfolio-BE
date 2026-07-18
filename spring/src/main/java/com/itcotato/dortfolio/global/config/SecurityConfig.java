@@ -3,6 +3,8 @@ package com.itcotato.dortfolio.global.config;
 import com.itcotato.dortfolio.domain.user.service.CustomOAuth2UserService;
 import com.itcotato.dortfolio.global.auth.JwtAuthenticationFilter;
 import com.itcotato.dortfolio.global.auth.JwtTokenProvider;
+import com.itcotato.dortfolio.global.security.oauth.OAuth2FailureHandler;
+import com.itcotato.dortfolio.global.security.oauth.OAuth2SuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,6 +24,8 @@ public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final OAuth2FailureHandler oAuth2FailureHandler;
 
 	private static final String[] SWAGGER_PATHS = {
 		"/swagger-ui/**",
@@ -51,6 +55,8 @@ public class SecurityConfig {
                         .userInfoEndpoint(userInfo -> userInfo
                                 .userService(customOAuth2UserService)
                         )
+                        .successHandler(oAuth2SuccessHandler)
+                        .failureHandler(oAuth2FailureHandler)
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)
                 .build();

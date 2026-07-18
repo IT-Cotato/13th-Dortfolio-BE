@@ -51,7 +51,7 @@ public class User extends BaseEntity {
         this.providerId = providerId;
     }
 
-    // 일반 회원가입용 정적 팩토리 메서드
+    // 일반 회원가입용 메서드
     public static User of(String email, String encodedPassword, String nickname) {
         return new User(
                 email,
@@ -60,6 +60,18 @@ public class User extends BaseEntity {
                 Role.USER,
                 "LOCAL",
                 null
+        );
+    }
+
+    // 소셜 가입용 메서드
+    public static User createSocialUser(String email, String nickname, String provider, String providerId) {
+        return new User(
+                email,
+                null,
+                nickname,
+                Role.USER,
+                provider.toUpperCase(),
+                providerId
         );
     }
 
