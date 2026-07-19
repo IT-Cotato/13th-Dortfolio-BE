@@ -21,52 +21,66 @@ public class User extends BaseEntity {
     private String email;
 
     // 비밀번호
-    @Column(nullable = false)
+    @Column(length = 255)
     private String password;
 
-    // 이름
+    // 닉네임
     @Column(nullable = false, length = 50)
-    private String name;
+    private String nickname;
 
     // 권한 정보
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
 
-    // 이용 약관
-    @Column(nullable = false)
-    private boolean isTermsAgreed;
+    // 소셜 로그인 제공자 (LOCAL, GOOGLE 등)
+    @Column(length = 50)
+    private String provider;
 
-    // 개인정보 수집 및 이용 동의
-    @Column(nullable = false)
-    private boolean isPrivacyAgreed;
+    // 소셜 로그인 고유 ID
+    @Column(name = "provider_id", length = 255)
+    private String providerId;
 
-    // 선택 사항
-    @Column(nullable = false)
-    private boolean isMarketingAgreed;
-
-    private User(String email, String password, String name, Role role,
-                 boolean isTermsAgreed, boolean isPrivacyAgreed, boolean isMarketingAgreed) {
+    private User(String email, String password, String nickname, Role role,
+                 String provider, String providerId) {
         this.email = email;
         this.password = password;
-        this.name = name;
+        this.nickname = nickname;
         this.role = role;
-        this.isTermsAgreed = isTermsAgreed;
-        this.isPrivacyAgreed = isPrivacyAgreed;
-        this.isMarketingAgreed = isMarketingAgreed;
+        this.provider = provider;
+        this.providerId = providerId;
     }
 
-    public static User of(String email, String encodedPassword, String name,
-                          boolean isTermsAgreed, boolean isPrivacyAgreed, boolean isMarketingAgreed) {
+    // 일반 회원가입용 메서드
+    public static User of(String email, String encodedPassword, String nickname) {
         return new User(
                 email,
                 encodedPassword,
-                name,
+                nickname,
                 Role.USER,
-                isTermsAgreed,
-                isPrivacyAgreed,
-                isMarketingAgreed
+                "LOCAL",
+                null
         );
+    }
+
+    // 소셜 가입용 메서드
+    public static User createSocialUser(String email, String nickname, String provider, String providerId) {
+        return new User(
+                email,
+                null,
+                nickname,
+                Role.USER,
+                provider.toUpperCase(),
+                providerId
+        );
+    }
+
+    public void updatePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
+
+    public boolean isLocalUser() {
+        return "LOCAL".equalsIgnoreCase(this.provider);
     }
 
 }

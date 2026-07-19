@@ -13,3 +13,5 @@ AGENTS.md
 
 # QueryDSL generated Q-types
 **/Q*.java
+
+.env
