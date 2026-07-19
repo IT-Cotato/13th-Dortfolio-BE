@@ -7,3 +7,5 @@ spring/out/
 spring/build/
 spring/.gradle/
 *.class
+
+.env

@@ -3,12 +3,16 @@ package com.itcotato.dortfolio.global.security.oauth;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.encrypt.BytesEncryptor;
+import org.springframework.security.crypto.encrypt.Encryptors;
 import org.springframework.security.oauth2.client.web.AuthorizationRequestRepository;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.util.SerializationUtils;
 
 import java.util.Base64;
+import java.util.Optional;
 
 @Component
 public class HttpCookieOAuth2AuthorizationRequestRepository
@@ -16,6 +20,14 @@ public class HttpCookieOAuth2AuthorizationRequestRepository
 
     public static final String OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME = "oauth2_auth_request";
     private static final int COOKIE_EXPIRE_SECONDS = 180; // 3분
+
+    // 안전한 암호화를 위해 기존 JWT 시크릿 키를 서명/암호화에 활용
+    private final BytesEncryptor encryptor;
+
+    public HttpCookieOAuth2AuthorizationRequestRepository(@Value("${jwt.secret}") String secretKey) {
+        String salt = secretKey.length() >= 8 ? secretKey.substring(0, 8) : "deadbeef";
+        this.encryptor = Encryptors.standard(secretKey, salt);
+    }
 
     @Override
     public OAuth2AuthorizationRequest loadAuthorizationRequest(HttpServletRequest request) {
@@ -32,10 +44,11 @@ public class HttpCookieOAuth2AuthorizationRequestRepository
             return;
         }
 
-        String encryptedRequest = Base64.getUrlEncoder().encodeToString(SerializationUtils.serialize(authorizationRequest));
+        String encryptedRequest = serializeAndEncrypt(authorizationRequest);
         Cookie cookie = new Cookie(OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME, encryptedRequest);
         cookie.setPath("/");
         cookie.setHttpOnly(true);
+        cookie.setSecure(true);
         cookie.setMaxAge(COOKIE_EXPIRE_SECONDS);
         response.addCookie(cookie);
     }
@@ -47,16 +60,16 @@ public class HttpCookieOAuth2AuthorizationRequestRepository
         return authorizationRequest;
     }
 
-    private java.util.Optional<Cookie> getCookie(HttpServletRequest request, String name) {
+    private Optional<Cookie> getCookie(HttpServletRequest request, String name) {
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
             for (Cookie cookie : cookies) {
                 if (cookie.getName().equals(name)) {
-                    return java.util.Optional.of(cookie);
+                    return Optional.of(cookie);
                 }
             }
         }
-        return java.util.Optional.empty();
+        return Optional.empty();
     }
 
     private void deleteCookie(HttpServletRequest request, HttpServletResponse response, String name) {
@@ -73,7 +86,21 @@ public class HttpCookieOAuth2AuthorizationRequestRepository
         }
     }
 
+    // 직렬화 후 AES 암호화 + Base64 인코딩
+    private String serializeAndEncrypt(OAuth2AuthorizationRequest request) {
+        byte[] rawBytes = SerializationUtils.serialize(request);
+        byte[] encryptedBytes = encryptor.encrypt(rawBytes);
+        return Base64.getUrlEncoder().encodeToString(encryptedBytes);
+    }
+
+    // Base64 디코딩 후 AES 복호화 + 역직렬화
     private <T> T deserialize(String value, Class<T> cls) {
-        return cls.cast(SerializationUtils.deserialize(Base64.getUrlDecoder().decode(value)));
+        try {
+            byte[] encryptedBytes = Base64.getUrlDecoder().decode(value);
+            byte[] decryptedBytes = encryptor.decrypt(encryptedBytes);
+            return cls.cast(SerializationUtils.deserialize(decryptedBytes));
+        } catch (Exception e) {
+            return null;
+        }
     }
 }
