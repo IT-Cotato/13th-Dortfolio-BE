@@ -8,4 +8,10 @@ spring/build/
 spring/.gradle/
 *.class
 
+# Agent-local instructions
+AGENTS.md
+
+# QueryDSL generated Q-types
+**/Q*.java
+
 .env

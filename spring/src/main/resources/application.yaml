@@ -50,3 +50,7 @@ app:
   oauth2:
     success-redirect-uri: ${FRONTEND_URL:http://localhost:3000}/oauth/redirect
     failure-redirect-uri: ${FRONTEND_URL:http://localhost:3000}/login
+
+record:
+  delete-grace-period-days: ${RECORD_DELETE_GRACE_PERIOD_DAYS:30}
+  recent-record-limit: ${RECORD_RECENT_RECORD_LIMIT:5}

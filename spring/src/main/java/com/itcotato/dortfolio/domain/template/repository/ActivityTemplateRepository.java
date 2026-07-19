@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ActivityTemplateRepository extends JpaRepository<ActivityTemplate, UUID> {
 
 	List<ActivityTemplate> findAllByActivity_IdOrderBySortOrderAsc(UUID activityId);
+
+	boolean existsByActivity_IdAndTemplate_Id(UUID activityId, UUID templateId);
 }

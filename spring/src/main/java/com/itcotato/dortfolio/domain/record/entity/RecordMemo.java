@@ -10,6 +10,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -38,15 +39,12 @@ public class RecordMemo extends BaseEntity {
 	@Column(nullable = false)
 	private boolean isCollapsed;
 
+	@Builder
 	private RecordMemo(Record record, Memo memo, int sortOrder, boolean isCollapsed) {
 		this.record = record;
 		this.memo = memo;
 		this.sortOrder = sortOrder;
 		this.isCollapsed = isCollapsed;
-	}
-
-	public static RecordMemo create(Record record, Memo memo, int sortOrder) {
-		return new RecordMemo(record, memo, sortOrder, false);
 	}
 
 	public void updateSortOrder(int sortOrder) {

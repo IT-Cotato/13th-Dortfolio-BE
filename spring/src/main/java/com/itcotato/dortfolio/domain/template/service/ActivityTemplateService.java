@@ -1,7 +1,7 @@
 package com.itcotato.dortfolio.domain.template.service;
 
-import com.itcotato.dortfolio.activity.entity.Activity;
-import com.itcotato.dortfolio.activity.repository.ActivityRepository;
+import com.itcotato.dortfolio.domain.activity.entity.Activity;
+import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.template.dto.req.ActivityTemplateUpdateRequest;
 import com.itcotato.dortfolio.domain.template.dto.res.ActivityTemplateResponse;
 import com.itcotato.dortfolio.domain.template.entity.ActivityTemplate;

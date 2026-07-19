@@ -1,6 +1,6 @@
 package com.itcotato.dortfolio.domain.memo.entity;
 
-import com.itcotato.dortfolio.activity.entity.Activity;
+import com.itcotato.dortfolio.domain.activity.entity.Activity;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.global.entity.BaseEntity;
 import jakarta.persistence.Column;
@@ -80,6 +80,12 @@ public class Memo extends BaseEntity {
 		this.useCount++;
 	}
 
+	public void decreaseUseCount() {
+		if (this.useCount > 0) {
+			this.useCount--;
+		}
+	}
+
 	public void markDeleted(int gracePeriodDays) {
 		this.deletedAt = LocalDateTime.now();
 		this.deletePendingUntil = LocalDateTime.now().plusDays(gracePeriodDays);
@@ -88,5 +94,9 @@ public class Memo extends BaseEntity {
 	public void restore() {
 		this.deletedAt = null;
 		this.deletePendingUntil = null;
+	}
+
+	public boolean isDeleted() {
+		return deletedAt != null;
 	}
 }

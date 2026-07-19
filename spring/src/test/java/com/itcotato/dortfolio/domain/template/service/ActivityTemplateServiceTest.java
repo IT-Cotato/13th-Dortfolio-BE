@@ -3,10 +3,10 @@ package com.itcotato.dortfolio.domain.template.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.itcotato.dortfolio.activity.entity.Activity;
-import com.itcotato.dortfolio.activity.entity.ActivityType;
-import com.itcotato.dortfolio.activity.repository.ActivityRepository;
-import com.itcotato.dortfolio.activity.repository.ActivityTypeRepository;
+import com.itcotato.dortfolio.domain.activity.entity.Activity;
+import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
+import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
+import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
 import com.itcotato.dortfolio.domain.template.dto.res.ActivityTemplateResponse;
 import com.itcotato.dortfolio.domain.template.dto.req.ActivityTemplateUpdateRequest;
 import com.itcotato.dortfolio.domain.template.dto.req.TemplateCreateRequest;
