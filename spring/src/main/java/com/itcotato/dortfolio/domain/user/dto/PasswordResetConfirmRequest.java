@@ -3,7 +3,7 @@ package com.itcotato.dortfolio.domain.user.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
-public record PasswordResetResponse(
+public record PasswordResetConfirmRequest(
         @NotBlank(message = "인증 토큰은 필수 입력 항목입니다.")
         String token,
 

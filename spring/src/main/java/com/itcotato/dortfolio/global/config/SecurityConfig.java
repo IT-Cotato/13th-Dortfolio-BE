@@ -3,6 +3,7 @@ package com.itcotato.dortfolio.global.config;
 import com.itcotato.dortfolio.domain.user.service.CustomOAuth2UserService;
 import com.itcotato.dortfolio.global.auth.JwtAuthenticationFilter;
 import com.itcotato.dortfolio.global.auth.JwtTokenProvider;
+import com.itcotato.dortfolio.global.security.oauth.HttpCookieOAuth2AuthorizationRequestRepository;
 import com.itcotato.dortfolio.global.security.oauth.OAuth2FailureHandler;
 import com.itcotato.dortfolio.global.security.oauth.OAuth2SuccessHandler;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class SecurityConfig {
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final OAuth2FailureHandler oAuth2FailureHandler;
+    private final HttpCookieOAuth2AuthorizationRequestRepository httpCookieOAuth2AuthorizationRequestRepository;
 
 	private static final String[] SWAGGER_PATHS = {
 		"/swagger-ui/**",
@@ -38,13 +40,13 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-	@Bean
-	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-		return http
-			.csrf(AbstractHttpConfigurer::disable)
-			.formLogin(AbstractHttpConfigurer::disable)
-			.httpBasic(AbstractHttpConfigurer::disable)
-			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        return http
+                .csrf(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(SWAGGER_PATHS).permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
@@ -52,6 +54,9 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
 
                 .oauth2Login(oauth2 -> oauth2
+                        .authorizationEndpoint(authorization -> authorization
+                                .authorizationRequestRepository(httpCookieOAuth2AuthorizationRequestRepository)
+                        )
                         .userInfoEndpoint(userInfo -> userInfo
                                 .userService(customOAuth2UserService)
                         )
@@ -60,5 +65,5 @@ public class SecurityConfig {
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)
                 .build();
-	}
+    }
 }

@@ -79,4 +79,8 @@ public class User extends BaseEntity {
         this.password = encodedPassword;
     }
 
+    public boolean isLocalUser() {
+        return "LOCAL".equalsIgnoreCase(this.provider);
+    }
+
 }

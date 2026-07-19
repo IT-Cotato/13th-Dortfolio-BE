@@ -50,7 +50,7 @@ public class AuthService {
 
         // DB 저장 및 동시성 중복 가입 예외 처리
         try {
-            userRepository.save(user);
+            userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
             throw new CustomException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
@@ -70,19 +70,22 @@ public class AuthService {
     /* 로그인 비즈니스 로직 */
     public TokenResponse login(LoginRequest request) {
 
-        // 유저 정보 조회
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_LOGIN_CREDENTIALS));
+
+        if (!user.isLocalUser()) {
+            throw new CustomException(ErrorCode.INVALID_LOGIN_CREDENTIALS);
+        }
+
         UserDetails userDetails = userDetailsService.loadUserByUsername(request.email());
 
-        // 비밀번호 비교
         if (!passwordEncoder.matches(request.password(), userDetails.getPassword())) {
             throw new CustomException(ErrorCode.INVALID_LOGIN_CREDENTIALS);
         }
 
-        // 비밀번호가 일치하면 인증 객체 생성
         UsernamePasswordAuthenticationToken authenticationToken
                 = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
 
-        // Access, Refresh 토큰 발급 후 DTO 반환
         String accessToken = jwtTokenProvider.generateAccessToken(authenticationToken);
         String refreshToken = jwtTokenProvider.generateRefreshToken(authenticationToken);
 

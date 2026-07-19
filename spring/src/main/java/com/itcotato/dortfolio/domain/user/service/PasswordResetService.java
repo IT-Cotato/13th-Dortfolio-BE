@@ -1,7 +1,7 @@
 package com.itcotato.dortfolio.domain.user.service;
 
 import com.itcotato.dortfolio.domain.user.dto.PasswordResetRequest;
-import com.itcotato.dortfolio.domain.user.dto.PasswordResetResponse;
+import com.itcotato.dortfolio.domain.user.dto.PasswordResetConfirmRequest;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
@@ -10,6 +10,7 @@ import com.itcotato.dortfolio.global.util.RedisUtil;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,6 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 @Service
@@ -29,6 +33,9 @@ public class PasswordResetService {
     private final JavaMailSender mailSender;
     private final PasswordEncoder passwordEncoder;
     private final TemplateEngine templateEngine;
+
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
 
     private static final long TOKEN_EXPIRATION_MINUTES = 3L;
 
@@ -49,11 +56,15 @@ public class PasswordResetService {
 
     /* 토킨 및 이메일 교차 검증 후 비밀번호 최종 변경 로직 */
     @Transactional
-    public void resetPassword(PasswordResetResponse request) {
+    public void resetPassword(PasswordResetConfirmRequest request) {
         String redisEmail = redisUtil.getData(request.token());
 
         if (redisEmail == null) {
             throw new CustomException(ErrorCode.INVALID_RESET_TOKEN);
+        }
+
+        if (!redisEmail.equalsIgnoreCase(request.email())) {
+            throw new CustomException(ErrorCode.RESET_EMAIL_MISMATCH);
         }
 
         if (!redisEmail.equals(request.email())) {
@@ -71,7 +82,9 @@ public class PasswordResetService {
 
     /* Thymeleaf 템플릿 파일 기반 메일 발송 이너 메서드 */
     private void sendEmail(String toEmail, String token) {
-        String resetLink = "http://localhost:3000/reset-password?token=" + token + "&email=" + toEmail;
+
+        String encodedEmail = URLEncoder.encode(toEmail, StandardCharsets.UTF_8);
+        String resetLink = frontendUrl + "/reset-password?token=" + token + "&email=" + encodedEmail;
 
         Context context = new Context();
         context.setVariable("resetLink", resetLink);

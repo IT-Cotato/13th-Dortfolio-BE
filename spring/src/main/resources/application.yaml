@@ -2,6 +2,38 @@ spring:
   application:
     name: dortfolio
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:dotfolio.cotato@gmail.com}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope:
+              - profile
+              - email
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
@@ -12,3 +44,9 @@ jwt:
   secret: ${JWT_SECRET}
   access-expiration: 1800000      # Access Token 만료 시간: 30분
   refresh-expiration: 1209600000  # Refresh Token 만료 시간: 14일
+
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  oauth2:
+    success-redirect-uri: ${FRONTEND_URL:http://localhost:3000}/oauth/redirect
+    failure-redirect-uri: ${FRONTEND_URL:http://localhost:3000}/login

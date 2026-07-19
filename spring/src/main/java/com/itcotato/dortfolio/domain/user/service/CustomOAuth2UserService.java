@@ -38,7 +38,6 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 
         // 어떤 소셜 로그인 공급자인지 확인
         String registrationId = userRequest.getClientRegistration().getRegistrationId();
-        log.info("OAuth2 로그인 진행 중인 Provider: {}", registrationId);
 
         // 구글에서 제공하는 고유의 속성 키값 추출
         String userNameAttributeName = userRequest.getClientRegistration()
@@ -57,29 +56,45 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
             throw new OAuth2AuthenticationException(new OAuth2Error("INVALID_PROVIDER"), "지원하지 않는 소셜 로그인 공급자입니다.");
         }
 
+        // 구글 계정의 이메일 인증 여부 검증
+        Boolean isEmailVerified = (Boolean) attributes.get("email_verified");
+        if (isEmailVerified != null && !isEmailVerified) {
+            throw new OAuth2AuthenticationException(
+                    new OAuth2Error("UNVERIFIED_EMAIL"),
+                    "인증되지 않은 소셜 계정 이메일입니다. 이메일 인증 후 다시 시도해주세요."
+            );
+        }
+
         String email = oAuth2UserInfo.getEmail();
-        Optional<User> userOptional = userRepository.findByEmail(email);
+        String provider = registrationId.toUpperCase();
+        String providerId = oAuth2UserInfo.getProviderId();
+
+        // 기존 소셜 유저 우선 조회
+        Optional<User> socialUserOptional = userRepository.findByProviderAndProviderId(provider, providerId);
 
         User user;
-        if (userOptional.isPresent()) {
-            user = userOptional.get();
+        if (socialUserOptional.isPresent()) {
+            user = socialUserOptional.get();
+        } else {
+            // 소셜 계정이 없다면, 혹시 동일한 이메일로 가입된 기존 계정이 있는지 확인
+            Optional<User> emailUserOptional = userRepository.findByEmail(email);
 
-            // 이미 일반 가입 계정으로 존재하는 이메일일 경우
-            if ("LOCAL".equalsIgnoreCase(user.getProvider())) {
-                log.warn("소셜 로그인 충돌 = 일반 최원가입 유저 이메일: {}", email);
+            if (emailUserOptional.isPresent()) {
+                User existingUser = emailUserOptional.get();
+
+                log.warn("소셜 로그인 충돌 발생 = 기존 가입 방식: {}", existingUser.getProvider());
                 throw new OAuth2AuthenticationException(
                         new OAuth2Error("EMAIL_CONFLICT"),
-                            "이미 일반 회원가입으로 등록된 이메일입니다. 일반 로그인을 이용해주세요."
+                        "이미 다른 방식으로 등록된 이메일입니다. 기존 계정으로 로그인을 이용해주세요."
                 );
             }
-            log.info("기존 소셜 유저 로그인 유저 이메일: {}", email);
-        } else {
-            log.info("신규 소셜 유저 자동 회원가입 진행 이메일: {}", email);
+
+            // 중복된 이메일도 없다면 신규 소셜 유저로 자동 회원가입 진행
             user = User.createSocialUser(
                     email,
                     oAuth2UserInfo.getName(),
-                    registrationId,
-                    oAuth2UserInfo.getProviderId()
+                    provider,
+                    providerId
             );
             userRepository.save(user);
         }
