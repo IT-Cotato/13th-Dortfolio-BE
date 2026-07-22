@@ -5,19 +5,27 @@ import com.itcotato.dortfolio.domain.user.dto.SignUpRequest;
 import com.itcotato.dortfolio.domain.user.dto.TokenResponse;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.entity.UserTermAgreement;
+import com.itcotato.dortfolio.domain.user.repository.UserJobRepository;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.domain.user.repository.UserTermAgreementRepository;
 import com.itcotato.dortfolio.global.security.jwt.JwtTokenProvider;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.UserErrorCode;
 import com.itcotato.dortfolio.global.security.user.CustomUserDetailsService;
+import com.itcotato.dortfolio.global.util.CookieUtil;
+import com.itcotato.dortfolio.global.util.RedisUtil;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -26,9 +34,12 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final UserTermAgreementRepository userTermAgreementRepository;
+    private final UserJobRepository userJobRepository;
     private final PasswordEncoder passwordEncoder;
     private final CustomUserDetailsService userDetailsService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RedisUtil redisUtil;
+    private final CookieUtil cookieUtil;
 
     /* 회원가입 로직 */
     @Transactional
@@ -69,7 +80,7 @@ public class AuthService {
     }
 
     /* 로그인 로직 */
-    public TokenResponse login(LoginRequest request) {
+    public TokenResponse login(LoginRequest request, HttpServletResponse response) { // 💡 HttpServletResponse 추가
 
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new CustomException(UserErrorCode.INVALID_LOGIN_CREDENTIALS));
@@ -90,6 +101,45 @@ public class AuthService {
         String accessToken = jwtTokenProvider.generateAccessToken(authenticationToken, user.getId());
         String refreshToken = jwtTokenProvider.generateRefreshToken(authenticationToken);
 
+        ResponseCookie refreshTokenCookie = ResponseCookie.from("refreshToken", refreshToken)
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(7 * 24 * 60 * 60)
+                .sameSite("Lax")
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString());
+
         return TokenResponse.of(accessToken, refreshToken);
+    }
+
+    /* 로그아웃 로직 */
+    @Transactional
+    public void logout(UUID userId, HttpServletResponse response) {
+
+        String redisKey = "RT:" + userId;
+        redisUtil.deleteData(redisKey);
+
+        cookieUtil.deleteCookie(response, "accessToken");
+        cookieUtil.deleteCookie(response, "refreshToken");
+    }
+
+    /* 회원 탈퇴 로직 */
+    @Transactional
+    public void withdraw(UUID userId, HttpServletResponse response) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
+
+        userJobRepository.deleteAllByUserId(userId);
+        userTermAgreementRepository.deleteAllByUser(user);
+
+        userRepository.delete(user);
+
+        String redisKey = "RT:" + userId;
+        redisUtil.deleteData(redisKey);
+
+        cookieUtil.deleteCookie(response, "accessToken");
+        cookieUtil.deleteCookie(response, "refreshToken");
     }
 }

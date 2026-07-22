@@ -2,6 +2,7 @@ package com.itcotato.dortfolio.domain.user.repository;
 
 import com.itcotato.dortfolio.domain.user.entity.UserJob;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -14,4 +15,8 @@ public interface UserJobRepository extends JpaRepository<UserJob, Long> {
     Optional<UserJob> findByUserIdAndIsPrimaryTrue(@Param("userId") UUID userId);
 
     Optional<UserJob> findByUserIdAndJobId(UUID userId, UUID jobId);
+
+    @Modifying
+    @Query("DELETE FROM UserJob uj WHERE uj.user.id = :userId")
+    void deleteAllByUserId(@Param("userId") UUID userId);
 }
