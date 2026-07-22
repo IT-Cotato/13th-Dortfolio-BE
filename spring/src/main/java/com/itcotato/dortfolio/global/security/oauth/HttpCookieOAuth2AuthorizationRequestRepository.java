@@ -25,7 +25,7 @@ public class HttpCookieOAuth2AuthorizationRequestRepository
     private final BytesEncryptor encryptor;
 
     public HttpCookieOAuth2AuthorizationRequestRepository(@Value("${jwt.secret}") String secretKey) {
-        String salt = secretKey.length() >= 8 ? secretKey.substring(0, 8) : "deadbeef";
+        String salt = "1234567890abcdef";
         this.encryptor = Encryptors.standard(secretKey, salt);
     }
 

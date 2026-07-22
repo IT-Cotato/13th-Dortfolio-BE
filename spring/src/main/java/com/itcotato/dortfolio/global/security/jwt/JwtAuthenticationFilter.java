@@ -1,4 +1,4 @@
-package com.itcotato.dortfolio.global.auth;
+package com.itcotato.dortfolio.global.security.jwt;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

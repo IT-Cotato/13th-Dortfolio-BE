@@ -1,10 +1,8 @@
-package com.itcotato.dortfolio.domain.user.service;
+package com.itcotato.dortfolio.global.security.oauth;
 
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.types.UserErrorCode;
-import com.itcotato.dortfolio.global.security.oauth.GoogleUserInfo;
-import com.itcotato.dortfolio.global.security.oauth.OAuth2UserInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -13,7 +11,6 @@ import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
-import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -103,10 +100,12 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
             userRepository.save(user);
         }
 
-        return new DefaultOAuth2User(
+        return new CustomOAuth2User(
                 Collections.singleton(new SimpleGrantedAuthority("ROLE_USER")),
                 oAuth2UserInfo.getAttributes(),
-                "email"
+                "email",
+                user.getId(), // DB의 UUID 전달
+                user.getEmail()
         );
     }
 }

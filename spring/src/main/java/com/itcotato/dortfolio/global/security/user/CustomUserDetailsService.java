@@ -1,4 +1,4 @@
-package com.itcotato.dortfolio.domain.user.service;
+package com.itcotato.dortfolio.global.security.user;
 
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;

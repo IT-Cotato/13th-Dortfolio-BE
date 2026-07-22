@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/members/me")
+@RequestMapping("/api/members/me")
 @RequiredArgsConstructor
 public class MyPageController implements MyPageControllerDocs {
 

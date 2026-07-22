@@ -13,5 +13,5 @@ public interface UserJobRepository extends JpaRepository<UserJob, Long> {
     @Query("SELECT uj FROM UserJob uj JOIN FETCH uj.job WHERE uj.user.id = :userId AND uj.isPrimary = true")
     Optional<UserJob> findByUserIdAndIsPrimaryTrue(@Param("userId") UUID userId);
 
-    Optional<UserJob> findByUserIdAndJobId(UUID userId, Long jobId);
+    Optional<UserJob> findByUserIdAndJobId(UUID userId, UUID jobId);
 }

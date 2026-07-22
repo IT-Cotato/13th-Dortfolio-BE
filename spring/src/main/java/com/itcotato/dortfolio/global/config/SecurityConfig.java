@@ -1,8 +1,8 @@
 package com.itcotato.dortfolio.global.config;
 
-import com.itcotato.dortfolio.domain.user.service.CustomOAuth2UserService;
-import com.itcotato.dortfolio.global.auth.JwtAuthenticationFilter;
-import com.itcotato.dortfolio.global.auth.JwtTokenProvider;
+import com.itcotato.dortfolio.global.security.oauth.CustomOAuth2UserService;
+import com.itcotato.dortfolio.global.security.jwt.JwtAuthenticationFilter;
+import com.itcotato.dortfolio.global.security.jwt.JwtTokenProvider;
 import com.itcotato.dortfolio.global.security.oauth.HttpCookieOAuth2AuthorizationRequestRepository;
 import com.itcotato.dortfolio.global.security.oauth.OAuth2FailureHandler;
 import com.itcotato.dortfolio.global.security.oauth.OAuth2SuccessHandler;

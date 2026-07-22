@@ -7,10 +7,10 @@ import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.entity.UserTermAgreement;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.domain.user.repository.UserTermAgreementRepository;
-import com.itcotato.dortfolio.global.auth.JwtTokenProvider;
+import com.itcotato.dortfolio.global.security.jwt.JwtTokenProvider;
 import com.itcotato.dortfolio.global.exception.CustomException;
-import com.itcotato.dortfolio.global.exception.ErrorCode;
 import com.itcotato.dortfolio.global.exception.types.UserErrorCode;
+import com.itcotato.dortfolio.global.security.user.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -87,7 +87,7 @@ public class AuthService {
         UsernamePasswordAuthenticationToken authenticationToken
                 = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
 
-        String accessToken = jwtTokenProvider.generateAccessToken(authenticationToken);
+        String accessToken = jwtTokenProvider.generateAccessToken(authenticationToken, user.getId());
         String refreshToken = jwtTokenProvider.generateRefreshToken(authenticationToken);
 
         return TokenResponse.of(accessToken, refreshToken);
