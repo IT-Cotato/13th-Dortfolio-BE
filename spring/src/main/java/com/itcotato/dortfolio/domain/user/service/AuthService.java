@@ -30,7 +30,7 @@ public class AuthService {
     private final CustomUserDetailsService userDetailsService;
     private final JwtTokenProvider jwtTokenProvider;
 
-    /* 회원가입 비즈니스 로직 */
+    /* 회원가입 로직 */
     @Transactional
     public void signUp(SignUpRequest request) {
 
@@ -68,7 +68,7 @@ public class AuthService {
         );
     }
 
-    /* 로그인 비즈니스 로직 */
+    /* 로그인 로직 */
     public TokenResponse login(LoginRequest request) {
 
         User user = userRepository.findByEmail(request.email())

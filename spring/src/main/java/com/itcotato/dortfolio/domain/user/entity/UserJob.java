@@ -1,5 +1,6 @@
 package com.itcotato.dortfolio.domain.user.entity;
 
+import com.itcotato.dortfolio.domain.job.entity.Job;
 import com.itcotato.dortfolio.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
