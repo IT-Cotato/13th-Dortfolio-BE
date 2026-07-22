@@ -1,7 +1,6 @@
 package com.itcotato.dortfolio.domain.mypage.controller.docs;
 
-import com.itcotato.dortfolio.domain.mypage.dto.MyPageResponse;
-import com.itcotato.dortfolio.domain.mypage.dto.UpdateDesiredJobRequest;
+import com.itcotato.dortfolio.domain.mypage.dto.*;
 import com.itcotato.dortfolio.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -22,5 +21,17 @@ public interface MyPageControllerDocs {
     ResponseEntity<ApiResponse<Void>> updateDesiredJob(
             @Parameter(hidden = true) UUID userId,
             UpdateDesiredJobRequest request
+    );
+
+    @Operation(summary = "프로필 이미지 업로드용 Presigned URL 발급", description = "S3에 프로필 이미지를 직접 업로드하기 위한 Presigned URL과 S3 Key를 발급받습니다.")
+    ResponseEntity<ApiResponse<ProfileImagePresignedUrlResponse>> getProfileImagePresignedUrl(
+            @Parameter(hidden = true) UUID userId,
+            ProfileImagePresignedUrlRequest request
+    );
+
+    @Operation(summary = "회원 프로필 정보(이름, 프로필 사진) 수정", description = "로그인한 회원의 이름(닉네임)과 프로필 이미지 경로를 수정합니다.")
+    ResponseEntity<ApiResponse<Void>> updateProfile(
+            @Parameter(hidden = true) UUID userId,
+            UpdateUserProfileRequest request
     );
 }
