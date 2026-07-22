@@ -68,4 +68,12 @@ public class TemplateController {
 		templateService.deleteTemplate(userId, templateId);
 		return ApiResponse.success("템플릿을 삭제했습니다.");
 	}
+
+    @PostMapping("/{templateId}/restore")
+    public ApiResponse<TemplateResponse> restoreTemplate(
+            @RequestParam UUID userId,
+            @PathVariable UUID templateId
+    ) {
+        return ApiResponse.success("템플릿 삭제를 취소했습니다.", templateService.restoreTemplate(userId, templateId));
+    }
 }

@@ -107,4 +107,16 @@ public class TemplateService {
 		return userRepository.findById(userId)
 			.orElseThrow(() -> new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE));
 	}
+
+    @Transactional
+    public TemplateResponse restoreTemplate(UUID userId, UUID templateId) {
+        Template template = templateRepository.findWithQuestionsById(templateId)
+                .orElseThrow(() -> new CustomException(TemplateErrorCode.TEMPLATE_NOT_FOUND));
+
+        validateWritable(template, userId);
+        template.restore();
+
+        return TemplateResponse.from(template);
+    }
+
 }
