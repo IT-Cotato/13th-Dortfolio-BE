@@ -5,7 +5,8 @@ import com.itcotato.dortfolio.domain.user.dto.PasswordResetConfirmRequest;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
-import com.itcotato.dortfolio.global.exception.ErrorCode;
+import com.itcotato.dortfolio.global.exception.types.GlobalErrorCode;
+import com.itcotato.dortfolio.global.exception.types.UserErrorCode;
 import com.itcotato.dortfolio.global.util.RedisUtil;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -43,10 +44,10 @@ public class PasswordResetService {
     @Transactional
     public void sendResetLink(PasswordResetRequest request) {
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
 
         if (user.getProvider() != null && !user.getProvider().equals("LOCAL")) {
-            throw new CustomException(ErrorCode.SOCIAL_USER_PASSWORD_RESET_NOT_ALLOWED);
+            throw new CustomException(UserErrorCode.SOCIAL_USER_PASSWORD_RESET_NOT_ALLOWED);
         }
 
         String token = UUID.randomUUID().toString();
@@ -60,19 +61,19 @@ public class PasswordResetService {
         String redisEmail = redisUtil.getData(request.token());
 
         if (redisEmail == null) {
-            throw new CustomException(ErrorCode.INVALID_RESET_TOKEN);
+            throw new CustomException(UserErrorCode.INVALID_RESET_TOKEN);
         }
 
         if (!redisEmail.equalsIgnoreCase(request.email())) {
-            throw new CustomException(ErrorCode.RESET_EMAIL_MISMATCH);
+            throw new CustomException(UserErrorCode.RESET_EMAIL_MISMATCH);
         }
 
         if (!redisEmail.equals(request.email())) {
-            throw new CustomException(ErrorCode.RESET_EMAIL_MISMATCH);
+            throw new CustomException(UserErrorCode.RESET_EMAIL_MISMATCH);
         }
 
         User user = userRepository.findByEmail(redisEmail)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
 
         String encodedPassword = passwordEncoder.encode(request.newPassword());
         user.updatePassword(encodedPassword);
@@ -101,7 +102,7 @@ public class PasswordResetService {
 
             mailSender.send(message);
         } catch (MessagingException e) {
-            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+            throw new CustomException(GlobalErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 }

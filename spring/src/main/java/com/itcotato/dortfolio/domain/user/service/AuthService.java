@@ -10,6 +10,7 @@ import com.itcotato.dortfolio.domain.user.repository.UserTermAgreementRepository
 import com.itcotato.dortfolio.global.auth.JwtTokenProvider;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.ErrorCode;
+import com.itcotato.dortfolio.global.exception.types.UserErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -35,7 +36,7 @@ public class AuthService {
 
         // 이메일 중복 체크
         if (userRepository.existsByEmail(request.email())) {
-            throw new CustomException(ErrorCode.EMAIL_ALREADY_EXISTS);
+            throw new CustomException(UserErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
         // 비밀번호 암호화 (BCrypt 해싱)
@@ -52,7 +53,7 @@ public class AuthService {
         try {
             userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
-            throw new CustomException(ErrorCode.EMAIL_ALREADY_EXISTS);
+            throw new CustomException(UserErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
         // 개별 동의 내역 저장
@@ -71,16 +72,16 @@ public class AuthService {
     public TokenResponse login(LoginRequest request) {
 
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_LOGIN_CREDENTIALS));
+                .orElseThrow(() -> new CustomException(UserErrorCode.INVALID_LOGIN_CREDENTIALS));
 
         if (!user.isLocalUser()) {
-            throw new CustomException(ErrorCode.INVALID_LOGIN_CREDENTIALS);
+            throw new CustomException(UserErrorCode.INVALID_LOGIN_CREDENTIALS);
         }
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(request.email());
 
         if (!passwordEncoder.matches(request.password(), userDetails.getPassword())) {
-            throw new CustomException(ErrorCode.INVALID_LOGIN_CREDENTIALS);
+            throw new CustomException(UserErrorCode.INVALID_LOGIN_CREDENTIALS);
         }
 
         UsernamePasswordAuthenticationToken authenticationToken

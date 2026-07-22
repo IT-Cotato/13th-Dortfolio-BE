@@ -1,7 +1,7 @@
 package com.itcotato.dortfolio.global.auth;
 
 import com.itcotato.dortfolio.global.exception.CustomException;
-import com.itcotato.dortfolio.global.exception.ErrorCode;
+import com.itcotato.dortfolio.global.exception.types.UserErrorCode; // 혹은 UserErrorCode / GlobalErrorCode
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -80,12 +80,8 @@ public class JwtTokenProvider {
         Claims claims = parseClaims(accessToken);
 
         if (claims.get("auth") == null) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE) {
-                @Override
-                public String getMessage() {
-                    return "권한 정보가 없는 유효하지 않은 토큰입니다.";
-                }
-            };
+            // 하드코딩된 익명 클래스 예외 던지기 제거 -> 정의된 AuthErrorCode 사용
+            throw new CustomException(UserErrorCode.INVALID_AUTHORITY_TOKEN);
         }
 
         Collection<? extends GrantedAuthority> authorities =
@@ -103,13 +99,13 @@ public class JwtTokenProvider {
             Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
             return true;
         } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
-            log.info("잘못된 JWT 서명입니다.");
+            log.info("JWT 검증 실패: {}", UserErrorCode.INVALID_TOKEN_SIGNATURE.getMessage());
         } catch (ExpiredJwtException e) {
-            log.info("만료된 JWT 토큰입니다.");
+            log.info("JWT 검증 실패: {}", UserErrorCode.EXPIRED_TOKEN.getMessage());
         } catch (UnsupportedJwtException e) {
-            log.info("지원되지 않는 JWT 토큰입니다.");
+            log.info("JWT 검증 실패: {}", UserErrorCode.UNSUPPORTED_TOKEN.getMessage());
         } catch (IllegalArgumentException e) {
-            log.info("JWT 토큰이 비어있거나 잘못되었습니다.");
+            log.info("JWT 검증 실패: {}", UserErrorCode.EMPTY_TOKEN.getMessage());
         }
         return false;
     }

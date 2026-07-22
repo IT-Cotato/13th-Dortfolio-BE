@@ -8,7 +8,7 @@ import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.record.entity.RecordMemo;
 import com.itcotato.dortfolio.domain.record.repository.RecordMemoRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
-import com.itcotato.dortfolio.global.exception.ErrorCode;
+import com.itcotato.dortfolio.global.exception.types.RecordErrorCode;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -127,11 +127,11 @@ public class RecordMemoService {
 				Memo memo = memosById.get(memoId);
 
 				if (memo == null) {
-					throw new CustomException(ErrorCode.RECORD_MEMO_NOT_FOUND);
+					throw new CustomException(RecordErrorCode.RECORD_MEMO_NOT_FOUND);
 				}
 
 				if (!memo.getActivity().getId().equals(activityId)) {
-					throw new CustomException(ErrorCode.RECORD_MEMO_ACTIVITY_MISMATCH);
+					throw new CustomException(RecordErrorCode.RECORD_MEMO_ACTIVITY_MISMATCH);
 				}
 
 				return memo;
@@ -145,7 +145,7 @@ public class RecordMemoService {
 			.toList();
 
 		if (new HashSet<>(requestedMemoIds).size() != memoRequests.size()) {
-			throw new CustomException(ErrorCode.DUPLICATE_RECORD_MEMO_SELECTION);
+			throw new CustomException(RecordErrorCode.DUPLICATE_RECORD_MEMO_SELECTION);
 		}
 	}
 }

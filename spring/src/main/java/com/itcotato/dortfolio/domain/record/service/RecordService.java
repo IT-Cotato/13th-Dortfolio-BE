@@ -16,7 +16,8 @@ import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
-import com.itcotato.dortfolio.global.exception.ErrorCode;
+import com.itcotato.dortfolio.global.exception.types.GlobalErrorCode;
+import com.itcotato.dortfolio.global.exception.types.RecordErrorCode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -114,7 +115,7 @@ public class RecordService {
     @Transactional
     public void restoreRecord(UUID userId, UUID recordId) {
         Record record = recordRepository.findByIdAndUser_Id(recordId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RECORD_NOT_FOUND));
+                .orElseThrow(() -> new CustomException(RecordErrorCode.RECORD_NOT_FOUND));
 
         if (!record.isDeleted()) {
             return;
@@ -134,7 +135,7 @@ public class RecordService {
 
     private void applyStatus(Record record, RecordStatus requestedStatus) {
         if (record.getStatus() == RecordStatus.COMPLETED && requestedStatus == RecordStatus.DRAFT) {
-            throw new CustomException(ErrorCode.RECORD_STATUS_TRANSITION_NOT_ALLOWED);
+            throw new CustomException(RecordErrorCode.RECORD_STATUS_TRANSITION_NOT_ALLOWED);
         }
 
         if (requestedStatus == RecordStatus.DRAFT) {
@@ -159,27 +160,26 @@ public class RecordService {
 
     private void validateRestorable(Record record) {
         if (record.getDeletePendingUntil() != null && LocalDateTime.now().isAfter(record.getDeletePendingUntil())) {
-            throw new CustomException(ErrorCode.RECORD_RESTORE_NOT_ALLOWED);
+            throw new CustomException(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
         }
         if (record.getActivity().isDeleted() || record.getTemplate().isDeleted()) {
-            throw new CustomException(ErrorCode.RECORD_RESTORE_NOT_ALLOWED);
+            throw new CustomException(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
         }
         if (recordMemoService.hasDeletedMemo(record)) {
-            throw new CustomException(ErrorCode.RECORD_RESTORE_NOT_ALLOWED);
+            throw new CustomException(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
         }
     }
 
     private Record getActiveRecordOrThrow(UUID userId, UUID recordId) {
         Record record = recordRepository.findByIdAndUser_IdAndDeletedAtIsNull(recordId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RECORD_NOT_FOUND));
+                .orElseThrow(() -> new CustomException(RecordErrorCode.RECORD_NOT_FOUND));
         if (record.getActivity().isDeleted() || record.getTemplate().isDeleted()) {
-            throw new CustomException(ErrorCode.RECORD_NOT_FOUND);
         }
         return record;
     }
 
     private User getUserOrThrow(UUID userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE));
+                .orElseThrow(() -> new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE));
     }
 }
