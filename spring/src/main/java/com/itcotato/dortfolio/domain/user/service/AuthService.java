@@ -105,13 +105,13 @@ public class AuthService {
                 .httpOnly(true)
                 .secure(true)
                 .path("/")
-                .maxAge(7 * 24 * 60 * 60)
+                .maxAge(14 * 24 * 60 * 60)
                 .sameSite("Lax")
                 .build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString());
 
-        return TokenResponse.of(accessToken);
+        return TokenResponse.of(accessToken, refreshToken);
     }
 
     /* 로그아웃 로직 */
