@@ -518,10 +518,7 @@ class RecordServiceTest {
 		return userRepository.save(User.of(
 				UUID.randomUUID() + "@test.com",
 				"encoded-password",
-				"테스터",
-				true,
-				true,
-				false
+				"테스터"
 		));
 	}
 

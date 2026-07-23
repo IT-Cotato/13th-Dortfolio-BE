@@ -17,10 +17,12 @@ import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
-import com.itcotato.dortfolio.global.exception.ErrorCode;
+import com.itcotato.dortfolio.global.exception.types.TemplateErrorCode;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,15 +72,15 @@ class ActivityTemplateServiceTest {
 		TemplateResponse second = createTemplate(userId, "템플릿2");
 
 		List<ActivityTemplateResponse> responses = activityTemplateService.updateActivityTemplates(
-			userId,
-			activityId,
-			new ActivityTemplateUpdateRequest(List.of(first.id(), second.id()))
+				userId,
+				activityId,
+				new ActivityTemplateUpdateRequest(List.of(first.id(), second.id()))
 		);
 
 		assertThat(responses).extracting(ActivityTemplateResponse::id).containsExactly(first.id(), second.id());
 		assertThat(activityTemplateService.getActivityTemplates(userId, activityId))
-			.extracting(ActivityTemplateResponse::id)
-			.containsExactly(first.id(), second.id());
+				.extracting(ActivityTemplateResponse::id)
+				.containsExactly(first.id(), second.id());
 	}
 
 	@Test
@@ -90,19 +92,19 @@ class ActivityTemplateServiceTest {
 		TemplateResponse second = createTemplate(userId, "템플릿2");
 
 		activityTemplateService.updateActivityTemplates(
-			userId,
-			activityId,
-			new ActivityTemplateUpdateRequest(List.of(first.id(), second.id()))
+				userId,
+				activityId,
+				new ActivityTemplateUpdateRequest(List.of(first.id(), second.id()))
 		);
 		List<ActivityTemplateResponse> reorderedResponses = activityTemplateService.updateActivityTemplates(
-			userId,
-			activityId,
-			new ActivityTemplateUpdateRequest(List.of(second.id(), first.id()))
+				userId,
+				activityId,
+				new ActivityTemplateUpdateRequest(List.of(second.id(), first.id()))
 		);
 		List<ActivityTemplateResponse> narrowedResponses = activityTemplateService.updateActivityTemplates(
-			userId,
-			activityId,
-			new ActivityTemplateUpdateRequest(List.of(first.id()))
+				userId,
+				activityId,
+				new ActivityTemplateUpdateRequest(List.of(first.id()))
 		);
 
 		assertThat(reorderedResponses).extracting(ActivityTemplateResponse::id).containsExactly(second.id(), first.id());
@@ -115,21 +117,21 @@ class ActivityTemplateServiceTest {
 		UUID userId = UUID.randomUUID();
 		UUID activityId = UUID.randomUUID();
 		List<UUID> templateIds = List.of(
-			UUID.randomUUID(),
-			UUID.randomUUID(),
-			UUID.randomUUID(),
-			UUID.randomUUID(),
-			UUID.randomUUID()
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				UUID.randomUUID()
 		);
 
 		assertThatThrownBy(() -> activityTemplateService.updateActivityTemplates(
-			userId,
-			activityId,
-			new ActivityTemplateUpdateRequest(templateIds)
+				userId,
+				activityId,
+				new ActivityTemplateUpdateRequest(templateIds)
 		))
-			.isInstanceOf(CustomException.class)
-			.extracting("errorCode")
-			.isEqualTo(ErrorCode.ACTIVITY_TEMPLATE_LIMIT_EXCEEDED);
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(TemplateErrorCode.ACTIVITY_TEMPLATE_LIMIT_EXCEEDED);
 	}
 
 	@Test
@@ -140,13 +142,13 @@ class ActivityTemplateServiceTest {
 		TemplateResponse template = createTemplate(userId, "템플릿");
 
 		assertThatThrownBy(() -> activityTemplateService.updateActivityTemplates(
-			userId,
-			activityId,
-			new ActivityTemplateUpdateRequest(List.of(template.id(), template.id()))
+				userId,
+				activityId,
+				new ActivityTemplateUpdateRequest(List.of(template.id(), template.id()))
 		))
-			.isInstanceOf(CustomException.class)
-			.extracting("errorCode")
-			.isEqualTo(ErrorCode.DUPLICATE_TEMPLATE_SELECTION);
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(TemplateErrorCode.DUPLICATE_TEMPLATE_SELECTION);
 	}
 
 	@Test
@@ -156,13 +158,13 @@ class ActivityTemplateServiceTest {
 		UUID activityId = createActivity(user).getId();
 
 		assertThatThrownBy(() -> activityTemplateService.updateActivityTemplates(
-			userId,
-			activityId,
-			new ActivityTemplateUpdateRequest(List.of(UUID.randomUUID()))
+				userId,
+				activityId,
+				new ActivityTemplateUpdateRequest(List.of(UUID.randomUUID()))
 		))
-			.isInstanceOf(CustomException.class)
-			.extracting("errorCode")
-			.isEqualTo(ErrorCode.TEMPLATE_NOT_FOUND);
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(TemplateErrorCode.TEMPLATE_NOT_FOUND);
 	}
 
 	@Test
@@ -175,44 +177,41 @@ class ActivityTemplateServiceTest {
 		TemplateResponse otherUserTemplate = createTemplate(otherUserId, "다른 사용자 템플릿");
 
 		assertThatThrownBy(() -> activityTemplateService.updateActivityTemplates(
-			userId,
-			activityId,
-			new ActivityTemplateUpdateRequest(List.of(otherUserTemplate.id()))
+				userId,
+				activityId,
+				new ActivityTemplateUpdateRequest(List.of(otherUserTemplate.id()))
 		))
-			.isInstanceOf(CustomException.class)
-			.extracting("errorCode")
-			.isEqualTo(ErrorCode.TEMPLATE_FORBIDDEN);
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(TemplateErrorCode.TEMPLATE_FORBIDDEN);
 	}
 
 	private TemplateResponse createTemplate(UUID userId, String title) {
 		return templateService.createTemplate(userId, new TemplateCreateRequest(
-			title,
-			null,
-			List.of(new TemplateQuestionRequest("질문", null, true))
+				title,
+				null,
+				List.of(new TemplateQuestionRequest("질문", null, true))
 		));
 	}
 
 	private User createUser() {
 		return userRepository.save(User.of(
-			UUID.randomUUID() + "@test.com",
-			"encoded-password",
-			"테스터",
-            true,
-            true,
-            false
+				UUID.randomUUID() + "@test.com",
+				"encoded-password",
+				"테스터"
 		));
 	}
 
 	private Activity createActivity(User user) {
 		ActivityType activityType = activityTypeRepository.save(ActivityType.create(user, "프로젝트"));
 		return activityRepository.save(Activity.create(
-			user,
-			activityType,
-			"도트폴리오",
-			"설명",
-			LocalDate.now(),
-			null,
-			true
+				user,
+				activityType,
+				"도트폴리오",
+				"설명",
+				LocalDate.now(),
+				null,
+				true
 		));
 	}
 }

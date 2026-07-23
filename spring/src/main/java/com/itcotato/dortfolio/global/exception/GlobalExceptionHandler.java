@@ -3,7 +3,6 @@ package com.itcotato.dortfolio.global.exception;
 import com.itcotato.dortfolio.global.exception.types.GlobalErrorCode;
 import com.itcotato.dortfolio.global.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -45,13 +44,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.fail(GlobalErrorCode.METHOD_NOT_ALLOWED.getMessage()));
     }
 
-    // 시큐리티 인증 실패 예회 처리
+    // 시큐리티 인증 실패 예외 처리
     @ExceptionHandler(AuthenticationException.class)
     protected ResponseEntity<ApiResponse<Void>> handleAuthenticationException(AuthenticationException e) {
         log.warn("AuthenticationException: {}", e.getMessage());
         return ResponseEntity
-                .status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.fail(GlobalErrorCode.NOT_FOUND.getMessage()));
+                .status(GlobalErrorCode.UNAUTHORIZED.getStatus())
+                .body(ApiResponse.fail(GlobalErrorCode.UNAUTHORIZED.getMessage()));
     }
 
     // 정적 리소스 요청 시 발생
