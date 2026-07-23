@@ -54,9 +54,6 @@ public class Memo extends BaseEntity {
 	private LocalDateTime deletedAt;
 
 	@Column
-	private LocalDateTime deletePendingUntil;
-
-	@Column
 	private LocalDateTime expiresAt;
 
 	private static final int EXPIRE_AFTER_DAYS = 30;
@@ -77,8 +74,8 @@ public class Memo extends BaseEntity {
 		return new Memo(user, activity, title, content, color, sortOrder);
 	}
 
-	public void update(Activity activity, String title, String content, String color) {
-		this.activity = activity;
+	// 기능명세서 3.5.4: 메모 수정 시 제목/내용만 변경 가능, 활동 태그는 수정/추가 불가
+	public void update(String title, String content, String color) {
 		this.title = title;
 		this.content = content;
 		this.color = color;
@@ -96,16 +93,6 @@ public class Memo extends BaseEntity {
 		if (this.useCount > 0) {
 			this.useCount--;
 		}
-	}
-
-	public void markDeleted(int gracePeriodDays) {
-		this.deletedAt = LocalDateTime.now();
-		this.deletePendingUntil = LocalDateTime.now().plusDays(gracePeriodDays);
-	}
-
-	public void restore() {
-		this.deletedAt = null;
-		this.deletePendingUntil = null;
 	}
 
 	public boolean isDeleted() {

@@ -20,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class MemoService {
 
-    private static final int DELETE_GRACE_PERIOD_DAYS = 30;
     private static final int DEFAULT_SORT_ORDER = 0;
 
     private final MemoRepository memoRepository;
@@ -57,9 +56,8 @@ public class MemoService {
     @Transactional
     public void updateMemo(UUID userId, UUID memoId, MemoUpdateRequest request) {
         Memo memo = getMemoOrThrow(memoId, userId);
-        Activity activity = resolveActivityOrNull(request.activityId(), userId);
 
-        memo.update(activity, request.title(), request.content(), request.color());
+        memo.update(request.title(), request.content(), request.color());
     }
 
     @Transactional
@@ -67,14 +65,10 @@ public class MemoService {
         getMemoOrThrow(memoId, userId).markImportant(important);
     }
 
+    // 기능명세서 3.2.3.1.1: 삭제 확정 시(실행취소 미클릭) 서버상 영구 삭제, 복구 불가 -> 하드 삭제
     @Transactional
     public void deleteMemo(UUID userId, UUID memoId) {
-        getMemoOrThrow(memoId, userId).markDeleted(DELETE_GRACE_PERIOD_DAYS);
-    }
-
-    @Transactional
-    public void restoreMemo(UUID userId, UUID memoId) {
-        getMemoOrThrow(memoId, userId).restore();
+        memoRepository.delete(getMemoOrThrow(memoId, userId));
     }
 
     private Memo getMemoOrThrow(UUID memoId, UUID userId) {
@@ -86,8 +80,14 @@ public class MemoService {
         if (activityId == null) {
             return null;
         }
-        return activityRepository.findByIdAndUser_Id(activityId, userId)
+        Activity activity = activityRepository.findByIdAndUser_Id(activityId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 활동입니다."));
+
+        if (activity.isDeleted()) {
+            throw new IllegalArgumentException("삭제된 활동에는 메모를 연결할 수 없습니다.");
+        }
+
+        return activity;
     }
 
     private User getUserOrThrow(UUID userId) {
