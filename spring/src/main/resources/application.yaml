@@ -42,6 +42,7 @@ springdoc:
 
 jwt:
   secret: ${JWT_SECRET}
+  salt: ${JWT_SALT}
   access-expiration: 1800000      # Access Token 만료 시간: 30분
   refresh-expiration: 1209600000  # Refresh Token 만료 시간: 14일
 

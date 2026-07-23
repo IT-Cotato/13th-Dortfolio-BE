@@ -55,7 +55,7 @@ public class PasswordResetService {
         sendEmail(user.getEmail(), token);
     }
 
-    /* 토킨 및 이메일 교차 검증 후 비밀번호 최종 변경 로직 */
+    /* 토큰 및 이메일 교차 검증 후 비밀번호 최종 변경 로직 */
     @Transactional
     public void resetPassword(PasswordResetConfirmRequest request) {
         String redisEmail = redisUtil.getData(request.token());
@@ -65,10 +65,6 @@ public class PasswordResetService {
         }
 
         if (!redisEmail.equalsIgnoreCase(request.email())) {
-            throw new CustomException(UserErrorCode.RESET_EMAIL_MISMATCH);
-        }
-
-        if (!redisEmail.equals(request.email())) {
             throw new CustomException(UserErrorCode.RESET_EMAIL_MISMATCH);
         }
 

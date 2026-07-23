@@ -89,7 +89,16 @@ public class JwtTokenProvider {
                         .collect(Collectors.toList());
 
         String userIdStr = claims.get("userId", String.class);
-        UUID userId = (userIdStr != null) ? UUID.fromString(userIdStr) : null;
+        if (userIdStr == null || userIdStr.isBlank()) {
+            throw new CustomException(UserErrorCode.INVALID_AUTHORITY_TOKEN);
+        }
+
+        UUID userId;
+        try {
+            userId = UUID.fromString(userIdStr);
+        } catch (IllegalArgumentException e) {
+            throw new CustomException(UserErrorCode.INVALID_AUTHORITY_TOKEN);
+        }
 
         return new UsernamePasswordAuthenticationToken(userId, "", authorities);
     }

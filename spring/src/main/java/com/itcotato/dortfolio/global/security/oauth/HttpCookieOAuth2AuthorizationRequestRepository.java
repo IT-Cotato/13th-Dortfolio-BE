@@ -21,12 +21,14 @@ public class HttpCookieOAuth2AuthorizationRequestRepository
     public static final String OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME = "oauth2_auth_request";
     private static final int COOKIE_EXPIRE_SECONDS = 180; // 3분
 
-    // 안전한 암호화를 위해 기존 JWT 시크릿 키를 서명/암호화에 활용
+    // 기존 JWT 시크릿 키를 서명/암호화에 활용
     private final BytesEncryptor encryptor;
 
-    public HttpCookieOAuth2AuthorizationRequestRepository(@Value("${jwt.secret}") String secretKey) {
-        String salt = "1234567890abcdef";
-        this.encryptor = Encryptors.standard(secretKey, salt);
+    public HttpCookieOAuth2AuthorizationRequestRepository(
+            @Value("${jwt.secret}") String secretKey,
+            @Value("${jwt.salt}") String salt
+    ) {
+        this.encryptor = Encryptors.stronger(secretKey, salt);
     }
 
     @Override

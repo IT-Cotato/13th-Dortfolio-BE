@@ -103,7 +103,7 @@ public class AuthService {
 
         ResponseCookie refreshTokenCookie = ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true)
-                .secure(false)
+                .secure(true)
                 .path("/")
                 .maxAge(7 * 24 * 60 * 60)
                 .sameSite("Lax")
@@ -111,7 +111,7 @@ public class AuthService {
 
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString());
 
-        return TokenResponse.of(accessToken, refreshToken);
+        return TokenResponse.of(accessToken);
     }
 
     /* 로그아웃 로직 */
