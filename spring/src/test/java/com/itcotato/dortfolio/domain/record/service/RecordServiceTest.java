@@ -28,7 +28,7 @@ import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
-import com.itcotato.dortfolio.global.exception.ErrorCode;
+import com.itcotato.dortfolio.global.exception.types.RecordErrorCode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -95,12 +95,12 @@ class RecordServiceTest {
 		TemplateQuestion question = template.getQuestions().get(0);
 
 		RecordResponse response = recordService.createRecord(user.getId(), new RecordCreateRequest(
-			activity.getId(),
-			template.getId(),
-			"첫 기록",
-			List.of(new RecordAnswerRequest(question.getId(), "상황을 정리했다.")),
-			List.of(new RecordMemoRequest(memo.getId(), true)),
-			RecordStatus.DRAFT
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(new RecordAnswerRequest(question.getId(), "상황을 정리했다.")),
+				List.of(new RecordMemoRequest(memo.getId(), true)),
+				RecordStatus.DRAFT
 		));
 
 		assertThat(response.title()).isEqualTo("첫 기록");
@@ -119,16 +119,16 @@ class RecordServiceTest {
 		Template template = createTemplate(user, "문제 해결", true);
 
 		assertThatThrownBy(() -> recordService.createRecord(user.getId(), new RecordCreateRequest(
-			activity.getId(),
-			template.getId(),
-			"첫 기록",
-			List.of(),
-			List.of(),
-			RecordStatus.DRAFT
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(),
+				RecordStatus.DRAFT
 		)))
-			.isInstanceOf(CustomException.class)
-			.extracting("errorCode")
-			.isEqualTo(ErrorCode.RECORD_TEMPLATE_NOT_CONNECTED);
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(RecordErrorCode.RECORD_TEMPLATE_NOT_CONNECTED);
 	}
 
 	@Test
@@ -139,16 +139,16 @@ class RecordServiceTest {
 		connectTemplate(activity, template);
 
 		assertThatThrownBy(() -> recordService.createRecord(user.getId(), new RecordCreateRequest(
-			activity.getId(),
-			template.getId(),
-			"첫 기록",
-			List.of(),
-			List.of(),
-			RecordStatus.COMPLETED
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(),
+				RecordStatus.COMPLETED
 		)))
-			.isInstanceOf(CustomException.class)
-			.extracting("errorCode")
-			.isEqualTo(ErrorCode.RECORD_REQUIRED_ANSWER_MISSING);
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(RecordErrorCode.RECORD_REQUIRED_ANSWER_MISSING);
 	}
 
 	@Test
@@ -159,19 +159,19 @@ class RecordServiceTest {
 		connectTemplate(activity, template);
 		TemplateQuestion question = template.getQuestions().get(0);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
-			activity.getId(),
-			template.getId(),
-			"첫 기록",
-			List.of(),
-			List.of(),
-			RecordStatus.DRAFT
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(),
+				RecordStatus.DRAFT
 		));
 
 		RecordResponse completed = recordService.updateRecord(user.getId(), draft.id(), new RecordUpdateRequest(
-			"첫 기록",
-			List.of(new RecordAnswerRequest(question.getId(), "답변")),
-			List.of(),
-			RecordStatus.COMPLETED
+				"첫 기록",
+				List.of(new RecordAnswerRequest(question.getId(), "답변")),
+				List.of(),
+				RecordStatus.COMPLETED
 		));
 
 		assertThat(completed.status()).isEqualTo(RecordStatus.COMPLETED.name());
@@ -185,26 +185,26 @@ class RecordServiceTest {
 		Template template = createTemplate(user, "문제 해결", false);
 		connectTemplate(activity, template);
 		RecordResponse completed = recordService.createRecord(user.getId(), new RecordCreateRequest(
-			activity.getId(),
-			template.getId(),
-			"완료 기록",
-			List.of(),
-			List.of(),
-			RecordStatus.COMPLETED
+				activity.getId(),
+				template.getId(),
+				"완료 기록",
+				List.of(),
+				List.of(),
+				RecordStatus.COMPLETED
 		));
 
 		assertThatThrownBy(() -> recordService.updateRecord(user.getId(), completed.id(), new RecordUpdateRequest(
-			"완료 기록 수정",
-			List.of(),
-			List.of(),
-			RecordStatus.DRAFT
+				"완료 기록 수정",
+				List.of(),
+				List.of(),
+				RecordStatus.DRAFT
 		)))
-			.isInstanceOf(CustomException.class)
-			.extracting("errorCode")
-			.isEqualTo(ErrorCode.RECORD_STATUS_TRANSITION_NOT_ALLOWED);
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(RecordErrorCode.RECORD_STATUS_TRANSITION_NOT_ALLOWED);
 
 		assertThat(recordService.getRecord(user.getId(), completed.id()).status())
-			.isEqualTo(RecordStatus.COMPLETED.name());
+				.isEqualTo(RecordStatus.COMPLETED.name());
 	}
 
 	@Test
@@ -216,23 +216,23 @@ class RecordServiceTest {
 		connectTemplate(activity, template);
 		Memo otherActivityMemo = createMemo(user, otherActivity);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
-			activity.getId(),
-			template.getId(),
-			"첫 기록",
-			List.of(),
-			List.of(),
-			RecordStatus.DRAFT
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(),
+				RecordStatus.DRAFT
 		));
 
 		assertThatThrownBy(() -> recordService.updateRecord(user.getId(), draft.id(), new RecordUpdateRequest(
-			"첫 기록",
-			List.of(),
-			List.of(new RecordMemoRequest(otherActivityMemo.getId(), false)),
-			RecordStatus.DRAFT
+				"첫 기록",
+				List.of(),
+				List.of(new RecordMemoRequest(otherActivityMemo.getId(), false)),
+				RecordStatus.DRAFT
 		)))
-			.isInstanceOf(CustomException.class)
-			.extracting("errorCode")
-			.isEqualTo(ErrorCode.RECORD_MEMO_ACTIVITY_MISMATCH);
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(RecordErrorCode.RECORD_MEMO_ACTIVITY_MISMATCH);
 	}
 
 	@Test
@@ -244,28 +244,28 @@ class RecordServiceTest {
 		Memo firstMemo = createMemo(user, activity);
 		Memo secondMemo = createMemo(user, activity);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
-			activity.getId(),
-			template.getId(),
-			"첫 기록",
-			List.of(),
-			List.of(new RecordMemoRequest(firstMemo.getId(), false)),
-			RecordStatus.DRAFT
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(new RecordMemoRequest(firstMemo.getId(), false)),
+				RecordStatus.DRAFT
 		));
 
 		recordService.updateRecord(user.getId(), draft.id(), new RecordUpdateRequest(
-			"첫 기록",
-			List.of(),
-			List.of(new RecordMemoRequest(firstMemo.getId(), true)),
-			RecordStatus.DRAFT
+				"첫 기록",
+				List.of(),
+				List.of(new RecordMemoRequest(firstMemo.getId(), true)),
+				RecordStatus.DRAFT
 		));
 
 		assertThat(memoRepository.findById(firstMemo.getId()).orElseThrow().getUseCount()).isEqualTo(1);
 
 		recordService.updateRecord(user.getId(), draft.id(), new RecordUpdateRequest(
-			"첫 기록",
-			List.of(),
-			List.of(new RecordMemoRequest(secondMemo.getId(), false)),
-			RecordStatus.DRAFT
+				"첫 기록",
+				List.of(),
+				List.of(new RecordMemoRequest(secondMemo.getId(), false)),
+				RecordStatus.DRAFT
 		));
 
 		assertThat(memoRepository.findById(firstMemo.getId()).orElseThrow().getUseCount()).isZero();
@@ -280,12 +280,12 @@ class RecordServiceTest {
 		connectTemplate(activity, template);
 		Memo memo = createMemo(user, activity);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
-			activity.getId(),
-			template.getId(),
-			"첫 기록",
-			List.of(),
-			List.of(new RecordMemoRequest(memo.getId(), false)),
-			RecordStatus.DRAFT
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(new RecordMemoRequest(memo.getId(), false)),
+				RecordStatus.DRAFT
 		));
 
 		recordService.deleteRecord(user.getId(), draft.id());
@@ -293,9 +293,9 @@ class RecordServiceTest {
 		assertThat(memoRepository.findById(memo.getId()).orElseThrow().getUseCount()).isZero();
 		assertThat(recordService.getRecords(user.getId(), null, null, null)).isEmpty();
 		assertThatThrownBy(() -> recordService.getRecord(user.getId(), draft.id()))
-			.isInstanceOf(CustomException.class)
-			.extracting("errorCode")
-			.isEqualTo(ErrorCode.RECORD_NOT_FOUND);
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(RecordErrorCode.RECORD_NOT_FOUND);
 
 		recordService.restoreRecord(user.getId(), draft.id());
 
@@ -310,21 +310,21 @@ class RecordServiceTest {
 		Template template = createTemplate(user, "문제 해결", false);
 		connectTemplate(activity, template);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
-			activity.getId(),
-			template.getId(),
-			"첫 기록",
-			List.of(),
-			List.of(),
-			RecordStatus.DRAFT
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(),
+				RecordStatus.DRAFT
 		));
 		recordService.deleteRecord(user.getId(), draft.id());
 		activity.markDeleted(30);
 		activityRepository.save(activity);
 
 		assertThatThrownBy(() -> recordService.restoreRecord(user.getId(), draft.id()))
-			.isInstanceOf(CustomException.class)
-			.extracting("errorCode")
-			.isEqualTo(ErrorCode.RECORD_RESTORE_NOT_ALLOWED);
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
 	}
 
 	@Test
@@ -335,21 +335,21 @@ class RecordServiceTest {
 		connectTemplate(activity, template);
 		Memo memo = createMemo(user, activity);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
-			activity.getId(),
-			template.getId(),
-			"첫 기록",
-			List.of(),
-			List.of(new RecordMemoRequest(memo.getId(), false)),
-			RecordStatus.DRAFT
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(new RecordMemoRequest(memo.getId(), false)),
+				RecordStatus.DRAFT
 		));
 		recordService.deleteRecord(user.getId(), draft.id());
 		memo.markDeleted(30);
 		memoRepository.save(memo);
 
 		assertThatThrownBy(() -> recordService.restoreRecord(user.getId(), draft.id()))
-			.isInstanceOf(CustomException.class)
-			.extracting("errorCode")
-			.isEqualTo(ErrorCode.RECORD_RESTORE_NOT_ALLOWED);
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
 	}
 
 	@Test
@@ -359,21 +359,21 @@ class RecordServiceTest {
 		Template template = createTemplate(user, "문제 해결", false);
 		connectTemplate(activity, template);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
-			activity.getId(),
-			template.getId(),
-			"첫 기록",
-			List.of(),
-			List.of(),
-			RecordStatus.DRAFT
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(),
+				RecordStatus.DRAFT
 		));
 		com.itcotato.dortfolio.domain.record.entity.Record record = recordRepository.findById(draft.id()).orElseThrow();
 		record.markDeleted(-1);
 		recordRepository.save(record);
 
 		assertThatThrownBy(() -> recordService.restoreRecord(user.getId(), draft.id()))
-			.isInstanceOf(CustomException.class)
-			.extracting("errorCode")
-			.isEqualTo(ErrorCode.RECORD_RESTORE_NOT_ALLOWED);
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
 	}
 
 	@Test
@@ -383,20 +383,20 @@ class RecordServiceTest {
 		Template template = createTemplate(user, "문제 해결", false);
 		connectTemplate(activity, template);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
-			activity.getId(),
-			template.getId(),
-			"첫 기록",
-			List.of(),
-			List.of(),
-			RecordStatus.DRAFT
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(),
+				RecordStatus.DRAFT
 		));
 		activity.markDeleted(30);
 		activityRepository.save(activity);
 
 		assertThatThrownBy(() -> recordService.getRecord(user.getId(), draft.id()))
-			.isInstanceOf(CustomException.class)
-			.extracting("errorCode")
-			.isEqualTo(ErrorCode.RECORD_NOT_FOUND);
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(RecordErrorCode.RECORD_NOT_FOUND);
 	}
 
 	@Test
@@ -407,12 +407,12 @@ class RecordServiceTest {
 		connectTemplate(activity, template);
 		TemplateQuestion question = template.getQuestions().get(0);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
-			activity.getId(),
-			template.getId(),
-			"첫 기록",
-			List.of(new RecordAnswerRequest(question.getId(), "기존 답변")),
-			List.of(),
-			RecordStatus.DRAFT
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(new RecordAnswerRequest(question.getId(), "기존 답변")),
+				List.of(),
+				RecordStatus.DRAFT
 		));
 
 		template.replaceQuestions(List.of(TemplateQuestion.create("새 질문", "새 설명", false, 1)));
@@ -421,12 +421,12 @@ class RecordServiceTest {
 		RecordResponse response = recordService.getRecord(user.getId(), draft.id());
 
 		assertThat(response.answers())
-			.extracting(
-				RecordAnswerResponse::templateQuestionId,
-				RecordAnswerResponse::questionText,
-				RecordAnswerResponse::answerText
-			)
-			.containsExactly(tuple(question.getId(), "질문", "기존 답변"));
+				.extracting(
+						RecordAnswerResponse::templateQuestionId,
+						RecordAnswerResponse::questionText,
+						RecordAnswerResponse::answerText
+				)
+				.containsExactly(tuple(question.getId(), "질문", "기존 답변"));
 	}
 
 	@Test
@@ -437,31 +437,31 @@ class RecordServiceTest {
 		connectTemplate(activity, template);
 		TemplateQuestion question = template.getQuestions().get(0);
 		RecordResponse completed = recordService.createRecord(user.getId(), new RecordCreateRequest(
-			activity.getId(),
-			template.getId(),
-			"완료 기록",
-			List.of(new RecordAnswerRequest(question.getId(), "기존 답변")),
-			List.of(),
-			RecordStatus.COMPLETED
+				activity.getId(),
+				template.getId(),
+				"완료 기록",
+				List.of(new RecordAnswerRequest(question.getId(), "기존 답변")),
+				List.of(),
+				RecordStatus.COMPLETED
 		));
 		template.replaceQuestions(List.of(TemplateQuestion.create("새 필수 질문", "새 설명", true, 1)));
 		templateRepository.saveAndFlush(template);
 
 		RecordResponse updated = recordService.updateRecord(user.getId(), completed.id(), new RecordUpdateRequest(
-			"완료 기록 수정",
-			List.of(new RecordAnswerRequest(question.getId(), "수정 답변")),
-			List.of(),
-			RecordStatus.COMPLETED
+				"완료 기록 수정",
+				List.of(new RecordAnswerRequest(question.getId(), "수정 답변")),
+				List.of(),
+				RecordStatus.COMPLETED
 		));
 
 		assertThat(updated.status()).isEqualTo(RecordStatus.COMPLETED.name());
 		assertThat(updated.answers())
-			.extracting(
-				RecordAnswerResponse::templateQuestionId,
-				RecordAnswerResponse::questionText,
-				RecordAnswerResponse::answerText
-			)
-			.containsExactly(tuple(question.getId(), "질문", "수정 답변"));
+				.extracting(
+						RecordAnswerResponse::templateQuestionId,
+						RecordAnswerResponse::questionText,
+						RecordAnswerResponse::answerText
+				)
+				.containsExactly(tuple(question.getId(), "질문", "수정 답변"));
 	}
 
 	@Test
@@ -476,65 +476,65 @@ class RecordServiceTest {
 		connectTemplate(secondActivity, firstTemplate);
 
 		RecordResponse firstDraft = recordService.createRecord(user.getId(), new RecordCreateRequest(
-			firstActivity.getId(),
-			firstTemplate.getId(),
-			"첫 draft",
-			List.of(),
-			List.of(),
-			RecordStatus.DRAFT
+				firstActivity.getId(),
+				firstTemplate.getId(),
+				"첫 draft",
+				List.of(),
+				List.of(),
+				RecordStatus.DRAFT
 		));
 		RecordResponse secondDraft = recordService.createRecord(user.getId(), new RecordCreateRequest(
-			firstActivity.getId(),
-			secondTemplate.getId(),
-			"두 번째 draft",
-			List.of(),
-			List.of(),
-			RecordStatus.DRAFT
+				firstActivity.getId(),
+				secondTemplate.getId(),
+				"두 번째 draft",
+				List.of(),
+				List.of(),
+				RecordStatus.DRAFT
 		));
 		RecordResponse completed = recordService.createRecord(user.getId(), new RecordCreateRequest(
-			secondActivity.getId(),
-			firstTemplate.getId(),
-			"완료 기록",
-			List.of(),
-			List.of(),
-			RecordStatus.COMPLETED
+				secondActivity.getId(),
+				firstTemplate.getId(),
+				"완료 기록",
+				List.of(),
+				List.of(),
+				RecordStatus.COMPLETED
 		));
 
 		assertThat(recordService.getRecords(user.getId(), firstActivity.getId(), null, null))
-			.extracting(record -> record.id())
-			.containsExactlyInAnyOrder(firstDraft.id(), secondDraft.id());
+				.extracting(record -> record.id())
+				.containsExactlyInAnyOrder(firstDraft.id(), secondDraft.id());
 		assertThat(recordService.getRecords(user.getId(), firstActivity.getId(), secondTemplate.getId(), RecordStatus.DRAFT))
-			.extracting(record -> record.title())
-			.containsExactly("두 번째 draft");
+				.extracting(record -> record.title())
+				.containsExactly("두 번째 draft");
 		assertThat(recordService.getRecords(user.getId(), null, null, RecordStatus.COMPLETED))
-			.extracting(record -> record.id())
-			.containsExactly(completed.id());
+				.extracting(record -> record.id())
+				.containsExactly(completed.id());
 		assertThat(recordService.getRecords(user.getId(), null, null, RecordStatus.COMPLETED))
-			.extracting(record -> record.title())
-			.containsExactly("완료 기록");
+				.extracting(record -> record.title())
+				.containsExactly("완료 기록");
 	}
 
 	private User createUser() {
 		return userRepository.save(User.of(
-			UUID.randomUUID() + "@test.com",
-			"encoded-password",
-			"테스터",
-			true,
-			true,
-			false
+				UUID.randomUUID() + "@test.com",
+				"encoded-password",
+				"테스터",
+				true,
+				true,
+				false
 		));
 	}
 
 	private Activity createActivity(User user, String title) {
 		ActivityType activityType = activityTypeRepository.save(ActivityType.create(user, "프로젝트"));
 		return activityRepository.save(Activity.create(
-			user,
-			activityType,
-			title,
-			"설명",
-			LocalDate.now(),
-			null,
-			true
+				user,
+				activityType,
+				title,
+				"설명",
+				LocalDate.now(),
+				null,
+				true
 		));
 	}
 
