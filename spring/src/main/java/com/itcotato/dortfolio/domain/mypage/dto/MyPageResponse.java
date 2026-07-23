@@ -12,7 +12,7 @@ public record MyPageResponse(
         return new MyPageResponse(
                 user.getNickname(),
                 user.getEmail(),
-                null,
+                user.getProfileImageUrl(),
                 desiredJob
         );
     }

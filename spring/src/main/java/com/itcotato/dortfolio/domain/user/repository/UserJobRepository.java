@@ -16,6 +16,10 @@ public interface UserJobRepository extends JpaRepository<UserJob, Long> {
 
     Optional<UserJob> findByUserIdAndJobId(UUID userId, UUID jobId);
 
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE UserJob uj SET uj.isPrimary = false WHERE uj.user.id = :userId AND uj.isPrimary = true")
+    void resetPrimaryByUserId(@Param("userId") UUID userId);
+
     @Modifying
     @Query("DELETE FROM UserJob uj WHERE uj.user.id = :userId")
     void deleteAllByUserId(@Param("userId") UUID userId);

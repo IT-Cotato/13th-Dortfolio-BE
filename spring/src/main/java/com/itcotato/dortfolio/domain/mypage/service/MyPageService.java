@@ -48,8 +48,7 @@ public class MyPageService {
         Job job = jobRepository.findById(request.jobId())
                 .orElseThrow(() -> new CustomException(JobErrorCode.JOB_NOT_FOUND));
 
-        userJobRepository.findByUserIdAndIsPrimaryTrue(userId)
-                .ifPresent(userJob -> userJob.changePrimary(false));
+        userJobRepository.resetPrimaryByUserId(userId);
 
         userJobRepository.findByUserIdAndJobId(userId, request.jobId())
                 .ifPresentOrElse(
