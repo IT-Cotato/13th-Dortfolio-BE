@@ -69,8 +69,12 @@ public class ActivityTemplateService {
 	}
 
 	private Activity validateActivityAccess(UUID userId, UUID activityId) {
-		return activityRepository.findByIdAndUser_Id(activityId, userId)
+		Activity activity = activityRepository.findByIdAndUser_Id(activityId, userId)
 			.orElseThrow(() -> new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE));
+		if (activity.isDeleted()) {
+			throw new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE);
+		}
+		return activity;
 	}
 
 	private void validateSelection(List<UUID> templateIds) {

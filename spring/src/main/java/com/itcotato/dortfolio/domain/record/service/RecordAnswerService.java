@@ -107,6 +107,10 @@ public class RecordAnswerService {
 			});
 	}
 
+	public void deleteAnswers(UUID recordId) {
+		recordAnswerRepository.deleteAllByRecord_Id(recordId);
+	}
+
 	private RecordAnswer toRecordAnswer(Record record, TemplateQuestion question, String answerText) {
 		return RecordAnswer.builder()
 			.record(record)

@@ -2,6 +2,7 @@ package com.itcotato.dortfolio.domain.record.controller;
 
 import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordUpdateRequest;
+import com.itcotato.dortfolio.domain.record.dto.res.RecordPageResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordSummaryResponse;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
@@ -66,13 +67,18 @@ public class RecordController {
 	}
 
 	@GetMapping("/records")
-	public ApiResponse<List<RecordSummaryResponse>> getRecords(
+	public ApiResponse<RecordPageResponse> getRecords(
 		@RequestParam UUID userId,
 		@RequestParam(required = false) UUID activityId,
 		@RequestParam(required = false) UUID templateId,
-		@RequestParam(required = false) RecordStatus status
+		@RequestParam(required = false) RecordStatus status,
+		@RequestParam(defaultValue = "0") int page,
+		@RequestParam(required = false) Integer size
 	) {
-		return ApiResponse.success("기록 목록을 조회했습니다.", recordService.getRecords(userId, activityId, templateId, status));
+		return ApiResponse.success(
+			"기록 목록을 조회했습니다.",
+			recordService.getRecordPage(userId, activityId, templateId, status, page, size)
+		);
 	}
 
 	@GetMapping("/records/recent")
@@ -96,5 +102,14 @@ public class RecordController {
 	) {
 		recordService.restoreRecord(userId, recordId);
 		return ApiResponse.success("기록을 복구했습니다.");
+	}
+
+	@DeleteMapping("/records/{recordId}/permanent")
+	public ApiResponse<Void> permanentlyDeleteRecord(
+		@RequestParam UUID userId,
+		@PathVariable UUID recordId
+	) {
+		recordService.permanentlyDeleteRecord(userId, recordId);
+		return ApiResponse.success("기록을 영구 삭제했습니다.");
 	}
 }

@@ -3,7 +3,6 @@ package com.itcotato.dortfolio.domain.record.dto.req;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 
@@ -18,7 +17,6 @@ public record RecordUpdateRequest(
 	@Valid
 	List<RecordMemoRequest> memos,
 
-	@NotNull(message = "기록 상태는 필수입니다.")
 	RecordStatus status
 ) {
 	public List<RecordAnswerRequest> answersOrEmpty() {

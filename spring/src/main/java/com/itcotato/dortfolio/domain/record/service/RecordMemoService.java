@@ -82,6 +82,10 @@ public class RecordMemoService {
 			.toList();
 	}
 
+	public void deleteRecordMemos(UUID recordId) {
+		recordMemoRepository.deleteAllByRecord_Id(recordId);
+	}
+
 	private void saveRecordMemos(
 		Record record,
 		List<RecordMemoRequest> memoRequests,

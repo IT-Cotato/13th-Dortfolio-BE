@@ -9,5 +9,9 @@ public interface RecordRepositoryCustom {
 
 	List<Record> searchRecords(UUID userId, RecordSearchCondition condition);
 
+	List<Record> searchRecords(UUID userId, RecordSearchCondition condition, int page, int size);
+
+	long countRecords(UUID userId, RecordSearchCondition condition);
+
 	List<Record> findRecentRecords(UUID userId, int limit);
 }

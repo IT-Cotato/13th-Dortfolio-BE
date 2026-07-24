@@ -7,6 +7,7 @@ import com.itcotato.dortfolio.domain.record.dto.req.RecordSearchCondition;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordUpdateRequest;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordAnswerResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordMemoResponse;
+import com.itcotato.dortfolio.domain.record.dto.res.RecordPageResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordSummaryResponse;
 import com.itcotato.dortfolio.domain.record.entity.Record;
@@ -28,6 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class RecordService {
+
+    private static final int DEFAULT_RECORD_PAGE_SIZE = 7;
 
     private final RecordRepository recordRepository;
     private final UserRepository userRepository;
@@ -54,7 +57,7 @@ public class RecordService {
 
         recordAnswerService.createAnswers(record, template, request.answersOrEmpty());
         recordMemoService.createRecordMemos(userId, record, request.memosOrEmpty());
-        applyStatus(record, request.status());
+        applyStatus(record, request.statusOrDraft());
 
         return toRecordResponse(record);
     }
@@ -74,7 +77,7 @@ public class RecordService {
         record.updateTitle(request.title());
         recordAnswerService.replaceAnswers(record, request.answersOrEmpty());
         recordMemoService.replaceMemos(userId, record, request.memosOrEmpty());
-        applyStatus(record, request.status());
+        applyStatus(record, request.status() == null ? record.getStatus() : request.status());
 
         return toRecordResponse(record);
     }
@@ -98,6 +101,28 @@ public class RecordService {
     }
 
     @Transactional(readOnly = true)
+    public RecordPageResponse getRecordPage(
+            UUID userId,
+            UUID activityId,
+            UUID templateId,
+            RecordStatus status,
+            int page,
+            Integer size
+    ) {
+        validateSearchFilters(userId, activityId, templateId);
+        int pageSize = size == null ? DEFAULT_RECORD_PAGE_SIZE : size;
+        validatePageRequest(page, pageSize);
+
+        RecordSearchCondition condition = RecordSearchCondition.of(activityId, templateId, status);
+        List<RecordSummaryResponse> content = recordRepository.searchRecords(userId, condition, page, pageSize).stream()
+                .map(RecordSummaryResponse::from)
+                .toList();
+        long totalElements = recordRepository.countRecords(userId, condition);
+
+        return RecordPageResponse.of(content, page, pageSize, totalElements);
+    }
+
+    @Transactional(readOnly = true)
     public List<RecordSummaryResponse> getRecentRecords(UUID userId) {
         return recordRepository.findRecentRecords(userId, recordProperties.recentRecordLimit()).stream()
                 .map(RecordSummaryResponse::from)
@@ -110,6 +135,19 @@ public class RecordService {
 
         recordMemoService.decreaseUseCounts(record);
         record.markDeleted(recordProperties.deleteGracePeriodDays());
+    }
+
+    @Transactional
+    public void permanentlyDeleteRecord(UUID userId, UUID recordId) {
+        Record record = recordRepository.findByIdAndUser_Id(recordId, userId)
+                .orElseThrow(() -> new CustomException(RecordErrorCode.RECORD_NOT_FOUND));
+
+        if (!record.isDeleted()) {
+            recordMemoService.decreaseUseCounts(record);
+        }
+        recordMemoService.deleteRecordMemos(recordId);
+        recordAnswerService.deleteAnswers(recordId);
+        recordRepository.delete(record);
     }
 
     @Transactional
@@ -155,6 +193,12 @@ public class RecordService {
 
         if (templateId != null) {
             recordValidator.getReadableActiveTemplateOrThrow(userId, templateId);
+        }
+    }
+
+    private void validatePageRequest(int page, int size) {
+        if (page < 0 || size <= 0) {
+            throw new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE);
         }
     }
 

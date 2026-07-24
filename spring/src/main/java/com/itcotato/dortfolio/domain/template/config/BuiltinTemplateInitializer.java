@@ -13,6 +13,13 @@ import org.springframework.context.annotation.Configuration;
 @RequiredArgsConstructor
 public class BuiltinTemplateInitializer {
 
+	public static final List<String> DEFAULT_TEMPLATE_CODES = List.of(
+		"IDEA_PLANNING",
+		"COLLABORATION_CONFLICT",
+		"PROBLEM_SOLVING_RESULT",
+		"IMMERSION_CHALLENGE"
+	);
+
 	private final TemplateRepository templateRepository;
 
 	@Bean
@@ -31,51 +38,51 @@ public class BuiltinTemplateInitializer {
 
 	private List<DefaultTemplate> defaultTemplates() {
 		return List.of(
-			new DefaultTemplate(
-				"PROJECT_EXPERIENCE",
-				1,
-				"프로젝트 경험",
-				"프로젝트 활동을 정리하는 템플릿",
-				List.of(
-					new DefaultQuestion("PROJECT_EXPERIENCE_WORK", "진행한 일", "맡은 역할과 작업을 적어주세요.", true),
-					new DefaultQuestion("PROJECT_EXPERIENCE_PROBLEM", "문제 상황", "어려웠던 점을 적어주세요.", false),
-					new DefaultQuestion("PROJECT_EXPERIENCE_SOLUTION", "해결 방법", "어떻게 해결했는지 적어주세요.", true)
+				new DefaultTemplate(
+					"IDEA_PLANNING",
+					1,
+					"아이디어·기획",
+					"아이디어와 기획 과정을 정리하는 템플릿",
+					List.of(
+						new DefaultQuestion("IDEA_PLANNING_BACKGROUND", "배경", "아이디어가 나온 배경을 적어주세요.", true),
+						new DefaultQuestion("IDEA_PLANNING_IDEA", "아이디어", "기획한 아이디어를 적어주세요.", true),
+						new DefaultQuestion("IDEA_PLANNING_PLAN", "실행 계획", "구체적인 실행 계획을 적어주세요.", false)
+					)
+				),
+				new DefaultTemplate(
+					"COLLABORATION_CONFLICT",
+					1,
+					"협업·갈등",
+					"협업과 갈등 해결 경험을 정리하는 템플릿",
+					List.of(
+						new DefaultQuestion("COLLABORATION_CONFLICT_SITUATION", "상황", "협업 상황을 적어주세요.", true),
+						new DefaultQuestion("COLLABORATION_CONFLICT_ACTION", "대응", "갈등이나 협업 이슈에 어떻게 대응했는지 적어주세요.", true),
+						new DefaultQuestion("COLLABORATION_CONFLICT_LESSON", "배운 점", "협업을 통해 배운 점을 적어주세요.", false)
+					)
+				),
+				new DefaultTemplate(
+					"PROBLEM_SOLVING_RESULT",
+					1,
+					"문제해결·성과",
+					"문제 해결 과정과 성과를 정리하는 템플릿",
+					List.of(
+						new DefaultQuestion("PROBLEM_SOLVING_RESULT_PROBLEM", "문제", "해결해야 했던 문제를 적어주세요.", true),
+						new DefaultQuestion("PROBLEM_SOLVING_RESULT_SOLUTION", "해결 과정", "문제를 해결한 과정을 적어주세요.", true),
+						new DefaultQuestion("PROBLEM_SOLVING_RESULT_OUTCOME", "성과", "결과와 성과를 적어주세요.", true)
+					)
+				),
+				new DefaultTemplate(
+					"IMMERSION_CHALLENGE",
+					1,
+					"몰입·도전",
+					"몰입과 도전 경험을 정리하는 템플릿",
+					List.of(
+						new DefaultQuestion("IMMERSION_CHALLENGE_GOAL", "목표", "도전한 목표를 적어주세요.", true),
+						new DefaultQuestion("IMMERSION_CHALLENGE_EFFORT", "몰입 과정", "몰입해서 노력한 과정을 적어주세요.", true),
+						new DefaultQuestion("IMMERSION_CHALLENGE_GROWTH", "성장", "도전 후 성장한 점을 적어주세요.", false)
+					)
 				)
-			),
-			new DefaultTemplate(
-				"PROBLEM_SOLVING",
-				1,
-				"문제 해결",
-				"문제와 해결 과정을 정리하는 템플릿",
-				List.of(
-					new DefaultQuestion("PROBLEM_SOLVING_DEFINITION", "문제 정의", "해결해야 했던 문제를 적어주세요.", true),
-					new DefaultQuestion("PROBLEM_SOLVING_TRY", "시도한 방법", "시도한 접근을 적어주세요.", true),
-					new DefaultQuestion("PROBLEM_SOLVING_RESULT", "결과", "결과와 배운 점을 적어주세요.", true)
-				)
-			),
-			new DefaultTemplate(
-				"COLLABORATION",
-				1,
-				"협업 경험",
-				"팀 활동과 소통 경험을 정리하는 템플릿",
-				List.of(
-					new DefaultQuestion("COLLABORATION_SITUATION", "상황", "협업 상황을 적어주세요.", true),
-					new DefaultQuestion("COLLABORATION_CONTRIBUTION", "기여", "내가 기여한 부분을 적어주세요.", true),
-					new DefaultQuestion("COLLABORATION_LESSON", "배운 점", "협업을 통해 배운 점을 적어주세요.", false)
-				)
-			),
-			new DefaultTemplate(
-				"RETROSPECTIVE",
-				1,
-				"회고",
-				"활동 후 회고를 남기는 템플릿",
-				List.of(
-					new DefaultQuestion("RETROSPECTIVE_GOOD", "잘한 점", "잘했다고 생각한 점을 적어주세요.", true),
-					new DefaultQuestion("RETROSPECTIVE_IMPROVE", "아쉬운 점", "개선하고 싶은 점을 적어주세요.", true),
-					new DefaultQuestion("RETROSPECTIVE_NEXT", "다음 목표", "다음에 시도할 일을 적어주세요.", false)
-				)
-			)
-		);
+			);
 	}
 
 	private record DefaultTemplate(

@@ -15,6 +15,7 @@ import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordMemoRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordUpdateRequest;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordAnswerResponse;
+import com.itcotato.dortfolio.domain.record.dto.res.RecordPageResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordResponse;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
 import com.itcotato.dortfolio.domain.record.repository.RecordAnswerRepository;
@@ -148,7 +149,26 @@ class RecordServiceTest {
 		)))
 				.isInstanceOf(CustomException.class)
 				.extracting("errorCode")
-				.isEqualTo(RecordErrorCode.RECORD_REQUIRED_ANSWER_MISSING);
+					.isEqualTo(RecordErrorCode.RECORD_REQUIRED_ANSWER_MISSING);
+	}
+
+	@Test
+	void createRecordDefaultsToDraftWhenStatusIsMissing() {
+		User user = createUser();
+		Activity activity = createActivity(user, "도트폴리오");
+		Template template = createTemplate(user, "문제 해결", true);
+		connectTemplate(activity, template);
+
+		RecordResponse response = recordService.createRecord(user.getId(), new RecordCreateRequest(
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(),
+				null
+		));
+
+		assertThat(response.status()).isEqualTo(RecordStatus.DRAFT.name());
 	}
 
 	@Test
@@ -301,6 +321,31 @@ class RecordServiceTest {
 
 		assertThat(memoRepository.findById(memo.getId()).orElseThrow().getUseCount()).isEqualTo(1);
 		assertThat(recordService.getRecords(user.getId(), null, null, null)).hasSize(1);
+	}
+
+	@Test
+	void permanentlyDeleteRecordRemovesRecordAndChildren() {
+		User user = createUser();
+		Activity activity = createActivity(user, "도트폴리오");
+		Template template = createTemplate(user, "문제 해결", false);
+		connectTemplate(activity, template);
+		Memo memo = createMemo(user, activity);
+		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(new RecordMemoRequest(memo.getId(), false)),
+				RecordStatus.DRAFT
+		));
+		recordService.deleteRecord(user.getId(), draft.id());
+
+		recordService.permanentlyDeleteRecord(user.getId(), draft.id());
+
+		assertThat(recordRepository.findById(draft.id())).isEmpty();
+		assertThat(recordAnswerRepository.findAllByRecord_IdOrderBySortOrderAsc(draft.id())).isEmpty();
+		assertThat(recordMemoRepository.findAllByRecord_IdOrderBySortOrderAsc(draft.id())).isEmpty();
+		assertThat(memoRepository.findById(memo.getId()).orElseThrow().getUseCount()).isZero();
 	}
 
 	@Test
@@ -510,8 +555,37 @@ class RecordServiceTest {
 				.extracting(record -> record.id())
 				.containsExactly(completed.id());
 		assertThat(recordService.getRecords(user.getId(), null, null, RecordStatus.COMPLETED))
-				.extracting(record -> record.title())
-				.containsExactly("완료 기록");
+					.extracting(record -> record.title())
+					.containsExactly("완료 기록");
+	}
+
+	@Test
+	void getRecordPageReturnsSevenRecordsPerPageByDefault() {
+		User user = createUser();
+		Activity activity = createActivity(user, "도트폴리오");
+		Template template = createTemplate(user, "문제 해결", false);
+		connectTemplate(activity, template);
+		for (int index = 1; index <= 8; index++) {
+			recordService.createRecord(user.getId(), new RecordCreateRequest(
+					activity.getId(),
+					template.getId(),
+					"기록 " + index,
+					List.of(),
+					List.of(),
+					RecordStatus.DRAFT
+			));
+		}
+
+		RecordPageResponse firstPage = recordService.getRecordPage(user.getId(), null, null, null, 0, null);
+		RecordPageResponse secondPage = recordService.getRecordPage(user.getId(), null, null, null, 1, null);
+
+		assertThat(firstPage.content()).hasSize(7);
+		assertThat(firstPage.totalElements()).isEqualTo(8);
+		assertThat(firstPage.totalPages()).isEqualTo(2);
+		assertThat(firstPage.first()).isTrue();
+		assertThat(firstPage.last()).isFalse();
+		assertThat(secondPage.content()).hasSize(1);
+		assertThat(secondPage.last()).isTrue();
 	}
 
 	private User createUser() {

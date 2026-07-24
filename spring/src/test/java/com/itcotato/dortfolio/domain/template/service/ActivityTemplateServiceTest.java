@@ -182,8 +182,25 @@ class ActivityTemplateServiceTest {
 				new ActivityTemplateUpdateRequest(List.of(otherUserTemplate.id()))
 		))
 				.isInstanceOf(CustomException.class)
-				.extracting("errorCode")
-				.isEqualTo(TemplateErrorCode.TEMPLATE_FORBIDDEN);
+					.extracting("errorCode")
+					.isEqualTo(TemplateErrorCode.TEMPLATE_FORBIDDEN);
+	}
+
+	@Test
+	void updateActivityTemplatesRejectsDeletedActivity() {
+		User user = createUser();
+		UUID userId = user.getId();
+		Activity activity = createActivity(user);
+		TemplateResponse template = createTemplate(userId, "템플릿");
+		activity.markDeleted(30);
+		activityRepository.save(activity);
+
+		assertThatThrownBy(() -> activityTemplateService.updateActivityTemplates(
+				userId,
+				activity.getId(),
+				new ActivityTemplateUpdateRequest(List.of(template.id()))
+		))
+				.isInstanceOf(CustomException.class);
 	}
 
 	private TemplateResponse createTemplate(UUID userId, String title) {
