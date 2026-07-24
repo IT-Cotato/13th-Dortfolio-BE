@@ -42,6 +42,12 @@ public class SecurityConfig {
             "/swagger-ui.html"
     };
 
+    private static final String[] PUBLIC_AUTH_PATHS = {
+            "/api/auth/signup",
+            "/api/auth/login",
+            "/api/auth/password-reset/**"
+    };
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -62,9 +68,10 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(SWAGGER_PATHS).permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(PUBLIC_AUTH_PATHS).permitAll()
                         .requestMatchers("/login/oauth2/**", "/oauth2/**").permitAll()
-                        .anyRequest().authenticated())
+                        .anyRequest().authenticated()
+                )
 
                 .oauth2Login(oauth2 -> oauth2
                         .authorizationEndpoint(authorization -> authorization

@@ -174,6 +174,7 @@ public class RecordService {
         Record record = recordRepository.findByIdAndUser_IdAndDeletedAtIsNull(recordId, userId)
                 .orElseThrow(() -> new CustomException(RecordErrorCode.RECORD_NOT_FOUND));
         if (record.getActivity().isDeleted() || record.getTemplate().isDeleted()) {
+            throw new CustomException(RecordErrorCode.RECORD_NOT_FOUND);
         }
         return record;
     }

@@ -10,6 +10,7 @@ spring:
 
 jwt:
   secret: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
+  salt: 0123456789abcdef0123456789abcdef
   access-expiration: 1800000
   refresh-expiration: 1209600000
 
