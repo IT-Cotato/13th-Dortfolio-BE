@@ -20,7 +20,15 @@ public interface TemplateRepository extends JpaRepository<Template, UUID> {
 		from Template t
 		where t.deletedAt is null
 			and (t.isBuiltin = true or t.user.id = :userId)
-		order by t.isBuiltin desc, t.createdAt desc
+		order by t.isBuiltin desc,
+			case t.builtinCode
+				when 'IDEA_PLANNING' then 1
+				when 'COLLABORATION_CONFLICT' then 2
+				when 'PROBLEM_SOLVING_RESULT' then 3
+				when 'IMMERSION_CHALLENGE' then 4
+				else 5
+			end,
+			t.createdAt desc
 		""")
 	List<Template> findAvailableTemplates(@Param("userId") UUID userId);
 

@@ -9,15 +9,13 @@ import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.repository.ActivityTemplateRepository;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
+import com.itcotato.dortfolio.global.exception.types.TemplateErrorCode;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
-
-import com.itcotato.dortfolio.global.exception.types.GlobalErrorCode;
-import com.itcotato.dortfolio.global.exception.types.TemplateErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,9 +68,9 @@ public class ActivityTemplateService {
 
 	private Activity validateActivityAccess(UUID userId, UUID activityId) {
 		Activity activity = activityRepository.findByIdAndUser_Id(activityId, userId)
-			.orElseThrow(() -> new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE));
+			.orElseThrow(() -> new CustomException(TemplateErrorCode.TEMPLATE_ACTIVITY_NOT_FOUND));
 		if (activity.isDeleted()) {
-			throw new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE);
+			throw new CustomException(TemplateErrorCode.TEMPLATE_ACTIVITY_NOT_FOUND);
 		}
 		return activity;
 	}

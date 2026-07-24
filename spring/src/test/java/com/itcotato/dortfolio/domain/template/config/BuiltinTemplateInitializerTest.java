@@ -2,11 +2,22 @@ package com.itcotato.dortfolio.domain.template.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.itcotato.dortfolio.domain.activity.entity.Activity;
+import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
+import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
+import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
+import com.itcotato.dortfolio.domain.template.entity.ActivityTemplate;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
 import com.itcotato.dortfolio.domain.template.repository.ActivityTemplateRepository;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
+import com.itcotato.dortfolio.domain.user.entity.User;
+import com.itcotato.dortfolio.domain.user.repository.UserRepository;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,12 +37,24 @@ class BuiltinTemplateInitializerTest {
 	private ActivityTemplateRepository activityTemplateRepository;
 
 	@Autowired
+	private ActivityRepository activityRepository;
+
+	@Autowired
+	private ActivityTypeRepository activityTypeRepository;
+
+	@Autowired
+	private UserRepository userRepository;
+
+	@Autowired
 	private ApplicationRunner initializeBuiltinTemplates;
 
 	@BeforeEach
 	void setUp() {
 		activityTemplateRepository.deleteAll();
 		templateRepository.deleteAll();
+		activityRepository.deleteAll();
+		activityTypeRepository.deleteAll();
+		userRepository.deleteAll();
 	}
 
 	@Test
@@ -85,7 +108,107 @@ class BuiltinTemplateInitializerTest {
 		assertThat(templateRepository.findAll().stream()
 			.filter(Template::isBuiltin)
 			.map(Template::getTitle))
-			.containsExactlyInAnyOrder("아이디어·기획", "협업·갈등", "문제해결·성과", "몰입·도전");
+				.containsExactlyInAnyOrder("아이디어·기획", "협업·갈등", "문제해결·성과", "몰입·도전");
+	}
+
+	@Test
+	void initializeBuiltinTemplatesRetiresOldDefaultTemplates() throws Exception {
+		templateRepository.save(Template.createBuiltin("PROJECT_EXPERIENCE", 1, "프로젝트 경험", "이전 기본 템플릿"));
+		templateRepository.save(Template.createBuiltin("PROBLEM_SOLVING", 1, "문제 해결", "이전 기본 템플릿"));
+		templateRepository.save(Template.createBuiltin("COLLABORATION", 1, "협업 경험", "이전 기본 템플릿"));
+		templateRepository.save(Template.createBuiltin("RETROSPECTIVE", 1, "회고", "이전 기본 템플릿"));
+
+		initializeBuiltinTemplates.run(new DefaultApplicationArguments());
+
+		assertThat(templateRepository.findAll().stream()
+			.filter(Template::isBuiltin)
+			.filter(template -> !template.isDeleted())
+			.map(Template::getBuiltinCode))
+			.containsExactlyInAnyOrderElementsOf(BuiltinTemplateInitializer.DEFAULT_TEMPLATE_CODES);
+		assertThat(templateRepository.findAll().stream()
+			.filter(template -> List.of("PROJECT_EXPERIENCE", "PROBLEM_SOLVING", "COLLABORATION", "RETROSPECTIVE")
+				.contains(template.getBuiltinCode())))
+			.allMatch(Template::isDeleted);
+	}
+
+	@Test
+	void initializeBuiltinTemplatesMigratesActivityConnectionsFromRetiredDefaults() throws Exception {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		List<Template> oldTemplates = templateRepository.saveAll(List.of(
+			Template.createBuiltin("PROJECT_EXPERIENCE", 1, "프로젝트 경험", "이전 기본 템플릿"),
+			Template.createBuiltin("COLLABORATION", 1, "협업 경험", "이전 기본 템플릿"),
+			Template.createBuiltin("PROBLEM_SOLVING", 1, "문제 해결", "이전 기본 템플릿"),
+			Template.createBuiltin("RETROSPECTIVE", 1, "회고", "이전 기본 템플릿")
+		));
+		for (int index = 0; index < oldTemplates.size(); index++) {
+			activityTemplateRepository.save(ActivityTemplate.create(activity, oldTemplates.get(index), index + 1));
+		}
+
+		initializeBuiltinTemplates.run(new DefaultApplicationArguments());
+
+		Map<String, Template> templatesByCode = templateRepository
+			.findAllByBuiltinCodeInAndDeletedAtIsNull(BuiltinTemplateInitializer.DEFAULT_TEMPLATE_CODES)
+			.stream()
+			.collect(java.util.stream.Collectors.toMap(Template::getBuiltinCode, Function.identity()));
+		List<UUID> expectedTemplateIds = BuiltinTemplateInitializer.DEFAULT_TEMPLATE_CODES.stream()
+			.map(code -> templatesByCode.get(code).getId())
+			.toList();
+
+		assertThat(activityTemplateRepository.findAllByActivity_IdOrderBySortOrderAsc(activity.getId()))
+			.extracting(ActivityTemplate::getTemplateId)
+			.containsExactlyElementsOf(expectedTemplateIds);
+		assertThat(templateRepository.findByBuiltinCode("PROJECT_EXPERIENCE").orElseThrow().isDeleted()).isTrue();
+	}
+
+	@Test
+	void initializeBuiltinTemplatesReplacesOnlyRetiredConnectionsWithoutExceedingSelectionLimit() throws Exception {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template firstCustomTemplate = templateRepository.save(Template.createCustom(user, "커스텀1", null));
+		Template secondCustomTemplate = templateRepository.save(Template.createCustom(user, "커스텀2", null));
+		Template thirdCustomTemplate = templateRepository.save(Template.createCustom(user, "커스텀3", null));
+		Template oldTemplate = templateRepository.save(
+			Template.createBuiltin("PROJECT_EXPERIENCE", 1, "프로젝트 경험", "이전 기본 템플릿")
+		);
+		activityTemplateRepository.save(ActivityTemplate.create(activity, firstCustomTemplate, 1));
+		activityTemplateRepository.save(ActivityTemplate.create(activity, secondCustomTemplate, 2));
+		activityTemplateRepository.save(ActivityTemplate.create(activity, thirdCustomTemplate, 3));
+		activityTemplateRepository.save(ActivityTemplate.create(activity, oldTemplate, 4));
+
+		initializeBuiltinTemplates.run(new DefaultApplicationArguments());
+
+		Template ideaPlanningTemplate = templateRepository.findByBuiltinCode("IDEA_PLANNING").orElseThrow();
+
+		assertThat(activityTemplateRepository.findAllByActivity_IdOrderBySortOrderAsc(activity.getId()))
+			.extracting(ActivityTemplate::getTemplateId)
+			.containsExactly(
+				firstCustomTemplate.getId(),
+				secondCustomTemplate.getId(),
+				thirdCustomTemplate.getId(),
+				ideaPlanningTemplate.getId()
+			);
+	}
+
+	private User createUser() {
+		return userRepository.save(User.of(
+			UUID.randomUUID() + "@test.com",
+			"encoded-password",
+			"테스터"
+		));
+	}
+
+	private Activity createActivity(User user) {
+		ActivityType activityType = activityTypeRepository.save(ActivityType.create(user, "프로젝트"));
+		return activityRepository.save(Activity.create(
+			user,
+			activityType,
+			"도트폴리오",
+			"설명",
+			LocalDate.now(),
+			null,
+			true
+		));
 	}
 
 }
