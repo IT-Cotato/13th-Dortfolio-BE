@@ -28,6 +28,10 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 50)
     private String nickname;
 
+    // 프로필 이미지 URL
+    @Column(name = "profile_image_url")
+    private String profileImageUrl;
+
     // 권한 정보
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -75,6 +79,16 @@ public class User extends BaseEntity {
         );
     }
 
+    // 프로필 정보 수정 메서드
+    public void updateProfile(String nickname, String profileImageUrl) {
+        if (nickname != null && !nickname.isBlank()) {
+            this.nickname = nickname;
+        }
+        if (profileImageUrl != null) {
+            this.profileImageUrl = profileImageUrl;
+        }
+    }
+
     public void updatePassword(String encodedPassword) {
         this.password = encodedPassword;
     }
@@ -82,5 +96,7 @@ public class User extends BaseEntity {
     public boolean isLocalUser() {
         return "LOCAL".equalsIgnoreCase(this.provider);
     }
+
+
 
 }

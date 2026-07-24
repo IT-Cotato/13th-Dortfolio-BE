@@ -14,6 +14,9 @@ import com.itcotato.dortfolio.global.exception.ErrorCode;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.IntStream;
+
+import com.itcotato.dortfolio.global.exception.types.GlobalErrorCode;
+import com.itcotato.dortfolio.global.exception.types.TemplateErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,22 +70,22 @@ public class TemplateService {
 
 	private Template getActiveTemplate(UUID templateId) {
 		return templateRepository.findByIdAndDeletedAtIsNull(templateId)
-			.orElseThrow(() -> new CustomException(ErrorCode.TEMPLATE_NOT_FOUND));
+			.orElseThrow(() -> new CustomException(TemplateErrorCode.TEMPLATE_NOT_FOUND));
 	}
 
 	private void validateReadable(Template template, UUID userId) {
 		if (template.isBuiltin() || userId.equals(template.getUserId())) {
 			return;
 		}
-		throw new CustomException(ErrorCode.TEMPLATE_FORBIDDEN);
+		throw new CustomException(TemplateErrorCode.TEMPLATE_FORBIDDEN);
 	}
 
 	private void validateWritable(Template template, UUID userId) {
 		if (template.isBuiltin()) {
-			throw new CustomException(ErrorCode.BUILTIN_TEMPLATE_MODIFICATION_NOT_ALLOWED);
+			throw new CustomException(TemplateErrorCode.BUILTIN_TEMPLATE_MODIFICATION_NOT_ALLOWED);
 		}
 		if (!userId.equals(template.getUserId())) {
-			throw new CustomException(ErrorCode.TEMPLATE_FORBIDDEN);
+			throw new CustomException(TemplateErrorCode.TEMPLATE_FORBIDDEN);
 		}
 	}
 
@@ -102,6 +105,18 @@ public class TemplateService {
 
 	private User getUserOrThrow(UUID userId) {
 		return userRepository.findById(userId)
-			.orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE));
+			.orElseThrow(() -> new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE));
 	}
+
+    @Transactional
+    public TemplateResponse restoreTemplate(UUID userId, UUID templateId) {
+        Template template = templateRepository.findWithQuestionsById(templateId)
+                .orElseThrow(() -> new CustomException(TemplateErrorCode.TEMPLATE_NOT_FOUND));
+
+        validateWritable(template, userId);
+        template.restore();
+
+        return TemplateResponse.from(template);
+    }
+
 }

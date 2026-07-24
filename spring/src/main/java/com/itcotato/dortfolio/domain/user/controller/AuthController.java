@@ -1,24 +1,28 @@
 package com.itcotato.dortfolio.domain.user.controller;
 
+import com.itcotato.dortfolio.domain.user.controller.docs.AuthControllerDocs;
 import com.itcotato.dortfolio.domain.user.dto.*;
 import com.itcotato.dortfolio.domain.user.service.AuthService;
 import com.itcotato.dortfolio.domain.user.service.PasswordResetService;
 import com.itcotato.dortfolio.global.response.ApiResponse;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "인증/인가 (Auth)", description = "회원가입, 로그인, 토큰 재발급 등 인증 관련 API입니다.")
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-public class AuthController {
+public class AuthController implements AuthControllerDocs {
 
     private final AuthService authService;
     private final PasswordResetService passwordResetService;
 
     /* 자체 회원가입 API */
+    @Override
     @PostMapping("/signup")
     public ApiResponse<Void> signUp(
             @Valid
@@ -29,18 +33,43 @@ public class AuthController {
     }
 
     /* 자체 로그인 API */
+    @Override
     @PostMapping("/login")
     public ApiResponse<TokenResponse> login(
             @Valid
-            @RequestBody LoginRequest request
+            @RequestBody LoginRequest request,
+            HttpServletResponse response
     ) {
         return ApiResponse.success(
                 "로그인이 성공적으로 완료되었습니다.",
-                authService.login(request)
+                authService.login(request, response)
         );
     }
 
+    /* 로그아웃 API */
+    @Override
+    @PostMapping("/logout")
+    public ApiResponse<Void> logout(
+            @AuthenticationPrincipal UUID userId,
+            HttpServletResponse response
+    ) {
+        authService.logout(userId, response);
+        return ApiResponse.success("성공적으로 로그아웃되었습니다.");
+    }
+
+    /* 회원 탈퇴 API */
+    @Override
+    @DeleteMapping("/withdraw")
+    public ApiResponse<Void> withdraw(
+            @AuthenticationPrincipal UUID userId,
+            HttpServletResponse response
+    ) {
+        authService.withdraw(userId, response);
+        return ApiResponse.success("회원 탈퇴가 완료되었습니다.");
+    }
+
     /* 비밀번호 재설정 요청 API */
+    @Override
     @PostMapping("/reset-request")
     public ApiResponse<Void> requestPasswordReset(
             @Valid
@@ -51,6 +80,7 @@ public class AuthController {
     }
 
     /* 비밀번호 최종 변경 API */
+    @Override
     @PatchMapping("/reset")
     public ApiResponse<Void> resetPassword(
             @Valid
@@ -59,4 +89,5 @@ public class AuthController {
         passwordResetService.resetPassword(request);
         return ApiResponse.success("비밀번호가 성공적으로 변경되었습니다.");
      }
+
 }

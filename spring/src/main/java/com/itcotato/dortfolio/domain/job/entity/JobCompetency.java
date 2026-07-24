@@ -1,4 +1,4 @@
-package com.itcotato.dortfolio.domain.user.entity;
+package com.itcotato.dortfolio.domain.job.entity;
 
 import com.itcotato.dortfolio.domain.record.entity.CompetencyTag;
 import com.itcotato.dortfolio.global.entity.BaseEntity;

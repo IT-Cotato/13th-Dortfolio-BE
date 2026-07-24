@@ -139,4 +139,6 @@ public class Template extends BaseEntity {
 	public java.util.UUID getUserId() {
 		return user == null ? null : user.getId();
 	}
+
+    public void restore() { this.deletedAt = null; }
 }

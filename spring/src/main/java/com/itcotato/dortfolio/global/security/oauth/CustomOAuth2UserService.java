@@ -1,9 +1,8 @@
-package com.itcotato.dortfolio.domain.user.service;
+package com.itcotato.dortfolio.global.security.oauth;
 
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
-import com.itcotato.dortfolio.global.security.oauth.GoogleUserInfo;
-import com.itcotato.dortfolio.global.security.oauth.OAuth2UserInfo;
+import com.itcotato.dortfolio.global.exception.types.UserErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -12,7 +11,6 @@ import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
-import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,7 +51,10 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         if ("google".equalsIgnoreCase(registrationId)) {
             oAuth2UserInfo = new GoogleUserInfo(attributes);
         } else {
-            throw new OAuth2AuthenticationException(new OAuth2Error("INVALID_PROVIDER"), "지원하지 않는 소셜 로그인 공급자입니다.");
+            throw new OAuth2AuthenticationException(
+                    new OAuth2Error("INVALID_PROVIDER"),
+                    UserErrorCode.UNSUPPORTED_OAUTH_PROVIDER.getMessage()
+            );
         }
 
         // 구글 계정의 이메일 인증 여부 검증
@@ -61,7 +62,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         if (isEmailVerified != null && !isEmailVerified) {
             throw new OAuth2AuthenticationException(
                     new OAuth2Error("UNVERIFIED_EMAIL"),
-                    "인증되지 않은 소셜 계정 이메일입니다. 이메일 인증 후 다시 시도해주세요."
+                    UserErrorCode.UNVERIFIED_SOCIAL_EMAIL.getMessage()
             );
         }
 
@@ -85,7 +86,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                 log.warn("소셜 로그인 충돌 발생 = 기존 가입 방식: {}", existingUser.getProvider());
                 throw new OAuth2AuthenticationException(
                         new OAuth2Error("EMAIL_CONFLICT"),
-                        "이미 다른 방식으로 등록된 이메일입니다. 기존 계정으로 로그인을 이용해주세요."
+                        UserErrorCode.SOCIAL_EMAIL_CONFLICT.getMessage()
                 );
             }
 
@@ -99,10 +100,12 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
             userRepository.save(user);
         }
 
-        return new DefaultOAuth2User(
+        return new CustomOAuth2User(
                 Collections.singleton(new SimpleGrantedAuthority("ROLE_USER")),
                 oAuth2UserInfo.getAttributes(),
-                "email"
+                "email",
+                user.getId(), // DB의 UUID 전달
+                user.getEmail()
         );
     }
 }

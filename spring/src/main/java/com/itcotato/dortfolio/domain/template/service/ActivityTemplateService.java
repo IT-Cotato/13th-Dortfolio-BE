@@ -9,13 +9,15 @@ import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.repository.ActivityTemplateRepository;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
-import com.itcotato.dortfolio.global.exception.ErrorCode;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+
+import com.itcotato.dortfolio.global.exception.types.GlobalErrorCode;
+import com.itcotato.dortfolio.global.exception.types.TemplateErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,15 +70,15 @@ public class ActivityTemplateService {
 
 	private Activity validateActivityAccess(UUID userId, UUID activityId) {
 		return activityRepository.findByIdAndUser_Id(activityId, userId)
-			.orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE));
+			.orElseThrow(() -> new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE));
 	}
 
 	private void validateSelection(List<UUID> templateIds) {
 		if (templateIds.size() > MAX_TEMPLATE_SELECTION_COUNT) {
-			throw new CustomException(ErrorCode.ACTIVITY_TEMPLATE_LIMIT_EXCEEDED);
+			throw new CustomException(TemplateErrorCode.ACTIVITY_TEMPLATE_LIMIT_EXCEEDED);
 		}
 		if (new HashSet<>(templateIds).size() != templateIds.size()) {
-			throw new CustomException(ErrorCode.DUPLICATE_TEMPLATE_SELECTION);
+			throw new CustomException(TemplateErrorCode.DUPLICATE_TEMPLATE_SELECTION);
 		}
 	}
 
@@ -87,7 +89,7 @@ public class ActivityTemplateService {
 			.map(templateId -> {
 				Template template = templates.get(templateId);
 				if (template == null) {
-					throw new CustomException(ErrorCode.TEMPLATE_NOT_FOUND);
+					throw new CustomException(TemplateErrorCode.TEMPLATE_NOT_FOUND);
 				}
 				validateReadable(template, userId);
 				return template;
@@ -142,6 +144,6 @@ public class ActivityTemplateService {
 		if (template.isBuiltin() || userId.equals(template.getUserId())) {
 			return;
 		}
-		throw new CustomException(ErrorCode.TEMPLATE_FORBIDDEN);
+		throw new CustomException(TemplateErrorCode.TEMPLATE_FORBIDDEN);
 	}
 }

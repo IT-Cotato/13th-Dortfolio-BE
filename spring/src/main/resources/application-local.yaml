@@ -68,3 +68,4 @@ logging:
 
 jwt:
   secret: ${JWT_SECRET}
+  salt: ${JWT_SALT}

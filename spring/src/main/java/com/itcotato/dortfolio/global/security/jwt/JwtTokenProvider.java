@@ -1,15 +1,13 @@
-package com.itcotato.dortfolio.global.auth;
+package com.itcotato.dortfolio.global.security.jwt;
 
 import com.itcotato.dortfolio.global.exception.CustomException;
-import com.itcotato.dortfolio.global.exception.ErrorCode;
+import com.itcotato.dortfolio.global.exception.types.UserErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import io.jsonwebtoken.Claims;
@@ -25,6 +23,7 @@ import java.security.Key;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -46,8 +45,8 @@ public class JwtTokenProvider {
         this.refreshExpirationTime = refreshExpirationTime;
     }
 
-    /* 유저 인증 정보를 바탕으로 Access Token 생성 */
-    public String generateAccessToken(Authentication authentication) {
+    /* Access Token 생성 */
+    public String generateAccessToken(Authentication authentication, UUID userId) {
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
@@ -56,8 +55,9 @@ public class JwtTokenProvider {
         Date accessTokenExpiresIn = new Date(now + accessExpirationTime);
 
         return Jwts.builder()
-                .setSubject(authentication.getName())       // 유저 이메일
-                .claim("auth", authorities)                // 유저 권한 (ex. ROLE_USER)
+                .setSubject(authentication.getName())
+                .claim("userId", userId.toString())
+                .claim("auth", authorities)
                 .setExpiration(accessTokenExpiresIn)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
@@ -80,12 +80,7 @@ public class JwtTokenProvider {
         Claims claims = parseClaims(accessToken);
 
         if (claims.get("auth") == null) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE) {
-                @Override
-                public String getMessage() {
-                    return "권한 정보가 없는 유효하지 않은 토큰입니다.";
-                }
-            };
+            throw new CustomException(UserErrorCode.INVALID_AUTHORITY_TOKEN);
         }
 
         Collection<? extends GrantedAuthority> authorities =
@@ -93,8 +88,19 @@ public class JwtTokenProvider {
                         .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());
 
-        UserDetails principal = new User(claims.getSubject(), "", authorities);
-        return new UsernamePasswordAuthenticationToken(principal, "", authorities);
+        String userIdStr = claims.get("userId", String.class);
+        if (userIdStr == null || userIdStr.isBlank()) {
+            throw new CustomException(UserErrorCode.INVALID_AUTHORITY_TOKEN);
+        }
+
+        UUID userId;
+        try {
+            userId = UUID.fromString(userIdStr);
+        } catch (IllegalArgumentException e) {
+            throw new CustomException(UserErrorCode.INVALID_AUTHORITY_TOKEN);
+        }
+
+        return new UsernamePasswordAuthenticationToken(userId, "", authorities);
     }
 
     /* 토큰 유효성 및 만료 기간 검증 */
@@ -103,13 +109,13 @@ public class JwtTokenProvider {
             Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
             return true;
         } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
-            log.info("잘못된 JWT 서명입니다.");
+            log.info("JWT 검증 실패: {}", UserErrorCode.INVALID_TOKEN_SIGNATURE.getMessage());
         } catch (ExpiredJwtException e) {
-            log.info("만료된 JWT 토큰입니다.");
+            log.info("JWT 검증 실패: {}", UserErrorCode.EXPIRED_TOKEN.getMessage());
         } catch (UnsupportedJwtException e) {
-            log.info("지원되지 않는 JWT 토큰입니다.");
+            log.info("JWT 검증 실패: {}", UserErrorCode.UNSUPPORTED_TOKEN.getMessage());
         } catch (IllegalArgumentException e) {
-            log.info("JWT 토큰이 비어있거나 잘못되었습니다.");
+            log.info("JWT 검증 실패: {}", UserErrorCode.EMPTY_TOKEN.getMessage());
         }
         return false;
     }

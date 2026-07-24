@@ -6,8 +6,11 @@ import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.repository.ActivityTemplateRepository;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
-import com.itcotato.dortfolio.global.exception.ErrorCode;
+import com.itcotato.dortfolio.global.exception.types.GlobalErrorCode;
 import java.util.UUID;
+
+import com.itcotato.dortfolio.global.exception.types.RecordErrorCode;
+import com.itcotato.dortfolio.global.exception.types.TemplateErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -21,10 +24,10 @@ public class RecordValidator {
 
 	public Activity getActiveActivityOrThrow(UUID userId, UUID activityId) {
 		Activity activity = activityRepository.findByIdAndUser_Id(activityId, userId)
-			.orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE));
+			.orElseThrow(() -> new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE));
 
 		if (activity.isDeleted()) {
-			throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+			throw new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE);
 		}
 
 		return activity;
@@ -32,18 +35,18 @@ public class RecordValidator {
 
 	public Template getReadableActiveTemplateOrThrow(UUID userId, UUID templateId) {
 		Template template = templateRepository.findByIdAndDeletedAtIsNull(templateId)
-			.orElseThrow(() -> new CustomException(ErrorCode.TEMPLATE_NOT_FOUND));
+			.orElseThrow(() -> new CustomException(TemplateErrorCode.TEMPLATE_NOT_FOUND));
 
 		if (template.isBuiltin() || userId.equals(template.getUserId())) {
 			return template;
 		}
 
-		throw new CustomException(ErrorCode.TEMPLATE_FORBIDDEN);
+		throw new CustomException(TemplateErrorCode.TEMPLATE_FORBIDDEN);
 	}
 
 	public void validateActivityTemplate(UUID activityId, UUID templateId) {
 		if (!activityTemplateRepository.existsByActivity_IdAndTemplate_Id(activityId, templateId)) {
-			throw new CustomException(ErrorCode.RECORD_TEMPLATE_NOT_CONNECTED);
+			throw new CustomException(RecordErrorCode.RECORD_TEMPLATE_NOT_CONNECTED);
 		}
 	}
 }

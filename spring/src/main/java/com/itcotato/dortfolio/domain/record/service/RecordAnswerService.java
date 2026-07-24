@@ -8,7 +8,7 @@ import com.itcotato.dortfolio.domain.record.repository.RecordAnswerRepository;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
 import com.itcotato.dortfolio.global.exception.CustomException;
-import com.itcotato.dortfolio.global.exception.ErrorCode;
+import com.itcotato.dortfolio.global.exception.types.RecordErrorCode;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -57,7 +57,7 @@ public class RecordAnswerService {
 			.toList();
 
 		if (new HashSet<>(requestedQuestionIds).size() != answerRequests.size()) {
-			throw new CustomException(ErrorCode.DUPLICATE_RECORD_ANSWER_SELECTION);
+			throw new CustomException(RecordErrorCode.DUPLICATE_RECORD_ANSWER_SELECTION);
 		}
 
 		Set<UUID> questionIds = activeQuestions(template).stream()
@@ -69,7 +69,7 @@ public class RecordAnswerService {
 			.filter(questionId -> !questionIds.contains(questionId))
 			.findAny()
 			.ifPresent(questionId -> {
-				throw new CustomException(ErrorCode.RECORD_QUESTION_NOT_FOUND);
+				throw new CustomException(RecordErrorCode.RECORD_QUESTION_NOT_FOUND);
 			});
 	}
 
@@ -79,7 +79,7 @@ public class RecordAnswerService {
 			.toList();
 
 		if (new HashSet<>(requestedQuestionIds).size() != answerRequests.size()) {
-			throw new CustomException(ErrorCode.DUPLICATE_RECORD_ANSWER_SELECTION);
+			throw new CustomException(RecordErrorCode.DUPLICATE_RECORD_ANSWER_SELECTION);
 		}
 
 		Set<UUID> snapshotQuestionIds = recordAnswerRepository.findAllByRecord_IdOrderBySortOrderAsc(record.getId()).stream()
@@ -90,7 +90,7 @@ public class RecordAnswerService {
 			.filter(questionId -> !snapshotQuestionIds.contains(questionId))
 			.findAny()
 			.ifPresent(questionId -> {
-				throw new CustomException(ErrorCode.RECORD_QUESTION_NOT_FOUND);
+				throw new CustomException(RecordErrorCode.RECORD_QUESTION_NOT_FOUND);
 			});
 	}
 
@@ -103,7 +103,7 @@ public class RecordAnswerService {
 			.filter(answer -> !hasText(answer.getAnswerText()))
 			.findAny()
 			.ifPresent(answer -> {
-				throw new CustomException(ErrorCode.RECORD_REQUIRED_ANSWER_MISSING);
+				throw new CustomException(RecordErrorCode.RECORD_REQUIRED_ANSWER_MISSING);
 			});
 	}
 

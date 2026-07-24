@@ -1,8 +1,9 @@
 package com.itcotato.dortfolio.global.config;
 
-import com.itcotato.dortfolio.domain.user.service.CustomOAuth2UserService;
-import com.itcotato.dortfolio.global.auth.JwtAuthenticationFilter;
-import com.itcotato.dortfolio.global.auth.JwtTokenProvider;
+import com.itcotato.dortfolio.global.security.handler.CustomAuthenticationEntryPoint;
+import com.itcotato.dortfolio.global.security.jwt.JwtAuthenticationFilter;
+import com.itcotato.dortfolio.global.security.jwt.JwtTokenProvider;
+import com.itcotato.dortfolio.global.security.oauth.CustomOAuth2UserService;
 import com.itcotato.dortfolio.global.security.oauth.HttpCookieOAuth2AuthorizationRequestRepository;
 import com.itcotato.dortfolio.global.security.oauth.OAuth2FailureHandler;
 import com.itcotato.dortfolio.global.security.oauth.OAuth2SuccessHandler;
@@ -17,6 +18,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -28,12 +34,19 @@ public class SecurityConfig {
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final OAuth2FailureHandler oAuth2FailureHandler;
     private final HttpCookieOAuth2AuthorizationRequestRepository httpCookieOAuth2AuthorizationRequestRepository;
+    private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
 
-	private static final String[] SWAGGER_PATHS = {
-		"/swagger-ui/**",
-		"/v3/api-docs/**",
-		"/swagger-ui.html"
-	};
+    private static final String[] SWAGGER_PATHS = {
+            "/swagger-ui/**",
+            "/v3/api-docs/**",
+            "/swagger-ui.html"
+    };
+
+    private static final String[] PUBLIC_AUTH_PATHS = {
+            "/api/auth/signup",
+            "/api/auth/login",
+            "/api/auth/password-reset/**"
+    };
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -43,15 +56,22 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(customAuthenticationEntryPoint)
+                )
+
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(SWAGGER_PATHS).permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(PUBLIC_AUTH_PATHS).permitAll()
                         .requestMatchers("/login/oauth2/**", "/oauth2/**").permitAll()
-                        .anyRequest().authenticated())
+                        .anyRequest().authenticated()
+                )
 
                 .oauth2Login(oauth2 -> oauth2
                         .authorizationEndpoint(authorization -> authorization
@@ -65,5 +85,20 @@ public class SecurityConfig {
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)
                 .build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        configuration.setAllowedOriginPatterns(List.of("http://localhost:8080", "http://localhost:3000"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+        configuration.setExposedHeaders(List.of("Set-Cookie", "Authorization"));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }
