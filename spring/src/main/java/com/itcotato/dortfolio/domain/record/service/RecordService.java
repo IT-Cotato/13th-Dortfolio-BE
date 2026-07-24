@@ -12,12 +12,13 @@ import com.itcotato.dortfolio.domain.record.dto.res.RecordResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordSummaryResponse;
 import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
+import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagRepository;
+import com.itcotato.dortfolio.domain.record.repository.RecordEmbeddingRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
-import com.itcotato.dortfolio.global.exception.types.GlobalErrorCode;
 import com.itcotato.dortfolio.global.exception.types.RecordErrorCode;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,9 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RecordService {
 
-    private static final int DEFAULT_RECORD_PAGE_SIZE = 7;
-
     private final RecordRepository recordRepository;
+    private final RecordEmbeddingRepository recordEmbeddingRepository;
+    private final RecordCompetencyTagRepository recordCompetencyTagRepository;
     private final UserRepository userRepository;
     private final RecordAnswerService recordAnswerService;
     private final RecordMemoService recordMemoService;
@@ -83,15 +84,6 @@ public class RecordService {
     }
 
     @Transactional(readOnly = true)
-    public List<RecordSummaryResponse> getActivityRecords(UUID userId, UUID activityId) {
-        recordValidator.getActiveActivityOrThrow(userId, activityId);
-
-        return recordRepository.searchRecords(userId, RecordSearchCondition.of(activityId, null, null)).stream()
-                .map(RecordSummaryResponse::from)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
     public List<RecordSummaryResponse> getRecords(UUID userId, UUID activityId, UUID templateId, RecordStatus status) {
         validateSearchFilters(userId, activityId, templateId);
 
@@ -110,7 +102,7 @@ public class RecordService {
             Integer size
     ) {
         validateSearchFilters(userId, activityId, templateId);
-        int pageSize = size == null ? DEFAULT_RECORD_PAGE_SIZE : size;
+        int pageSize = size == null ? recordProperties.defaultPageSize() : size;
         validatePageRequest(page, pageSize);
 
         RecordSearchCondition condition = RecordSearchCondition.of(activityId, templateId, status);
@@ -143,8 +135,10 @@ public class RecordService {
                 .orElseThrow(() -> new CustomException(RecordErrorCode.RECORD_NOT_FOUND));
 
         if (!record.isDeleted()) {
-            recordMemoService.decreaseUseCounts(record);
+            throw new CustomException(RecordErrorCode.RECORD_PERMANENT_DELETE_NOT_ALLOWED);
         }
+        recordEmbeddingRepository.deleteAllByRecord_Id(recordId);
+        recordCompetencyTagRepository.deleteAllByRecord_Id(recordId);
         recordMemoService.deleteRecordMemos(recordId);
         recordAnswerService.deleteAnswers(recordId);
         recordRepository.delete(record);
@@ -198,7 +192,7 @@ public class RecordService {
 
     private void validatePageRequest(int page, int size) {
         if (page < 0 || size <= 0) {
-            throw new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE);
+            throw new CustomException(RecordErrorCode.RECORD_INVALID_PAGE_REQUEST);
         }
     }
 
@@ -225,6 +219,6 @@ public class RecordService {
 
     private User getUserOrThrow(UUID userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE));
+                .orElseThrow(() -> new CustomException(RecordErrorCode.RECORD_USER_NOT_FOUND));
     }
 }

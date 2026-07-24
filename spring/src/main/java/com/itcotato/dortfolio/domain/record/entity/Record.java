@@ -83,8 +83,12 @@ public class Record extends BaseEntity {
 	}
 
 	public void markDeleted(int gracePeriodDays) {
-		this.deletedAt = LocalDateTime.now();
-		this.deletePendingUntil = LocalDateTime.now().plusDays(gracePeriodDays);
+		if (isDeleted()) {
+			return;
+		}
+		LocalDateTime now = LocalDateTime.now();
+		this.deletedAt = now;
+		this.deletePendingUntil = now.plusDays(gracePeriodDays);
 	}
 
 	public void restore() {
@@ -95,4 +99,5 @@ public class Record extends BaseEntity {
 	public boolean isDeleted() {
 		return deletedAt != null;
 	}
+
 }

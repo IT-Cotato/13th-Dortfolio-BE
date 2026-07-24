@@ -19,7 +19,11 @@ public enum RecordErrorCode implements ErrorCode {
     DUPLICATE_RECORD_MEMO_SELECTION(HttpStatus.BAD_REQUEST, "R008", "같은 메모를 중복 선택할 수 없습니다."),
     DUPLICATE_RECORD_ANSWER_SELECTION(HttpStatus.BAD_REQUEST, "R009", "같은 질문에 대한 답변을 중복 입력할 수 없습니다."),
     RECORD_STATUS_TRANSITION_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "R010", "완료된 기록은 기록 중 상태로 변경할 수 없습니다."),
-    RECORD_RESTORE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "R011", "기록을 복구할 수 없습니다.");
+    RECORD_RESTORE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "R011", "기록을 복구할 수 없습니다."),
+    RECORD_PERMANENT_DELETE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "R012", "삭제된 기록만 영구 삭제할 수 있습니다."),
+    RECORD_INVALID_PAGE_REQUEST(HttpStatus.BAD_REQUEST, "R013", "올바르지 않은 기록 목록 페이지 요청입니다."),
+    RECORD_USER_NOT_FOUND(HttpStatus.NOT_FOUND, "R014", "기록을 요청한 사용자를 찾을 수 없습니다."),
+    RECORD_ACTIVITY_NOT_FOUND(HttpStatus.NOT_FOUND, "R015", "기록에 사용할 활동을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;
