@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
 @RequiredArgsConstructor
@@ -41,17 +42,20 @@ public class BuiltinTemplateInitializer {
 
 	private final TemplateRepository templateRepository;
 	private final ActivityTemplateRepository activityTemplateRepository;
+	private final TransactionTemplate transactionTemplate;
 
 	@Bean
 	ApplicationRunner initializeBuiltinTemplates() {
 		// TODO: Flyway 도입 후 기본 템플릿 seed를 DB migration으로 이관하고 이 initializer를 제거한다.
 		return args -> {
-			List<Template> defaultTemplates = defaultTemplates().stream()
-				.map(this::upsert)
-				.map(templateRepository::save)
-				.toList();
-			migrateRetiredDefaultTemplateConnections(defaultTemplates);
-			retireOldBuiltinTemplates();
+			transactionTemplate.executeWithoutResult(status -> {
+				List<Template> defaultTemplates = defaultTemplates().stream()
+					.map(this::upsert)
+					.map(templateRepository::save)
+					.toList();
+				migrateRetiredDefaultTemplateConnections(defaultTemplates);
+				retireOldBuiltinTemplates();
+			});
 		};
 	}
 

@@ -200,7 +200,9 @@ class ActivityTemplateServiceTest {
 				activity.getId(),
 				new ActivityTemplateUpdateRequest(List.of(template.id()))
 		))
-				.isInstanceOf(CustomException.class);
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(TemplateErrorCode.TEMPLATE_ACTIVITY_NOT_FOUND);
 	}
 
 	private TemplateResponse createTemplate(UUID userId, String title) {
