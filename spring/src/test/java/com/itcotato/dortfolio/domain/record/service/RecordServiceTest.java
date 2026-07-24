@@ -669,6 +669,16 @@ class RecordServiceTest {
 	}
 
 	@Test
+	void getRecordPageRejectsSizeGreaterThanMaxPageSize() {
+		User user = createUser();
+
+		assertThatThrownBy(() -> recordService.getRecordPage(user.getId(), null, null, null, 0, 51))
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(RecordErrorCode.RECORD_INVALID_PAGE_REQUEST);
+	}
+
+	@Test
 	void getRecordPageAndRecentRecordsKeepCreatedAtNewestFirstAfterOlderRecordUpdate() {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");

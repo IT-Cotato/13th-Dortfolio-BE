@@ -23,14 +23,14 @@ public class RecordRepositoryImpl implements RecordRepositoryCustom {
 	@Override
 	public List<Record> searchRecords(UUID userId, RecordSearchCondition condition) {
 		return baseSearchQuery(userId, condition)
-			.orderBy(record.createdAt.desc(), record.updatedAt.desc())
+			.orderBy(record.createdAt.desc(), record.updatedAt.desc(), record.id.desc())
 			.fetch();
 	}
 
 	@Override
 	public List<Record> searchRecords(UUID userId, RecordSearchCondition condition, int page, int size) {
 		return baseSearchQuery(userId, condition)
-			.orderBy(record.createdAt.desc(), record.updatedAt.desc())
+			.orderBy(record.createdAt.desc(), record.updatedAt.desc(), record.id.desc())
 			.offset((long) page * size)
 			.limit(size)
 			.fetch();
@@ -66,7 +66,7 @@ public class RecordRepositoryImpl implements RecordRepositoryCustom {
 				record.activity.deletedAt.isNull(),
 				record.template.deletedAt.isNull()
 			)
-			.orderBy(record.createdAt.desc(), record.updatedAt.desc())
+			.orderBy(record.createdAt.desc(), record.updatedAt.desc(), record.id.desc())
 			.limit(limit)
 			.fetch();
 	}

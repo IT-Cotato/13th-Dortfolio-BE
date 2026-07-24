@@ -191,7 +191,7 @@ public class RecordService {
     }
 
     private void validatePageRequest(int page, int size) {
-        if (page < 0 || size <= 0) {
+        if (page < 0 || size <= 0 || size > recordProperties.maxPageSize()) {
             throw new CustomException(RecordErrorCode.RECORD_INVALID_PAGE_REQUEST);
         }
     }
