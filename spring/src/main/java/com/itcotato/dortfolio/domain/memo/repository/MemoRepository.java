@@ -11,10 +11,15 @@ public interface MemoRepository extends JpaRepository<Memo, UUID> {
 
 	List<Memo> findAllByIdInAndUser_IdAndDeletedAtIsNull(List<UUID> ids, UUID userId);
 
+	List<Memo> findAllByIdInAndUser_Id(List<UUID> ids, UUID userId);
+
 	List<Memo> findAllByUser_IdAndDeletedAtIsNullOrderByCreatedAtDesc(UUID userId);
+
+	// 기능명세서 3.4: 활동 태그별 필터링 조회
+	List<Memo> findAllByUser_IdAndActivity_IdAndDeletedAtIsNullOrderByCreatedAtDesc(UUID userId, UUID activityId);
 
 	Optional<Memo> findByIdAndUser_Id(UUID id, UUID userId);
 
 	// 기능명세서 3. 메모하기: 생성일로부터 30일 지나면 자동 삭제
-	long deleteAllByExpiresAtBefore(LocalDateTime dateTime);
+	List<Memo> findAllByExpiresAtBefore(LocalDateTime dateTime);
 }
