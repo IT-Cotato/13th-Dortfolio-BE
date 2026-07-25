@@ -18,7 +18,7 @@ public interface ActivityControllerDocs {
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "활동 생성 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "G001: 입력값 검증 실패 (제목 누락, 기간 오류 등)"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "ACT002: 존재하지 않는 활동 종류")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "A002: 존재하지 않는 활동 종류")
     })
     ResponseEntity<ApiResponse<UUID>> createActivity(UUID userId, ActivityCreateRequest request);
 
@@ -32,21 +32,21 @@ public interface ActivityControllerDocs {
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "수정 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "G001: 입력값 검증 실패"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "ACT001: 존재하지 않는 활동 / ACT002: 존재하지 않는 활동 종류")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "A001: 존재하지 않는 활동 / A002: 존재하지 않는 활동 종류")
     })
     ResponseEntity<ApiResponse<Void>> updateActivity(UUID userId, UUID activityId, ActivityUpdateRequest request);
 
     @Operation(summary = "활동 보관", description = "활동의 기록을 종료하고 보관 처리합니다.")
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "보관 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "ACT001: 존재하지 않는 활동")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "A001: 존재하지 않는 활동")
     })
     ResponseEntity<ApiResponse<Void>> archiveActivity(UUID userId, UUID activityId);
 
     @Operation(summary = "활동 삭제", description = "활동을 소프트 삭제합니다. 유예기간 내에는 복구할 수 있습니다.")
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "삭제 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "ACT001: 존재하지 않는 활동")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "A001: 존재하지 않는 활동")
     })
     ResponseEntity<ApiResponse<Void>> deleteActivity(UUID userId, UUID activityId);
 }
