@@ -25,11 +25,13 @@ public class Memo extends BaseEntity {
 	@JoinColumn(name = "user_id", nullable = false)
 	private User user;
 
+	// 기능명세서상 활동 태그는 선택 입력이라 nullable
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "activity_id", nullable = false)
+	@JoinColumn(name = "activity_id")
 	private Activity activity;
 
-	@Column(nullable = false)
+	// 기능명세서상 제목은 선택 입력이라 nullable
+	@Column
 	private String title;
 
 	@Lob
@@ -52,10 +54,9 @@ public class Memo extends BaseEntity {
 	private LocalDateTime deletedAt;
 
 	@Column
-	private LocalDateTime deletePendingUntil;
-
-	@Column
 	private LocalDateTime expiresAt;
+
+	private static final int EXPIRE_AFTER_DAYS = 30;
 
 	private Memo(User user, Activity activity, String title, String content, String color, int sortOrder) {
 		this.user = user;
@@ -66,10 +67,18 @@ public class Memo extends BaseEntity {
 		this.sortOrder = sortOrder;
 		this.isImportant = false;
 		this.useCount = 0;
+		this.expiresAt = LocalDateTime.now().plusDays(EXPIRE_AFTER_DAYS);
 	}
 
 	public static Memo create(User user, Activity activity, String title, String content, String color, int sortOrder) {
 		return new Memo(user, activity, title, content, color, sortOrder);
+	}
+
+	// 기능명세서 3.5.4: 메모 수정 시 제목/내용만 변경 가능, 활동 태그는 수정/추가 불가
+	public void update(String title, String content, String color) {
+		this.title = title;
+		this.content = content;
+		this.color = color;
 	}
 
 	public void markImportant(boolean important) {
@@ -84,16 +93,6 @@ public class Memo extends BaseEntity {
 		if (this.useCount > 0) {
 			this.useCount--;
 		}
-	}
-
-	public void markDeleted(int gracePeriodDays) {
-		this.deletedAt = LocalDateTime.now();
-		this.deletePendingUntil = LocalDateTime.now().plusDays(gracePeriodDays);
-	}
-
-	public void restore() {
-		this.deletedAt = null;
-		this.deletePendingUntil = null;
 	}
 
 	public boolean isDeleted() {

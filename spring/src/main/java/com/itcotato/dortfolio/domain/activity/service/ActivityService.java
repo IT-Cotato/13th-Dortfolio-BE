@@ -1,8 +1,8 @@
 package com.itcotato.dortfolio.domain.activity.service;
 
-import com.itcotato.dortfolio.domain.activity.dto.ActivityCreateRequest;
-import com.itcotato.dortfolio.domain.activity.dto.ActivityResponse;
-import com.itcotato.dortfolio.domain.activity.dto.ActivityUpdateRequest;
+import com.itcotato.dortfolio.domain.activity.dto.req.ActivityCreateRequest;
+import com.itcotato.dortfolio.domain.activity.dto.res.ActivityResponse;
+import com.itcotato.dortfolio.domain.activity.dto.req.ActivityUpdateRequest;
 import com.itcotato.dortfolio.domain.activity.entity.Activity;
 import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
