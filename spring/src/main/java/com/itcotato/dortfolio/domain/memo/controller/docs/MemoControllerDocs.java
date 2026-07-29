@@ -52,15 +52,19 @@ public interface MemoControllerDocs {
     })
     ResponseEntity<ApiResponse<Void>> markImportant(UUID userId, UUID memoId, boolean important);
 
-    @Operation(summary = "메모 삭제 (단건/다건)", description = "메모 1개 이상을 한 번에 삭제합니다. 삭제 후에는 복구할 수 없으며, 연결된 이미지도 함께 삭제됩니다.")
+    @Operation(summary = "메모 삭제 (단건/다건)",
+            description = "메모 1개 이상을 한 번에 삭제합니다. 삭제 후에는 복구할 수 없으며, 연결된 이미지도 함께 삭제됩니다. "
+                    + "기록에 연결된 메모는 삭제할 수 없고, 삭제 대상 중 하나라도 해당되면 전체 삭제가 실패합니다.")
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "삭제 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "M004: 기록에 연결된 메모가 포함된 경우"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "M001: 존재하지 않는 메모가 포함된 경우")
     })
     ResponseEntity<ApiResponse<Void>> deleteMemos(UUID userId, List<UUID> memoIds);
 
     @Operation(summary = "활동 사진 업로드 Presigned URL 발급",
-            description = "활동 사진 업로드용 Presigned URL을 발급합니다. JPG, PNG 확장자만 허용합니다. 발급받은 URL로 S3에 직접 업로드한 뒤, 메모 생성 시 imageUrls에 담아 전달하세요.")
+            description = "활동 사진 업로드용 Presigned URL을 발급합니다. JPG, PNG 확장자만 허용합니다. "
+                    + "발급받은 URL로 S3에 직접 업로드한 뒤, 메모 생성 시 images에 imageUrl과 s3Key를 함께 담아 전달하세요.")
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "발급 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "M003: JPG, PNG 외 확장자")
@@ -68,7 +72,7 @@ public interface MemoControllerDocs {
     ResponseEntity<ApiResponse<MemoImagePresignedUrlResponse>> getMemoImagePresignedUrl(
             UUID userId, MemoImagePresignedUrlRequest request);
 
-    @Operation(summary = "활동 사진 삭제", description = "메모에 업로드된 활동 사진을 삭제합니다.")
+    @Operation(summary = "활동 사진 삭제", description = "메모에 업로드된 활동 사진을 삭제합니다. 메타데이터와 S3 객체를 함께 제거합니다.")
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "삭제 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "M002: 존재하지 않는 메모 이미지")

@@ -4,6 +4,7 @@ import com.itcotato.dortfolio.domain.activity.entity.Activity;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.memo.dto.req.MemoCreateRequest;
 import com.itcotato.dortfolio.domain.memo.dto.req.MemoImagePresignedUrlRequest;
+import com.itcotato.dortfolio.domain.memo.dto.req.MemoImageRequest;
 import com.itcotato.dortfolio.domain.memo.dto.req.MemoUpdateRequest;
 import com.itcotato.dortfolio.domain.memo.dto.res.MemoImagePresignedUrlResponse;
 import com.itcotato.dortfolio.domain.memo.dto.res.MemoResponse;
@@ -61,7 +62,7 @@ public class MemoService {
                 DEFAULT_SORT_ORDER
         ));
 
-        saveMemoImages(memo, request.imageUrls());
+        saveMemoImages(memo, request.images());
 
         return memo.getId();
     }
@@ -119,6 +120,11 @@ public class MemoService {
             throw new CustomException(MemoErrorCode.MEMO_NOT_FOUND);
         }
 
+        // 기록에 연결된 메모는 기록 작성의 근거로 쓰였으므로 삭제를 막는다 (하나라도 있으면 전체 실패)
+        if (!memoRepository.findIdsLinkedToRecords(memoIds).isEmpty()) {
+            throw new CustomException(MemoErrorCode.MEMO_LINKED_TO_RECORD);
+        }
+
         deleteMemosWithImages(memos);
     }
 
@@ -126,8 +132,21 @@ public class MemoService {
     @Transactional
     public int deleteExpiredMemos() {
         List<Memo> expiredMemos = memoRepository.findAllByExpiresAtBefore(LocalDateTime.now());
-        deleteMemosWithImages(expiredMemos);
-        return expiredMemos.size();
+
+        if (expiredMemos.isEmpty()) {
+            return 0;
+        }
+
+        // 기록에 연결된 메모는 삭제 정책상 만료되어도 삭제하지 않는다 (FK 제약 위반 방지)
+        Set<UUID> linkedMemoIds = new HashSet<>(
+                memoRepository.findIdsLinkedToRecords(expiredMemos.stream().map(Memo::getId).toList()));
+
+        List<Memo> deletableMemos = expiredMemos.stream()
+                .filter(memo -> !linkedMemoIds.contains(memo.getId()))
+                .toList();
+
+        deleteMemosWithImages(deletableMemos);
+        return deletableMemos.size();
     }
 
     // 메모를 하드 삭제하기 전에 FK로 연결된 이미지를 먼저 정리한다
@@ -137,12 +156,15 @@ public class MemoService {
         }
 
         List<UUID> memoIds = memos.stream().map(Memo::getId).toList();
+        List<MemoImage> memoImages = memoImageRepository.findAllByMemo_IdInOrderBySortOrderAsc(memoIds);
 
         // 이미지 삭제를 먼저 DB에 반영해야 memo_images의 FK 제약에 걸리지 않는다
         memoImageRepository.deleteAllByMemo_IdIn(memoIds);
         memoImageRepository.flush();
 
         memoRepository.deleteAll(memos);
+
+        memoImages.forEach(memoImage -> s3Provider.deleteObject(memoImage.getS3Key()));
     }
 
     /* 활동 사진 업로드 Presigned URL 발급 (기능명세서 3.1.3) */
@@ -153,22 +175,26 @@ public class MemoService {
         return new MemoImagePresignedUrlResponse(result.presignedUrl(), result.s3Key());
     }
 
-    /* 업로드된 활동 사진 삭제 (기능명세서 3.1.4) */
+    /* 업로드된 활동 사진 삭제 (기능명세서 3.1.4): 메타데이터와 S3 객체를 함께 제거 */
     @Transactional
     public void deleteMemoImage(UUID userId, UUID imageId) {
         MemoImage memoImage = memoImageRepository.findByIdAndMemo_User_Id(imageId, userId)
                 .orElseThrow(() -> new CustomException(MemoErrorCode.MEMO_IMAGE_NOT_FOUND));
 
         memoImageRepository.delete(memoImage);
+        s3Provider.deleteObject(memoImage.getS3Key());
     }
 
-    private void saveMemoImages(Memo memo, List<String> imageUrls) {
-        if (imageUrls == null || imageUrls.isEmpty()) {
+    private void saveMemoImages(Memo memo, List<MemoImageRequest> images) {
+        if (images == null || images.isEmpty()) {
             return;
         }
 
-        List<MemoImage> memoImages = IntStream.range(0, imageUrls.size())
-                .mapToObj(index -> MemoImage.create(memo, imageUrls.get(index), index))
+        List<MemoImage> memoImages = IntStream.range(0, images.size())
+                .mapToObj(index -> {
+                    MemoImageRequest image = images.get(index);
+                    return MemoImage.create(memo, image.imageUrl(), image.s3Key(), index);
+                })
                 .toList();
 
         memoImageRepository.saveAll(memoImages);
