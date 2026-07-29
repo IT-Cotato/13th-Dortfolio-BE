@@ -9,18 +9,29 @@ import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
 import com.itcotato.dortfolio.domain.memo.dto.req.MemoCreateRequest;
 import com.itcotato.dortfolio.domain.memo.dto.req.MemoImagePresignedUrlRequest;
+import com.itcotato.dortfolio.domain.memo.dto.req.MemoImageRequest;
 import com.itcotato.dortfolio.domain.memo.dto.req.MemoUpdateRequest;
 import com.itcotato.dortfolio.domain.memo.dto.res.MemoImagePresignedUrlResponse;
 import com.itcotato.dortfolio.domain.memo.dto.res.MemoResponse;
 import com.itcotato.dortfolio.domain.memo.repository.MemoImageRepository;
 import com.itcotato.dortfolio.domain.memo.repository.MemoRepository;
+import com.itcotato.dortfolio.domain.record.entity.Record;
+import com.itcotato.dortfolio.domain.record.entity.RecordMemo;
+import com.itcotato.dortfolio.domain.record.repository.RecordMemoRepository;
+import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
+import com.itcotato.dortfolio.domain.template.entity.Template;
+import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.ActivityErrorCode;
 import com.itcotato.dortfolio.global.exception.types.MemoErrorCode;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @ActiveProfiles("test")
 @SpringBootTest
@@ -53,8 +65,26 @@ class MemoServiceTest {
 	@Autowired
 	private UserRepository userRepository;
 
+	@Autowired
+	private RecordRepository recordRepository;
+
+	@Autowired
+	private RecordMemoRepository recordMemoRepository;
+
+	@Autowired
+	private TemplateRepository templateRepository;
+
+	@PersistenceContext
+	private EntityManager entityManager;
+
+	@Autowired
+	private TransactionTemplate transactionTemplate;
+
 	@BeforeEach
 	void setUp() {
+		recordMemoRepository.deleteAll();
+		recordRepository.deleteAll();
+		templateRepository.deleteAll();
 		memoImageRepository.deleteAll();
 		memoRepository.deleteAll();
 		activityRepository.deleteAll();
@@ -97,7 +127,8 @@ class MemoServiceTest {
 
 		UUID memoId = memoService.createMemo(user.getId(), new MemoCreateRequest(
 				activity.getId(), "제목", "내용", "BLUE",
-				List.of("https://s3/memo/a.png", "https://s3/memo/b.jpg")));
+				List.of(new MemoImageRequest("https://s3/memo/a.png", "memo/a.png"),
+						new MemoImageRequest("https://s3/memo/b.jpg", "memo/b.jpg"))));
 
 		MemoResponse response = memoService.getMemo(user.getId(), memoId);
 		assertThat(response.activityId()).isEqualTo(activity.getId());
@@ -211,7 +242,7 @@ class MemoServiceTest {
 	void deleteMemoAlsoDeletesImages() {
 		UUID userId = createUser().getId();
 		UUID memoId = memoService.createMemo(userId,
-				new MemoCreateRequest(null, null, "내용", null, List.of("https://s3/memo/a.png")));
+				new MemoCreateRequest(null, null, "내용", null, List.of(new MemoImageRequest("https://s3/memo/a.png", "memo/a.png"))));
 
 		memoService.deleteMemos(userId, List.of(memoId));
 
@@ -219,11 +250,76 @@ class MemoServiceTest {
 	}
 
 	@Test
+	@DisplayName("기록에 연결된 메모는 삭제할 수 없다")
+	void cannotDeleteMemoLinkedToRecord() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		UUID memoId = memoService.createMemo(user.getId(),
+				new MemoCreateRequest(activity.getId(), null, "내용", null, null));
+		linkMemoToRecord(user, activity, memoId);
+
+		List<UUID> ids = List.of(memoId);
+
+		assertThatThrownBy(() -> memoService.deleteMemos(user.getId(), ids))
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(MemoErrorCode.MEMO_LINKED_TO_RECORD);
+
+		assertThat(memoRepository.findAll()).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("삭제 대상 중 하나라도 기록에 연결돼 있으면 전체 삭제가 실패한다")
+	void deleteFailsWhenAnyMemoIsLinkedToRecord() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		UUID linked = memoService.createMemo(user.getId(),
+				new MemoCreateRequest(activity.getId(), null, "연결됨", null, null));
+		UUID notLinked = memoService.createMemo(user.getId(),
+				new MemoCreateRequest(activity.getId(), null, "연결 안 됨", null, null));
+		linkMemoToRecord(user, activity, linked);
+
+		List<UUID> ids = List.of(linked, notLinked);
+
+		assertThatThrownBy(() -> memoService.deleteMemos(user.getId(), ids))
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(MemoErrorCode.MEMO_LINKED_TO_RECORD);
+
+		assertThat(memoRepository.findAll()).hasSize(2);
+	}
+
+	@Test
+	@DisplayName("기록에 연결된 메모는 만료되어도 자동 삭제되지 않는다")
+	void expiredMemoLinkedToRecordIsNotDeleted() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		UUID memoId = memoService.createMemo(user.getId(),
+				new MemoCreateRequest(activity.getId(), null, "내용", null, null));
+		linkMemoToRecord(user, activity, memoId);
+		expireMemo(memoId);
+
+		assertThat(memoService.deleteExpiredMemos()).isZero();
+		assertThat(memoRepository.findAll()).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("기록에 연결되지 않은 만료 메모는 자동 삭제된다")
+	void expiredMemoWithoutRecordIsDeleted() {
+		UUID userId = createUser().getId();
+		UUID memoId = memoService.createMemo(userId, new MemoCreateRequest(null, null, "내용", null, null));
+		expireMemo(memoId);
+
+		assertThat(memoService.deleteExpiredMemos()).isEqualTo(1);
+		assertThat(memoRepository.findAll()).isEmpty();
+	}
+
+	@Test
 	@DisplayName("만료되지 않은 메모는 자동 삭제 대상이 아니다")
 	void doesNotDeleteUnexpiredMemos() {
 		UUID userId = createUser().getId();
 		memoService.createMemo(userId,
-				new MemoCreateRequest(null, null, "내용", null, List.of("https://s3/memo/a.png")));
+				new MemoCreateRequest(null, null, "내용", null, List.of(new MemoImageRequest("https://s3/memo/a.png", "memo/a.png"))));
 
 		assertThat(memoService.deleteExpiredMemos()).isZero();
 		assertThat(memoRepository.findAll()).hasSize(1);
@@ -269,7 +365,7 @@ class MemoServiceTest {
 	void deleteMemoImage() {
 		UUID userId = createUser().getId();
 		UUID memoId = memoService.createMemo(userId,
-				new MemoCreateRequest(null, null, "내용", null, List.of("https://s3/memo/a.png")));
+				new MemoCreateRequest(null, null, "내용", null, List.of(new MemoImageRequest("https://s3/memo/a.png", "memo/a.png"))));
 		UUID imageId = memoService.getMemo(userId, memoId).images().get(0).id();
 
 		memoService.deleteMemoImage(userId, imageId);
@@ -283,13 +379,40 @@ class MemoServiceTest {
 		UUID ownerId = createUser().getId();
 		UUID otherId = createUser().getId();
 		UUID memoId = memoService.createMemo(ownerId,
-				new MemoCreateRequest(null, null, "내용", null, List.of("https://s3/memo/a.png")));
+				new MemoCreateRequest(null, null, "내용", null, List.of(new MemoImageRequest("https://s3/memo/a.png", "memo/a.png"))));
 		UUID imageId = memoService.getMemo(ownerId, memoId).images().get(0).id();
 
 		assertThatThrownBy(() -> memoService.deleteMemoImage(otherId, imageId))
 				.isInstanceOf(CustomException.class)
 				.extracting("errorCode")
 				.isEqualTo(MemoErrorCode.MEMO_IMAGE_NOT_FOUND);
+	}
+
+	// 메모를 기록에 연결한다 (record_memos.memo_id 필수 FK 상황 재현)
+	private void linkMemoToRecord(User user, Activity activity, UUID memoId) {
+		Template template = templateRepository.save(Template.createCustom(user, "템플릿", null));
+		Record record = recordRepository.save(Record.builder()
+				.user(user)
+				.activity(activity)
+				.template(template)
+				.title("기록")
+				.build());
+
+		recordMemoRepository.save(RecordMemo.builder()
+				.record(record)
+				.memo(memoRepository.findById(memoId).orElseThrow())
+				.sortOrder(1)
+				.isCollapsed(false)
+				.build());
+	}
+
+	// expiresAt은 생성 시점에만 세팅되므로 만료 상황은 벌크 업데이트로 재현한다
+	private void expireMemo(UUID memoId) {
+		transactionTemplate.executeWithoutResult(status ->
+				entityManager.createQuery("update Memo m set m.expiresAt = :expiredAt where m.id = :id")
+						.setParameter("expiredAt", LocalDateTime.now().minusDays(1))
+						.setParameter("id", memoId)
+						.executeUpdate());
 	}
 
 	private User createUser() {
