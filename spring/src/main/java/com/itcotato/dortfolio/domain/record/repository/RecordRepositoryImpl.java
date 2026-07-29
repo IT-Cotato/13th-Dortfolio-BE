@@ -6,6 +6,7 @@ import com.itcotato.dortfolio.domain.record.dto.req.RecordSearchCondition;
 import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import java.util.List;
@@ -21,10 +22,25 @@ public class RecordRepositoryImpl implements RecordRepositoryCustom {
 
 	@Override
 	public List<Record> searchRecords(UUID userId, RecordSearchCondition condition) {
-		return queryFactory
-			.selectFrom(record)
-			.join(record.activity).fetchJoin()
-			.join(record.template).fetchJoin()
+		return baseSearchQuery(userId, condition)
+			.orderBy(record.createdAt.desc(), record.updatedAt.desc(), record.id.desc())
+			.fetch();
+	}
+
+	@Override
+	public List<Record> searchRecords(UUID userId, RecordSearchCondition condition, int page, int size) {
+		return baseSearchQuery(userId, condition)
+			.orderBy(record.createdAt.desc(), record.updatedAt.desc(), record.id.desc())
+			.offset((long) page * size)
+			.limit(size)
+			.fetch();
+	}
+
+	@Override
+	public long countRecords(UUID userId, RecordSearchCondition condition) {
+		Long count = queryFactory
+			.select(record.count())
+			.from(record)
 			.where(
 				record.user.id.eq(userId),
 				record.deletedAt.isNull(),
@@ -34,8 +50,8 @@ public class RecordRepositoryImpl implements RecordRepositoryCustom {
 				templateIdEq(condition.templateId()),
 				statusEq(condition.status())
 			)
-			.orderBy(record.createdAt.desc())
-			.fetch();
+			.fetchOne();
+		return count == null ? 0 : count;
 	}
 
 	@Override
@@ -50,9 +66,25 @@ public class RecordRepositoryImpl implements RecordRepositoryCustom {
 				record.activity.deletedAt.isNull(),
 				record.template.deletedAt.isNull()
 			)
-			.orderBy(record.createdAt.desc())
+			.orderBy(record.createdAt.desc(), record.updatedAt.desc(), record.id.desc())
 			.limit(limit)
 			.fetch();
+	}
+
+	private JPAQuery<Record> baseSearchQuery(UUID userId, RecordSearchCondition condition) {
+		return queryFactory
+			.selectFrom(record)
+			.join(record.activity).fetchJoin()
+			.join(record.template).fetchJoin()
+			.where(
+				record.user.id.eq(userId),
+				record.deletedAt.isNull(),
+				record.activity.deletedAt.isNull(),
+				record.template.deletedAt.isNull(),
+				activityIdEq(condition.activityId()),
+				templateIdEq(condition.templateId()),
+				statusEq(condition.status())
+			);
 	}
 
 	private BooleanExpression activityIdEq(UUID activityId) {

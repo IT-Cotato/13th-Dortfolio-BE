@@ -10,13 +10,10 @@ import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
-import com.itcotato.dortfolio.global.exception.ErrorCode;
+import com.itcotato.dortfolio.global.exception.types.TemplateErrorCode;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.IntStream;
-
-import com.itcotato.dortfolio.global.exception.types.GlobalErrorCode;
-import com.itcotato.dortfolio.global.exception.types.TemplateErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -105,7 +102,7 @@ public class TemplateService {
 
 	private User getUserOrThrow(UUID userId) {
 		return userRepository.findById(userId)
-			.orElseThrow(() -> new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE));
+			.orElseThrow(() -> new CustomException(TemplateErrorCode.TEMPLATE_USER_NOT_FOUND));
 	}
 
     @Transactional

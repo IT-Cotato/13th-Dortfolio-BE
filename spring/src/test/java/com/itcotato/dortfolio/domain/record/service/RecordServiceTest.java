@@ -15,9 +15,16 @@ import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordMemoRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordUpdateRequest;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordAnswerResponse;
+import com.itcotato.dortfolio.domain.record.dto.res.RecordPageResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordResponse;
+import com.itcotato.dortfolio.domain.record.dto.res.RecordSummaryResponse;
+import com.itcotato.dortfolio.domain.record.entity.CompetencyTag;
+import com.itcotato.dortfolio.domain.record.entity.RecordCompetencyTag;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
+import com.itcotato.dortfolio.domain.record.repository.CompetencyTagRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordAnswerRepository;
+import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagRepository;
+import com.itcotato.dortfolio.domain.record.repository.RecordEmbeddingRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordMemoRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.template.entity.ActivityTemplate;
@@ -30,13 +37,17 @@ import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.RecordErrorCode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ActiveProfiles("test")
 @SpringBootTest
@@ -50,6 +61,15 @@ class RecordServiceTest {
 
 	@Autowired
 	private RecordAnswerRepository recordAnswerRepository;
+
+	@Autowired
+	private RecordEmbeddingRepository recordEmbeddingRepository;
+
+	@Autowired
+	private RecordCompetencyTagRepository recordCompetencyTagRepository;
+
+	@Autowired
+	private CompetencyTagRepository competencyTagRepository;
 
 	@Autowired
 	private RecordMemoRepository recordMemoRepository;
@@ -72,8 +92,17 @@ class RecordServiceTest {
 	@Autowired
 	private UserRepository userRepository;
 
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
+	@Autowired
+	private EntityManager entityManager;
+
 	@BeforeEach
 	void setUp() {
+		recordEmbeddingRepository.deleteAll();
+		recordCompetencyTagRepository.deleteAll();
+		competencyTagRepository.deleteAll();
 		recordMemoRepository.deleteAll();
 		recordAnswerRepository.deleteAll();
 		recordRepository.deleteAll();
@@ -148,7 +177,26 @@ class RecordServiceTest {
 		)))
 				.isInstanceOf(CustomException.class)
 				.extracting("errorCode")
-				.isEqualTo(RecordErrorCode.RECORD_REQUIRED_ANSWER_MISSING);
+					.isEqualTo(RecordErrorCode.RECORD_REQUIRED_ANSWER_MISSING);
+	}
+
+	@Test
+	void createRecordDefaultsToDraftWhenStatusIsMissing() {
+		User user = createUser();
+		Activity activity = createActivity(user, "도트폴리오");
+		Template template = createTemplate(user, "문제 해결", true);
+		connectTemplate(activity, template);
+
+		RecordResponse response = recordService.createRecord(user.getId(), new RecordCreateRequest(
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(),
+				null
+		));
+
+		assertThat(response.status()).isEqualTo(RecordStatus.DRAFT.name());
 	}
 
 	@Test
@@ -304,6 +352,59 @@ class RecordServiceTest {
 	}
 
 	@Test
+	void permanentlyDeleteRecordRemovesRecordAndChildren() {
+		User user = createUser();
+		Activity activity = createActivity(user, "도트폴리오");
+		Template template = createTemplate(user, "문제 해결", false);
+		connectTemplate(activity, template);
+		Memo memo = createMemo(user, activity);
+		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(new RecordMemoRequest(memo.getId(), false)),
+				RecordStatus.DRAFT
+		));
+		recordService.deleteRecord(user.getId(), draft.id());
+		com.itcotato.dortfolio.domain.record.entity.Record record = recordRepository.findById(draft.id()).orElseThrow();
+		insertRecordEmbedding(record.getId());
+		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("문제 해결", "문제를 해결한 역량"));
+		recordCompetencyTagRepository.save(RecordCompetencyTag.create(record, competencyTag, 0.9f));
+
+		recordService.permanentlyDeleteRecord(user.getId(), draft.id());
+
+		assertThat(recordRepository.findById(draft.id())).isEmpty();
+		assertThat(recordAnswerRepository.findAllByRecord_IdOrderBySortOrderAsc(draft.id())).isEmpty();
+		assertThat(recordMemoRepository.findAllByRecord_IdOrderBySortOrderAsc(draft.id())).isEmpty();
+		assertThat(recordEmbeddingRepository.findAllByRecord_Id(draft.id())).isEmpty();
+		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(draft.id())).isEmpty();
+		assertThat(memoRepository.findById(memo.getId()).orElseThrow().getUseCount()).isZero();
+	}
+
+	@Test
+	void permanentlyDeleteRecordRejectsActiveRecord() {
+		User user = createUser();
+		Activity activity = createActivity(user, "도트폴리오");
+		Template template = createTemplate(user, "문제 해결", false);
+		connectTemplate(activity, template);
+		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(),
+				RecordStatus.DRAFT
+		));
+
+		assertThatThrownBy(() -> recordService.permanentlyDeleteRecord(user.getId(), draft.id()))
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(RecordErrorCode.RECORD_PERMANENT_DELETE_NOT_ALLOWED);
+		assertThat(recordRepository.findById(draft.id())).isPresent();
+	}
+
+	@Test
 	void restoreRecordRejectsDeletedActivity() {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
@@ -328,31 +429,6 @@ class RecordServiceTest {
 	}
 
 	@Test
-	void restoreRecordRejectsDeletedMemo() {
-		User user = createUser();
-		Activity activity = createActivity(user, "도트폴리오");
-		Template template = createTemplate(user, "문제 해결", false);
-		connectTemplate(activity, template);
-		Memo memo = createMemo(user, activity);
-		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
-				activity.getId(),
-				template.getId(),
-				"첫 기록",
-				List.of(),
-				List.of(new RecordMemoRequest(memo.getId(), false)),
-				RecordStatus.DRAFT
-		));
-		recordService.deleteRecord(user.getId(), draft.id());
-		memo.markDeleted(30);
-		memoRepository.save(memo);
-
-		assertThatThrownBy(() -> recordService.restoreRecord(user.getId(), draft.id()))
-				.isInstanceOf(CustomException.class)
-				.extracting("errorCode")
-				.isEqualTo(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
-	}
-
-	@Test
 	void restoreRecordRejectsExpiredDeletePendingUntil() {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
@@ -367,8 +443,32 @@ class RecordServiceTest {
 				RecordStatus.DRAFT
 		));
 		com.itcotato.dortfolio.domain.record.entity.Record record = recordRepository.findById(draft.id()).orElseThrow();
-		record.markDeleted(-1);
+		expireDeletePendingWindow(record);
 		recordRepository.save(record);
+
+		assertThatThrownBy(() -> recordService.restoreRecord(user.getId(), draft.id()))
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
+	}
+
+	@Test
+	void restoreRecordRejectsDeletedTemplate() {
+		User user = createUser();
+		Activity activity = createActivity(user, "도트폴리오");
+		Template template = createTemplate(user, "문제 해결", false);
+		connectTemplate(activity, template);
+		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(),
+				RecordStatus.DRAFT
+		));
+		recordService.deleteRecord(user.getId(), draft.id());
+		template.delete();
+		templateRepository.save(template);
 
 		assertThatThrownBy(() -> recordService.restoreRecord(user.getId(), draft.id()))
 				.isInstanceOf(CustomException.class)
@@ -510,8 +610,91 @@ class RecordServiceTest {
 				.extracting(record -> record.id())
 				.containsExactly(completed.id());
 		assertThat(recordService.getRecords(user.getId(), null, null, RecordStatus.COMPLETED))
-				.extracting(record -> record.title())
-				.containsExactly("완료 기록");
+					.extracting(record -> record.title())
+					.containsExactly("완료 기록");
+	}
+
+	@Test
+	void getRecordPageReturnsSevenRecordsPerPageByDefault() {
+		User user = createUser();
+		Activity activity = createActivity(user, "도트폴리오");
+		Template template = createTemplate(user, "문제 해결", false);
+		connectTemplate(activity, template);
+		for (int index = 1; index <= 8; index++) {
+			recordService.createRecord(user.getId(), new RecordCreateRequest(
+					activity.getId(),
+					template.getId(),
+					"기록 " + index,
+					List.of(),
+					List.of(),
+					RecordStatus.DRAFT
+			));
+		}
+
+		RecordPageResponse firstPage = recordService.getRecordPage(user.getId(), null, null, null, 0, null);
+		RecordPageResponse secondPage = recordService.getRecordPage(user.getId(), null, null, null, 1, null);
+
+		assertThat(firstPage.content()).hasSize(7);
+		assertThat(firstPage.totalElements()).isEqualTo(8);
+		assertThat(firstPage.totalPages()).isEqualTo(2);
+		assertThat(firstPage.first()).isTrue();
+		assertThat(firstPage.last()).isFalse();
+		assertThat(secondPage.content()).hasSize(1);
+		assertThat(secondPage.last()).isTrue();
+	}
+
+	@Test
+	void getRecordPageRejectsSizeGreaterThanMaxPageSize() {
+		User user = createUser();
+
+		assertThatThrownBy(() -> recordService.getRecordPage(user.getId(), null, null, null, 0, 51))
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(RecordErrorCode.RECORD_INVALID_PAGE_REQUEST);
+	}
+
+	@Test
+	void getRecordPageAndRecentRecordsKeepCreatedAtNewestFirstAfterOlderRecordUpdate() {
+		User user = createUser();
+		Activity activity = createActivity(user, "도트폴리오");
+		Template template = createTemplate(user, "문제 해결", false);
+		connectTemplate(activity, template);
+		RecordResponse older = recordService.createRecord(user.getId(), new RecordCreateRequest(
+				activity.getId(),
+				template.getId(),
+				"먼저 작성한 기록",
+				List.of(),
+				List.of(),
+				RecordStatus.DRAFT
+		));
+		RecordResponse newer = recordService.createRecord(user.getId(), new RecordCreateRequest(
+				activity.getId(),
+				template.getId(),
+				"나중에 작성한 기록",
+				List.of(),
+				List.of(),
+				RecordStatus.DRAFT
+		));
+		LocalDateTime baseTime = LocalDateTime.now().minusDays(1);
+		setRecordTimestamps(older.id(), baseTime, baseTime);
+		setRecordTimestamps(newer.id(), baseTime.plusMinutes(1), baseTime.plusMinutes(1));
+
+		recordService.updateRecord(user.getId(), older.id(), new RecordUpdateRequest(
+				"먼저 작성한 기록 수정",
+				List.of(),
+				List.of(),
+				RecordStatus.DRAFT
+		));
+
+		assertThat(recordService.getRecordPage(user.getId(), null, null, null, 0, null).content())
+				.extracting(RecordSummaryResponse::id)
+				.containsExactly(newer.id(), older.id());
+		assertThat(recordService.getRecords(user.getId(), null, null, null))
+				.extracting(RecordSummaryResponse::id)
+				.containsExactly(newer.id(), older.id());
+		assertThat(recordService.getRecentRecords(user.getId()))
+				.extracting(RecordSummaryResponse::id)
+				.containsExactly(newer.id(), older.id());
 	}
 
 	private User createUser() {
@@ -547,5 +730,29 @@ class RecordServiceTest {
 
 	private void connectTemplate(Activity activity, Template template) {
 		activityTemplateRepository.save(ActivityTemplate.create(activity, template, 1));
+	}
+
+	private void expireDeletePendingWindow(com.itcotato.dortfolio.domain.record.entity.Record record) {
+		ReflectionTestUtils.setField(record, "deletedAt", LocalDateTime.now().minusDays(31));
+		ReflectionTestUtils.setField(record, "deletePendingUntil", LocalDateTime.now().minusDays(1));
+	}
+
+	private void insertRecordEmbedding(UUID recordId) {
+		jdbcTemplate.update("""
+				insert into record_embeddings
+					(id, created_at, updated_at, record_id, embedding_model, embedding)
+				values
+					(?, current_timestamp, current_timestamp, ?, ?, ARRAY[0.1, 0.2])
+				""", UUID.randomUUID(), recordId, "text-embedding-3-small");
+	}
+
+	private void setRecordTimestamps(UUID recordId, LocalDateTime createdAt, LocalDateTime updatedAt) {
+		recordRepository.flush();
+		jdbcTemplate.update("""
+				update records
+				set created_at = ?, updated_at = ?
+				where id = ?
+				""", createdAt, updatedAt, recordId);
+		entityManager.clear();
 	}
 }

@@ -25,7 +25,6 @@ public record RecordCreateRequest(
 	@Valid
 	List<RecordMemoRequest> memos,
 
-	@NotNull(message = "기록 상태는 필수입니다.")
 	RecordStatus status
 ) {
 	public List<RecordAnswerRequest> answersOrEmpty() {
@@ -34,5 +33,9 @@ public record RecordCreateRequest(
 
 	public List<RecordMemoRequest> memosOrEmpty() {
 		return memos == null ? List.of() : memos;
+	}
+
+	public RecordStatus statusOrDraft() {
+		return status == null ? RecordStatus.DRAFT : status;
 	}
 }

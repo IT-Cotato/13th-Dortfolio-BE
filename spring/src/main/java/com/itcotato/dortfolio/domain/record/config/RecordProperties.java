@@ -5,6 +5,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "record")
 public record RecordProperties(
 	int deleteGracePeriodDays,
-	int recentRecordLimit
+	int recentRecordLimit,
+	int defaultPageSize,
+	int maxPageSize
 ) {
 }

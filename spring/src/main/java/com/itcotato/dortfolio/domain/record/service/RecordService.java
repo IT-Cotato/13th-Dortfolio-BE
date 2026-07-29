@@ -7,16 +7,18 @@ import com.itcotato.dortfolio.domain.record.dto.req.RecordSearchCondition;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordUpdateRequest;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordAnswerResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordMemoResponse;
+import com.itcotato.dortfolio.domain.record.dto.res.RecordPageResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordSummaryResponse;
 import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
+import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagRepository;
+import com.itcotato.dortfolio.domain.record.repository.RecordEmbeddingRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
-import com.itcotato.dortfolio.global.exception.types.GlobalErrorCode;
 import com.itcotato.dortfolio.global.exception.types.RecordErrorCode;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,6 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class RecordService {
 
     private final RecordRepository recordRepository;
+    private final RecordEmbeddingRepository recordEmbeddingRepository;
+    private final RecordCompetencyTagRepository recordCompetencyTagRepository;
     private final UserRepository userRepository;
     private final RecordAnswerService recordAnswerService;
     private final RecordMemoService recordMemoService;
@@ -54,7 +58,7 @@ public class RecordService {
 
         recordAnswerService.createAnswers(record, template, request.answersOrEmpty());
         recordMemoService.createRecordMemos(userId, record, request.memosOrEmpty());
-        applyStatus(record, request.status());
+        applyStatus(record, request.statusOrDraft());
 
         return toRecordResponse(record);
     }
@@ -74,18 +78,9 @@ public class RecordService {
         record.updateTitle(request.title());
         recordAnswerService.replaceAnswers(record, request.answersOrEmpty());
         recordMemoService.replaceMemos(userId, record, request.memosOrEmpty());
-        applyStatus(record, request.status());
+        applyStatus(record, request.status() == null ? record.getStatus() : request.status());
 
         return toRecordResponse(record);
-    }
-
-    @Transactional(readOnly = true)
-    public List<RecordSummaryResponse> getActivityRecords(UUID userId, UUID activityId) {
-        recordValidator.getActiveActivityOrThrow(userId, activityId);
-
-        return recordRepository.searchRecords(userId, RecordSearchCondition.of(activityId, null, null)).stream()
-                .map(RecordSummaryResponse::from)
-                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -95,6 +90,28 @@ public class RecordService {
         return recordRepository.searchRecords(userId, RecordSearchCondition.of(activityId, templateId, status)).stream()
                 .map(RecordSummaryResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public RecordPageResponse getRecordPage(
+            UUID userId,
+            UUID activityId,
+            UUID templateId,
+            RecordStatus status,
+            int page,
+            Integer size
+    ) {
+        validateSearchFilters(userId, activityId, templateId);
+        int pageSize = size == null ? recordProperties.defaultPageSize() : size;
+        validatePageRequest(page, pageSize);
+
+        RecordSearchCondition condition = RecordSearchCondition.of(activityId, templateId, status);
+        List<RecordSummaryResponse> content = recordRepository.searchRecords(userId, condition, page, pageSize).stream()
+                .map(RecordSummaryResponse::from)
+                .toList();
+        long totalElements = recordRepository.countRecords(userId, condition);
+
+        return RecordPageResponse.of(content, page, pageSize, totalElements);
     }
 
     @Transactional(readOnly = true)
@@ -110,6 +127,21 @@ public class RecordService {
 
         recordMemoService.decreaseUseCounts(record);
         record.markDeleted(recordProperties.deleteGracePeriodDays());
+    }
+
+    @Transactional
+    public void permanentlyDeleteRecord(UUID userId, UUID recordId) {
+        Record record = recordRepository.findByIdAndUser_Id(recordId, userId)
+                .orElseThrow(() -> new CustomException(RecordErrorCode.RECORD_NOT_FOUND));
+
+        if (!record.isDeleted()) {
+            throw new CustomException(RecordErrorCode.RECORD_PERMANENT_DELETE_NOT_ALLOWED);
+        }
+        recordEmbeddingRepository.deleteAllByRecord_Id(recordId);
+        recordCompetencyTagRepository.deleteAllByRecord_Id(recordId);
+        recordMemoService.deleteRecordMemos(recordId);
+        recordAnswerService.deleteAnswers(recordId);
+        recordRepository.delete(record);
     }
 
     @Transactional
@@ -158,14 +190,17 @@ public class RecordService {
         }
     }
 
+    private void validatePageRequest(int page, int size) {
+        if (page < 0 || size <= 0 || size > recordProperties.maxPageSize()) {
+            throw new CustomException(RecordErrorCode.RECORD_INVALID_PAGE_REQUEST);
+        }
+    }
+
     private void validateRestorable(Record record) {
         if (record.getDeletePendingUntil() != null && LocalDateTime.now().isAfter(record.getDeletePendingUntil())) {
             throw new CustomException(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
         }
         if (record.getActivity().isDeleted() || record.getTemplate().isDeleted()) {
-            throw new CustomException(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
-        }
-        if (recordMemoService.hasDeletedMemo(record)) {
             throw new CustomException(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
         }
     }
@@ -181,6 +216,6 @@ public class RecordService {
 
     private User getUserOrThrow(UUID userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE));
+                .orElseThrow(() -> new CustomException(RecordErrorCode.RECORD_USER_NOT_FOUND));
     }
 }

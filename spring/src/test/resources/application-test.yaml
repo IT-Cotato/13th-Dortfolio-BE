@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:dortfolio-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    url: jdbc:h2:mem:dortfolio-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;INIT=CREATE DOMAIN IF NOT EXISTS vector AS FLOAT ARRAY
     driver-class-name: org.h2.Driver
     username: sa
     password:
@@ -17,3 +17,5 @@ jwt:
 record:
   delete-grace-period-days: 30
   recent-record-limit: 5
+  default-page-size: 7
+  max-page-size: 50

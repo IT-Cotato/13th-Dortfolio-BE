@@ -55,3 +55,5 @@ app:
 record:
   delete-grace-period-days: ${RECORD_DELETE_GRACE_PERIOD_DAYS:30}
   recent-record-limit: ${RECORD_RECENT_RECORD_LIMIT:5}
+  default-page-size: ${RECORD_DEFAULT_PAGE_SIZE:7}
+  max-page-size: ${RECORD_MAX_PAGE_SIZE:50}

@@ -69,17 +69,15 @@ public class RecordMemoService {
 			.forEach(Memo::increaseUseCount);
 	}
 
-	public boolean hasDeletedMemo(Record record) {
-		return recordMemoRepository.findAllByRecord_IdOrderBySortOrderAsc(record.getId()).stream()
-			.map(RecordMemo::getMemo)
-			.anyMatch(Memo::isDeleted);
-	}
-
 	public List<RecordMemoResponse> getMemoResponses(Record record) {
 		return recordMemoRepository.findAllByRecord_IdOrderBySortOrderAsc(record.getId())
 			.stream()
 			.map(RecordMemoResponse::from)
 			.toList();
+	}
+
+	public void deleteRecordMemos(UUID recordId) {
+		recordMemoRepository.deleteAllByRecord_Id(recordId);
 	}
 
 	private void saveRecordMemos(
