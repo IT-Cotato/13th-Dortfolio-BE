@@ -203,9 +203,6 @@ public class RecordService {
         if (record.getActivity().isDeleted() || record.getTemplate().isDeleted()) {
             throw new CustomException(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
         }
-        if (recordMemoService.hasDeletedMemo(record)) {
-            throw new CustomException(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
-        }
     }
 
     private Record getActiveRecordOrThrow(UUID userId, UUID recordId) {

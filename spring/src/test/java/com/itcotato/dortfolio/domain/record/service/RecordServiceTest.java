@@ -429,31 +429,6 @@ class RecordServiceTest {
 	}
 
 	@Test
-	void restoreRecordRejectsDeletedMemo() {
-		User user = createUser();
-		Activity activity = createActivity(user, "도트폴리오");
-		Template template = createTemplate(user, "문제 해결", false);
-		connectTemplate(activity, template);
-		Memo memo = createMemo(user, activity);
-		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
-				activity.getId(),
-				template.getId(),
-				"첫 기록",
-				List.of(),
-				List.of(new RecordMemoRequest(memo.getId(), false)),
-				RecordStatus.DRAFT
-		));
-		recordService.deleteRecord(user.getId(), draft.id());
-		memo.markDeleted(30);
-		memoRepository.save(memo);
-
-		assertThatThrownBy(() -> recordService.restoreRecord(user.getId(), draft.id()))
-				.isInstanceOf(CustomException.class)
-				.extracting("errorCode")
-				.isEqualTo(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
-	}
-
-	@Test
 	void restoreRecordRejectsExpiredDeletePendingUntil() {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
