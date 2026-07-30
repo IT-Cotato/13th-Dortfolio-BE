@@ -1,6 +1,8 @@
 package com.itcotato.dortfolio.domain.record.service;
 
 import com.itcotato.dortfolio.domain.activity.entity.Activity;
+import com.itcotato.dortfolio.domain.record.analysis.service.RecordAnalysisCleaner;
+import com.itcotato.dortfolio.domain.record.analysis.event.RecordAnalysisJobPublisher;
 import com.itcotato.dortfolio.domain.record.config.RecordProperties;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordSearchCondition;
@@ -12,8 +14,6 @@ import com.itcotato.dortfolio.domain.record.dto.res.RecordResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordSummaryResponse;
 import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
-import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagRepository;
-import com.itcotato.dortfolio.domain.record.repository.RecordEmbeddingRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.user.entity.User;
@@ -32,13 +32,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class RecordService {
 
     private final RecordRepository recordRepository;
-    private final RecordEmbeddingRepository recordEmbeddingRepository;
-    private final RecordCompetencyTagRepository recordCompetencyTagRepository;
     private final UserRepository userRepository;
     private final RecordAnswerService recordAnswerService;
     private final RecordMemoService recordMemoService;
     private final RecordValidator recordValidator;
     private final RecordProperties recordProperties;
+    private final RecordAnalysisJobPublisher recordAnalysisJobPublisher;
+    private final RecordAnalysisCleaner recordAnalysisCleaner;
 
     @Transactional
     public RecordResponse createRecord(UUID userId, RecordCreateRequest request) {
@@ -127,6 +127,7 @@ public class RecordService {
 
         recordMemoService.decreaseUseCounts(record);
         record.markDeleted(recordProperties.deleteGracePeriodDays());
+        recordAnalysisCleaner.deleteByRecordId(recordId);
     }
 
     @Transactional
@@ -137,8 +138,7 @@ public class RecordService {
         if (!record.isDeleted()) {
             throw new CustomException(RecordErrorCode.RECORD_PERMANENT_DELETE_NOT_ALLOWED);
         }
-        recordEmbeddingRepository.deleteAllByRecord_Id(recordId);
-        recordCompetencyTagRepository.deleteAllByRecord_Id(recordId);
+        recordAnalysisCleaner.deleteByRecordId(recordId);
         recordMemoService.deleteRecordMemos(recordId);
         recordAnswerService.deleteAnswers(recordId);
         recordRepository.delete(record);
@@ -178,6 +178,7 @@ public class RecordService {
         recordAnswerService.validateRequiredAnswers(record.getId());
 
         record.complete();
+        recordAnalysisJobPublisher.publish(record.getId());
     }
 
     private void validateSearchFilters(UUID userId, UUID activityId, UUID templateId) {

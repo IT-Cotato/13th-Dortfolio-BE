@@ -1,0 +1,85 @@
+package com.itcotato.dortfolio.domain.record.analysis.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.itcotato.dortfolio.domain.record.analysis.config.AiServiceProperties;
+import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest;
+import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.ActivityPayload;
+import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.AnswerPayload;
+import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.CompetencyTagCandidatePayload;
+import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.TemplatePayload;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+class FastApiRecordAnalysisClientTest {
+
+	private HttpServer server;
+	private AtomicReference<String> requestBody;
+
+	@BeforeEach
+	void setUp() throws IOException {
+		requestBody = new AtomicReference<>();
+		server = HttpServer.create(new InetSocketAddress(0), 0);
+		server.createContext("/ai/records/analyze", this::handleAnalyze);
+		server.start();
+	}
+
+	@AfterEach
+	void tearDown() {
+		server.stop(0);
+	}
+
+	@Test
+	@DisplayName("FastAPI 분석 요청에 JSON 본문을 포함해서 전송한다")
+	void analyzeSendsJsonBody() {
+		int port = server.getAddress().getPort();
+		FastApiRecordAnalysisClient client = new FastApiRecordAnalysisClient(
+			new AiServiceProperties("http://localhost:" + port, Duration.ofSeconds(1), Duration.ofSeconds(1))
+		);
+
+		UUID recordId = UUID.randomUUID();
+		client.analyze(new RecordAnalysisRequest(
+			recordId,
+			"기록 제목",
+			new ActivityPayload("활동 제목", "활동 설명"),
+			new TemplatePayload("템플릿"),
+			List.of(new AnswerPayload("질문", "답변")),
+			List.of(),
+			List.of(new CompetencyTagCandidatePayload(UUID.randomUUID(), "문제 해결", "문제를 정의하고 해결합니다."))
+		));
+
+		assertThat(requestBody.get())
+			.contains("\"recordId\":\"" + recordId + "\"")
+			.contains("\"answers\"")
+			.contains("\"competencyTagCandidates\"");
+	}
+
+	private void handleAnalyze(HttpExchange exchange) throws IOException {
+		requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+		byte[] response = """
+			{
+			  "summary": "요약",
+			  "evidenceSnippets": ["근거"],
+			  "competencyTags": [],
+			  "embeddingModel": "test",
+			  "embedding": [0.1, 0.2, 0.3]
+			}
+			""".getBytes(StandardCharsets.UTF_8);
+
+		exchange.getResponseHeaders().add("Content-Type", "application/json");
+		exchange.sendResponseHeaders(200, response.length);
+		exchange.getResponseBody().write(response);
+		exchange.close();
+	}
+}

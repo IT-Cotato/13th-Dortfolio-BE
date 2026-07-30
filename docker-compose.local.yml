@@ -33,6 +33,9 @@ services:
     restart: unless-stopped
     environment:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_GENERATION_MODEL: ${GEMINI_GENERATION_MODEL:-gemini-3.6-flash}
+      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-2}
+      FASTAPI_ALLOW_LOCAL_ANALYSIS: ${FASTAPI_ALLOW_LOCAL_ANALYSIS:-true}
     ports:
       - "127.0.0.1:${FASTAPI_PORT:-8000}:8000"
 
