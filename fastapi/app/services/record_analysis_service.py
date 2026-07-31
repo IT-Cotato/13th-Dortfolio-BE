@@ -1,6 +1,7 @@
 from hashlib import sha256
 
 from fastapi import HTTPException, status
+from google.genai import errors
 
 from app.clients.gemini_record_analysis_client import GeminiRecordAnalysisClient
 from app.core.config import get_settings
@@ -33,6 +34,11 @@ def analyze_record_with_gemini(request: RecordAnalysisRequest, settings) -> Reco
     try:
         summary, evidence_snippets, competency_tags = client.analyze_record(request)
         embedding = client.embed_record(source_text)
+    except errors.APIError as exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Gemini analysis request failed.",
+        ) from exception
     except ValueError as exception:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
