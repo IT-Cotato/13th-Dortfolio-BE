@@ -1,4 +1,5 @@
 import json
+from math import isnan
 from uuid import UUID
 
 from google import genai
@@ -144,7 +145,7 @@ def parse_competency_tag(
         return None
     if tag.competencyTagId in seen_ids:
         return None
-    if tag.score < 0.0 or tag.score > 1.0:
+    if isnan(tag.score) or tag.score < 0.0 or tag.score > 1.0:
         return None
 
     seen_ids.add(tag.competencyTagId)

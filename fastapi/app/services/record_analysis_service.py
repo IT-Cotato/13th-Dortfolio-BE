@@ -32,6 +32,7 @@ def analyze_record_with_gemini(request: RecordAnalysisRequest, settings) -> Reco
     source_text = build_embedding_source_text(request, answer_texts)
     try:
         summary, evidence_snippets, competency_tags = client.analyze_record(request)
+        embedding = client.embed_record(source_text)
     except ValueError as exception:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -43,7 +44,7 @@ def analyze_record_with_gemini(request: RecordAnalysisRequest, settings) -> Reco
         evidenceSnippets=evidence_snippets,
         competencyTags=competency_tags,
         embeddingModel=settings.gemini_embedding_model,
-        embedding=client.embed_record(source_text),
+        embedding=embedding,
     )
 
 
