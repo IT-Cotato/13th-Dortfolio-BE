@@ -84,6 +84,7 @@ public class RecordAnalysis extends BaseEntity {
 		this.failureReason = null;
 		this.failureRetryable = false;
 		this.analyzedAt = null;
+		this.analyzedRecordUpdatedAt = null;
 		this.lastAttemptedAt = LocalDateTime.now();
 		this.lastAttemptFailed = false;
 		this.lastFailureReason = null;
