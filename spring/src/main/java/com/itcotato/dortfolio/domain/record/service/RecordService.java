@@ -1,8 +1,8 @@
 package com.itcotato.dortfolio.domain.record.service;
 
 import com.itcotato.dortfolio.domain.activity.entity.Activity;
-import com.itcotato.dortfolio.domain.record.analysis.service.RecordAnalysisCleaner;
 import com.itcotato.dortfolio.domain.record.analysis.event.RecordAnalysisJobPublisher;
+import com.itcotato.dortfolio.domain.record.analysis.service.RecordAnalysisCleaner;
 import com.itcotato.dortfolio.domain.record.config.RecordProperties;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordSearchCondition;
@@ -156,6 +156,9 @@ public class RecordService {
         validateRestorable(record);
         recordMemoService.increaseUseCounts(record);
         record.restore();
+        if (record.getStatus() == RecordStatus.COMPLETED) {
+            recordAnalysisJobPublisher.publish(record.getId());
+        }
     }
 
     private RecordResponse toRecordResponse(Record record) {

@@ -18,11 +18,13 @@ import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagReposi
 import com.itcotato.dortfolio.domain.record.repository.RecordEmbeddingRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +40,9 @@ import org.springframework.web.client.RestClientResponseException;
 @RequiredArgsConstructor
 public class RecordAnalysisService {
 
+	private static final int ANALYSIS_LOCK_STRIPES = 64;
+	private final ReentrantLock[] analysisLocks = createAnalysisLocks();
+
 	private final RecordRepository recordRepository;
 	private final RecordAnalysisRepository recordAnalysisRepository;
 	private final RecordEmbeddingRepository recordEmbeddingRepository;
@@ -50,9 +55,30 @@ public class RecordAnalysisService {
 	private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
 	public void analyze(UUID recordId) {
+		ReentrantLock analysisLock = analysisLock(recordId);
+		analysisLock.lock();
+		try {
+			analyzeLocked(recordId);
+		} finally {
+			analysisLock.unlock();
+		}
+	}
+
+	private void analyzeLocked(UUID recordId) {
 		log.info("Record AI analysis started. recordId={}", recordId);
 
-		Optional<RecordAnalysisRequest> requestOptional = transactionTemplate.execute(status -> prepareRequest(recordId));
+		Optional<RecordAnalysisRequest> requestOptional;
+		try {
+			requestOptional = transactionTemplate.execute(status -> prepareRequest(recordId));
+		} catch (Exception exception) {
+			markFailed(
+				recordId,
+				toFailureReason(new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED)),
+				RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED.isRetryable()
+			);
+			log.warn("Record AI analysis prepare failed. recordId={}", recordId, exception);
+			return;
+		}
 		if (requestOptional == null || requestOptional.isEmpty()) {
 			log.info("Record AI analysis skipped. recordId={}", recordId);
 			return;
@@ -88,6 +114,16 @@ public class RecordAnalysisService {
 			return;
 		}
 		log.info("Record AI analysis completed. recordId={}", recordId);
+	}
+
+	private static ReentrantLock[] createAnalysisLocks() {
+		ReentrantLock[] locks = new ReentrantLock[ANALYSIS_LOCK_STRIPES];
+		Arrays.setAll(locks, ignored -> new ReentrantLock());
+		return locks;
+	}
+
+	private ReentrantLock analysisLock(UUID recordId) {
+		return analysisLocks[Math.floorMod(recordId.hashCode(), analysisLocks.length)];
 	}
 
 	private Optional<RecordAnalysisRequest> prepareRequest(UUID recordId) {

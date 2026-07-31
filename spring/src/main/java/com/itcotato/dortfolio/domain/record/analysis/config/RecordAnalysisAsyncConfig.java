@@ -1,6 +1,7 @@
 package com.itcotato.dortfolio.domain.record.analysis.config;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +22,7 @@ public class RecordAnalysisAsyncConfig {
 		executor.setMaxPoolSize(recordAnalysisProperties.asyncMaxPoolSize());
 		executor.setQueueCapacity(recordAnalysisProperties.asyncQueueCapacity());
 		executor.setThreadNamePrefix("record-analysis-");
+		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
 		executor.initialize();
 		return executor;
 	}

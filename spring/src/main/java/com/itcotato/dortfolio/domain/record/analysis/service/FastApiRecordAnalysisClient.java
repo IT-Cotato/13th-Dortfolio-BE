@@ -23,7 +23,6 @@ public class FastApiRecordAnalysisClient implements RecordAnalysisClient {
 		this.restClient = RestClient.builder()
 			.baseUrl(aiServiceProperties.baseUrl().replaceAll("/$", ""))
 			.requestFactory(requestFactory)
-			.configureMessageConverters(converters -> converters.registerDefaults())
 			.requestInterceptor((request, body, execution) -> {
 				log.debug(
 					"Record AI request prepared. method={}, uri={}, contentType={}, bodyBytes={}",
