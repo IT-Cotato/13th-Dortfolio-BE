@@ -30,7 +30,13 @@ def analyze_record_with_gemini(request: RecordAnalysisRequest, settings) -> Reco
     client = GeminiRecordAnalysisClient(settings)
     answer_texts = [answer.answerText.strip() for answer in request.answers if answer.answerText.strip()]
     source_text = build_embedding_source_text(request, answer_texts)
-    summary, evidence_snippets, competency_tags = client.analyze_record(request)
+    try:
+        summary, evidence_snippets, competency_tags = client.analyze_record(request)
+    except ValueError as exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exception),
+        ) from exception
 
     return RecordAnalysisResponse(
         summary=summary,
@@ -43,9 +49,11 @@ def analyze_record_with_gemini(request: RecordAnalysisRequest, settings) -> Reco
 
 def analyze_record_locally(request: RecordAnalysisRequest) -> RecordAnalysisResponse:
     answer_texts = [answer.answerText.strip() for answer in request.answers if answer.answerText.strip()]
-    evidence_snippets = answer_texts[:3] or [request.title]
+    memo_texts = build_memo_texts(request)
+    question_texts = [answer.questionText.strip() for answer in request.answers if answer.questionText.strip()]
+    evidence_snippets = (answer_texts[:3] or memo_texts[:3] or question_texts[:3] or [request.title])
     source_text = build_embedding_source_text(request, answer_texts)
-    summary_source = answer_texts[0] if answer_texts else request.title
+    summary_source = answer_texts[0] if answer_texts else (memo_texts[0] if memo_texts else request.title)
 
     return RecordAnalysisResponse(
         summary=f"{request.title}: {summary_source[:120]}",
@@ -57,13 +65,25 @@ def analyze_record_locally(request: RecordAnalysisRequest) -> RecordAnalysisResp
 
 
 def build_embedding_source_text(request: RecordAnalysisRequest, answer_texts: list[str]) -> str:
+    question_texts = [answer.questionText.strip() for answer in request.answers if answer.questionText.strip()]
+    memo_texts = build_memo_texts(request)
     return " ".join([
         request.activity.title,
         request.activity.description or "",
         request.title,
         request.template.title,
+        " ".join(question_texts),
         " ".join(answer_texts),
+        " ".join(memo_texts),
     ]).strip()
+
+
+def build_memo_texts(request: RecordAnalysisRequest) -> list[str]:
+    return [
+        " ".join(part for part in [memo.title, memo.content] if part and part.strip()).strip()
+        for memo in request.memos
+        if (memo.title and memo.title.strip()) or memo.content.strip()
+    ]
 
 
 def select_competency_tags(request: RecordAnalysisRequest) -> list[AnalyzedCompetencyTagResponse]:

@@ -1,7 +1,9 @@
 import json
+from uuid import UUID
 
 from google import genai
 from google.genai import types
+from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.schemas.record_analysis import (
@@ -13,17 +15,23 @@ from app.schemas.record_analysis import (
 class GeminiRecordAnalysisClient:
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.client = genai.Client(api_key=settings.gemini_api_key)
+        self.client = genai.Client(
+            api_key=settings.gemini_api_key,
+            http_options=types.HttpOptions(timeout=int(settings.gemini_http_timeout_seconds * 1000)),
+        )
 
     def analyze_record(self, request: RecordAnalysisRequest) -> tuple[str, list[str], list[AnalyzedCompetencyTagResponse]]:
         prompt = build_analysis_prompt(request)
         response = self.client.models.generate_content(
             model=self.settings.gemini_generation_model,
             contents=prompt,
-            config=types.GenerateContentConfig(response_mime_type="application/json"),
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                http_options=types.HttpOptions(timeout=int(self.settings.gemini_http_timeout_seconds * 1000)),
+            ),
         )
         payload = json.loads(response.text or "{}")
-        return parse_analysis_payload(payload)
+        return parse_analysis_payload(payload, request)
 
     def embed_record(self, text: str) -> list[float]:
         result = self.client.models.embed_content(
@@ -84,17 +92,63 @@ def build_analysis_prompt(request: RecordAnalysisRequest) -> str:
 """.strip()
 
 
-def parse_analysis_payload(payload: dict) -> tuple[str, list[str], list[AnalyzedCompetencyTagResponse]]:
-    summary = payload.get("summary", "")
-    evidence_snippets = payload.get("evidenceSnippets", [])
+def parse_analysis_payload(
+    payload: dict,
+    request: RecordAnalysisRequest,
+) -> tuple[str, list[str], list[AnalyzedCompetencyTagResponse]]:
+    if not isinstance(payload, dict):
+        raise ValueError("Gemini analysis response must be a JSON object.")
+    required_fields = {"summary", "evidenceSnippets", "competencyTags"}
+    if not required_fields.issubset(payload):
+        raise ValueError("Gemini analysis response is missing required fields.")
+
+    summary = payload["summary"]
+    evidence_snippets = payload["evidenceSnippets"]
+    raw_competency_tags = payload["competencyTags"]
+    if not isinstance(summary, str):
+        raise ValueError("Gemini analysis summary must be a string.")
+    if not isinstance(evidence_snippets, list) or not all(isinstance(item, str) for item in evidence_snippets):
+        raise ValueError("Gemini analysis evidenceSnippets must be a string array.")
+    if not isinstance(raw_competency_tags, list):
+        raise ValueError("Gemini analysis competencyTags must be an array.")
+
+    candidate_ids = {candidate.id for candidate in request.competencyTagCandidates}
+    seen_ids: set[UUID] = set()
     competency_tags = [
-        AnalyzedCompetencyTagResponse(
-            competencyTagId=tag["competencyTagId"],
-            score=tag["score"],
+        tag
+        for tag in (
+            parse_competency_tag(tag_payload, candidate_ids, seen_ids)
+            for tag_payload in raw_competency_tags
         )
-        for tag in payload.get("competencyTags", [])
+        if tag is not None
     ]
     return summary, evidence_snippets, competency_tags
+
+
+def parse_competency_tag(
+    payload: object,
+    candidate_ids: set[UUID],
+    seen_ids: set[UUID],
+) -> AnalyzedCompetencyTagResponse | None:
+    if not isinstance(payload, dict):
+        raise ValueError("Gemini analysis competency tag must be an object.")
+    try:
+        tag = AnalyzedCompetencyTagResponse(
+            competencyTagId=payload["competencyTagId"],
+            score=payload["score"],
+        )
+    except (KeyError, TypeError, ValidationError) as exception:
+        raise ValueError("Gemini analysis competency tag is malformed.") from exception
+
+    if tag.competencyTagId not in candidate_ids:
+        return None
+    if tag.competencyTagId in seen_ids:
+        return None
+    if tag.score < 0.0 or tag.score > 1.0:
+        return None
+
+    seen_ids.add(tag.competencyTagId)
+    return tag
 
 
 def extract_embedding_values(result) -> list[float]:
