@@ -62,6 +62,10 @@ record:
   default-page-size: ${RECORD_DEFAULT_PAGE_SIZE:7}
   max-page-size: ${RECORD_MAX_PAGE_SIZE:50}
 
+search:
+  default-page-size: ${SEARCH_DEFAULT_PAGE_SIZE:10}
+  max-page-size: ${SEARCH_MAX_PAGE_SIZE:50}
+
 record-analysis:
   enabled: ${RECORD_ANALYSIS_ENABLED:true}
   async-core-pool-size: ${RECORD_ANALYSIS_ASYNC_CORE_POOL_SIZE:2}
