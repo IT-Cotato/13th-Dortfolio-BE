@@ -147,6 +147,8 @@ class RecordAnalysisServiceTest {
 			.isEqualTo(AiAnalysisStatus.COMPLETED);
 		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow().getSummary())
 			.isEqualTo("추천 기준을 개선한 경험입니다.");
+		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow().getEvidenceSnippets())
+			.contains("추천 기준을 다시 정의했습니다.");
 		assertThat(stubRecordEmbeddingWriter.recordId).isEqualTo(record.id());
 		assertThat(stubRecordEmbeddingWriter.embeddingModel).isEqualTo("test-embedding");
 		assertThat(stubRecordEmbeddingWriter.embedding).containsExactly(0.1f, 0.2f);

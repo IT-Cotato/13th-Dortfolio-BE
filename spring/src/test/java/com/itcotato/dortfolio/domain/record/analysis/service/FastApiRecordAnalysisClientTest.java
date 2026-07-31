@@ -8,6 +8,7 @@ import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.A
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.AnswerPayload;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.CompetencyTagCandidatePayload;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.TemplatePayload;
+import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisResponse;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -49,7 +50,7 @@ class FastApiRecordAnalysisClientTest {
 		);
 
 		UUID recordId = UUID.randomUUID();
-		client.analyze(new RecordAnalysisRequest(
+		RecordAnalysisResponse response = client.analyze(new RecordAnalysisRequest(
 			recordId,
 			"기록 제목",
 			new ActivityPayload("활동 제목", "활동 설명"),
@@ -63,6 +64,9 @@ class FastApiRecordAnalysisClientTest {
 			.contains("\"recordId\":\"" + recordId + "\"")
 			.contains("\"answers\"")
 			.contains("\"competencyTagCandidates\"");
+		assertThat(response.summary()).isEqualTo("요약");
+		assertThat(response.evidenceSnippets()).containsExactly("근거");
+		assertThat(response.embedding()).containsExactly(0.1f, 0.2f, 0.3f);
 	}
 
 	private void handleAnalyze(HttpExchange exchange) throws IOException {
