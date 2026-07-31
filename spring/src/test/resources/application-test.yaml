@@ -31,3 +31,4 @@ record-analysis:
   async-core-pool-size: 1
   async-max-pool-size: 1
   async-queue-capacity: 10
+  lock-timeout: 1s

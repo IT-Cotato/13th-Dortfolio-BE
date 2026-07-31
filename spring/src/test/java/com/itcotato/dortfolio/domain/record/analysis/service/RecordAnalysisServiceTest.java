@@ -14,6 +14,7 @@ import com.itcotato.dortfolio.domain.record.analysis.exception.RecordAnalysisErr
 import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordAnswerRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
+import com.itcotato.dortfolio.domain.record.dto.req.RecordUpdateRequest;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordResponse;
 import com.itcotato.dortfolio.domain.record.entity.CompetencyTag;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
@@ -184,6 +185,7 @@ class RecordAnalysisServiceTest {
 			.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_FAILED.getCode());
 		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow().isFailureRetryable())
 			.isTrue();
+		assertThat(recordAnalysisRepository.findRetryableRecordIds()).contains(record.id());
 		assertThat(recordEmbeddingRepository.countByRecord_Id(record.id())).isZero();
 		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(record.id())).isEmpty();
 	}
@@ -216,6 +218,7 @@ class RecordAnalysisServiceTest {
 			.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_REJECTED.getCode());
 		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow().isFailureRetryable())
 			.isFalse();
+		assertThat(recordAnalysisRepository.findRetryableRecordIds()).doesNotContain(record.id());
 	}
 
 	@Test
@@ -246,10 +249,11 @@ class RecordAnalysisServiceTest {
 			.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_FAILED.getCode());
 		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow().isFailureRetryable())
 			.isTrue();
+		assertThat(recordAnalysisRepository.findRetryableRecordIds()).contains(record.id());
 	}
 
 	@Test
-	void failedReanalysisClearsPreviousAnalysisData() {
+	void failedReanalysisKeepsPreviousAnalysisDataAndStoresRetryMetadata() {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
@@ -278,11 +282,16 @@ class RecordAnalysisServiceTest {
 
 		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow())
 			.satisfies(recordAnalysis -> {
-				assertThat(recordAnalysis.getAiAnalysisStatus()).isEqualTo(AiAnalysisStatus.FAILED);
-				assertThat(recordAnalysis.getSummary()).isNull();
-				assertThat(recordAnalysis.getEvidenceSnippets()).isNull();
+				assertThat(recordAnalysis.getAiAnalysisStatus()).isEqualTo(AiAnalysisStatus.COMPLETED);
+				assertThat(recordAnalysis.getSummary()).isEqualTo("기존 요약");
+				assertThat(recordAnalysis.getEvidenceSnippets()).contains("기존 근거");
+				assertThat(recordAnalysis.isLastAttemptFailed()).isTrue();
+				assertThat(recordAnalysis.isLastFailureRetryable()).isTrue();
+				assertThat(recordAnalysis.getLastFailureReason())
+					.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_FAILED.getCode());
 			});
-		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(record.id())).isEmpty();
+		assertThat(recordAnalysisRepository.findRetryableRecordIds()).contains(record.id());
+		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(record.id())).hasSize(1);
 	}
 
 	@Test
@@ -344,6 +353,87 @@ class RecordAnalysisServiceTest {
 			new float[] {0.1f}
 		);
 		stubRecordAnalysisClient.beforeReturn = () -> recordService.deleteRecord(user.getId(), record.id());
+
+		recordAnalysisService.analyze(record.id());
+
+		assertThat(recordAnalysisRepository.findByRecord_Id(record.id())).isEmpty();
+		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(record.id())).isEmpty();
+		assertThat(stubRecordEmbeddingWriter.recordId).isNull();
+	}
+
+	@Test
+	void analyzeKeepsPreviousAnalysisWhenRecordIsDeletedBeforePersistingReanalysisResponse() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template template = createTemplate(user, false);
+		connectTemplate(activity, template);
+		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("문제 해결", "문제를 해결하는 역량"));
+		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(),
+			template.getId(),
+			"삭제 중 재분석 기록",
+			List.of(),
+			List.of(),
+			RecordStatus.COMPLETED
+		));
+		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
+			"기존 요약",
+			List.of("기존 근거"),
+			List.of(new AnalyzedCompetencyTagResponse(competencyTag.getId(), 0.7f)),
+			"test-embedding",
+			new float[] {0.1f}
+		);
+		recordAnalysisService.analyze(record.id());
+
+		stubRecordEmbeddingWriter.reset();
+		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
+			"삭제 후 도착한 요약",
+			List.of("삭제 후 도착한 근거"),
+			List.of(),
+			"test-embedding",
+			new float[] {0.2f}
+		);
+		stubRecordAnalysisClient.beforeReturn = () -> recordService.deleteRecord(user.getId(), record.id());
+
+		recordAnalysisService.analyze(record.id());
+
+		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow())
+			.satisfies(recordAnalysis -> {
+				assertThat(recordAnalysis.getAiAnalysisStatus()).isEqualTo(AiAnalysisStatus.COMPLETED);
+				assertThat(recordAnalysis.getSummary()).isEqualTo("기존 요약");
+				assertThat(recordAnalysis.getEvidenceSnippets()).contains("기존 근거");
+			});
+		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(record.id())).hasSize(1);
+		assertThat(stubRecordEmbeddingWriter.recordId).isNull();
+	}
+
+	@Test
+	void analyzeDoesNotSaveStaleResultWhenRecordChangesBeforePersistingResponse() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template template = createTemplate(user, false);
+		connectTemplate(activity, template);
+		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(),
+			template.getId(),
+			"수정 전 기록",
+			List.of(),
+			List.of(),
+			RecordStatus.COMPLETED
+		));
+		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
+			"오래된 요약",
+			List.of("오래된 근거"),
+			List.of(),
+			"test-embedding",
+			new float[] {0.1f}
+		);
+		stubRecordAnalysisClient.beforeReturn = () -> recordService.updateRecord(user.getId(), record.id(), new RecordUpdateRequest(
+			"수정 후 기록",
+			List.of(),
+			List.of(),
+			RecordStatus.COMPLETED
+		));
 
 		recordAnalysisService.analyze(record.id());
 

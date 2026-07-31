@@ -53,6 +53,21 @@ public class RecordAnalysis extends BaseEntity {
 	@Column
 	private LocalDateTime analyzedAt;
 
+	@Column
+	private LocalDateTime analyzedRecordUpdatedAt;
+
+	@Column
+	private LocalDateTime lastAttemptedAt;
+
+	@Column(nullable = false)
+	private boolean lastAttemptFailed;
+
+	@Column(columnDefinition = "text")
+	private String lastFailureReason;
+
+	@Column(nullable = false)
+	private boolean lastFailureRetryable;
+
 	private RecordAnalysis(Record record) {
 		this.record = record;
 		this.aiAnalysisStatus = AiAnalysisStatus.PENDING;
@@ -69,23 +84,39 @@ public class RecordAnalysis extends BaseEntity {
 		this.failureReason = null;
 		this.failureRetryable = false;
 		this.analyzedAt = null;
+		this.lastAttemptedAt = LocalDateTime.now();
+		this.lastAttemptFailed = false;
+		this.lastFailureReason = null;
+		this.lastFailureRetryable = false;
 	}
 
-	public void complete(String summary, String evidenceSnippets) {
+	public void complete(String summary, String evidenceSnippets, LocalDateTime recordUpdatedAt) {
 		this.aiAnalysisStatus = AiAnalysisStatus.COMPLETED;
 		this.summary = summary;
 		this.evidenceSnippets = evidenceSnippets;
 		this.failureReason = null;
 		this.failureRetryable = false;
 		this.analyzedAt = LocalDateTime.now();
+		this.analyzedRecordUpdatedAt = recordUpdatedAt;
+		this.lastAttemptedAt = LocalDateTime.now();
+		this.lastAttemptFailed = false;
+		this.lastFailureReason = null;
+		this.lastFailureRetryable = false;
 	}
 
 	public void fail(String failureReason, boolean retryable) {
-		this.aiAnalysisStatus = AiAnalysisStatus.FAILED;
-		this.summary = null;
-		this.evidenceSnippets = null;
 		this.failureReason = failureReason;
 		this.failureRetryable = retryable;
-		this.analyzedAt = null;
+		this.lastAttemptedAt = LocalDateTime.now();
+		this.lastAttemptFailed = true;
+		this.lastFailureReason = failureReason;
+		this.lastFailureRetryable = retryable;
+		if (this.aiAnalysisStatus != AiAnalysisStatus.COMPLETED) {
+			this.aiAnalysisStatus = AiAnalysisStatus.FAILED;
+			this.summary = null;
+			this.evidenceSnippets = null;
+			this.analyzedAt = null;
+			this.analyzedRecordUpdatedAt = null;
+		}
 	}
 }

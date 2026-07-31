@@ -18,6 +18,7 @@ import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagReposi
 import com.itcotato.dortfolio.domain.record.repository.RecordEmbeddingRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -51,25 +52,21 @@ public class RecordAnalysisService {
 	private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
 	public void analyze(UUID recordId) {
-		recordAnalysisLockManager.executeWithLock(recordId, () -> analyzeLocked(recordId));
-	}
-
-	private void analyzeLocked(UUID recordId) {
 		log.info("Record AI analysis started. recordId={}", recordId);
 
-		Optional<RecordAnalysisRequest> requestOptional;
+		Optional<AnalysisSnapshot> snapshotOptional;
 		try {
-			requestOptional = transactionTemplate.execute(status -> prepareRequest(recordId));
+			snapshotOptional = transactionTemplate.execute(status -> prepareRequest(recordId));
 		} catch (Exception exception) {
-			markFailed(
+			recordAnalysisLockManager.executeWithLock(recordId, () -> markFailed(
 				recordId,
 				toFailureReason(new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED)),
 				RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED.isRetryable()
-			);
+			));
 			log.warn("Record AI analysis prepare failed. recordId={}", recordId, exception);
 			return;
 		}
-		if (requestOptional == null || requestOptional.isEmpty()) {
+		if (snapshotOptional == null || snapshotOptional.isEmpty()) {
 			log.info("Record AI analysis skipped. recordId={}", recordId);
 			return;
 		}
@@ -77,12 +74,15 @@ public class RecordAnalysisService {
 		RecordAnalysisResponse response;
 		String evidenceSnippetsJson;
 		try {
-			RecordAnalysisRequest request = requestOptional.get();
+			RecordAnalysisRequest request = snapshotOptional.get().request();
 			response = requestAnalysis(request);
 			validate(response, request);
 			evidenceSnippetsJson = toJson(response.evidenceSnippets());
 		} catch (CustomException exception) {
-			markFailed(recordId, toFailureReason(exception), toRetryable(exception));
+			recordAnalysisLockManager.executeWithLock(
+				recordId,
+				() -> markFailed(recordId, toFailureReason(exception), toRetryable(exception))
+			);
 			log.warn(
 				"Record AI analysis failed. recordId={}, errorCode={}, retryable={}",
 				recordId,
@@ -93,71 +93,68 @@ public class RecordAnalysisService {
 		}
 
 		try {
-			transactionTemplate.executeWithoutResult(status -> saveSuccessfulAnalysis(recordId, response, evidenceSnippetsJson));
+			recordAnalysisLockManager.executeWithLock(recordId, () ->
+				transactionTemplate.executeWithoutResult(status ->
+					saveSuccessfulAnalysis(snapshotOptional.get(), response, evidenceSnippetsJson)
+				)
+			);
 		} catch (Exception exception) {
-			markFailed(
+			recordAnalysisLockManager.executeWithLock(recordId, () -> markFailed(
 				recordId,
 				toFailureReason(new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED)),
 				RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED.isRetryable()
-			);
+			));
 			log.warn("Record AI analysis persistence failed. recordId={}", recordId, exception);
 			return;
 		}
 		log.info("Record AI analysis completed. recordId={}", recordId);
 	}
 
-	private Optional<RecordAnalysisRequest> prepareRequest(UUID recordId) {
+	private Optional<AnalysisSnapshot> prepareRequest(UUID recordId) {
 		Optional<Record> recordOptional = recordRepository.findById(recordId);
 		if (recordOptional.isEmpty() || !isAnalyzable(recordOptional.get())) {
 			return Optional.empty();
 		}
 		Record record = recordOptional.get();
 
-		getOrCreatePending(record);
-		clearDerivedAnalysisData(recordId);
-		recordAnalysisRepository.flush();
-		recordCompetencyTagRepository.flush();
-
-		return Optional.of(recordAnalysisRequestBuilder.build(record));
+		return Optional.of(new AnalysisSnapshot(
+			recordAnalysisRequestBuilder.build(record),
+			record.getUpdatedAt()
+		));
 	}
 
-	private void saveSuccessfulAnalysis(UUID recordId, RecordAnalysisResponse response, String evidenceSnippetsJson) {
+	private void saveSuccessfulAnalysis(AnalysisSnapshot snapshot, RecordAnalysisResponse response, String evidenceSnippetsJson) {
+		UUID recordId = snapshot.request().recordId();
 		Optional<Record> recordOptional = recordRepository.findById(recordId);
 		if (recordOptional.isEmpty() || !isAnalyzable(recordOptional.get())) {
-			clearDerivedAnalysisData(recordId);
-			recordAnalysisRepository.deleteByRecord_Id(recordId);
 			return;
 		}
 		Record record = recordOptional.get();
-		RecordAnalysis recordAnalysis = getOrCreatePending(record);
+		if (!record.getUpdatedAt().equals(snapshot.recordUpdatedAt())) {
+			log.info("Record AI analysis result skipped because record changed. recordId={}", recordId);
+			return;
+		}
+		RecordAnalysis recordAnalysis = getOrCreate(record);
 
 		recordEmbeddingRepository.deleteAllByRecord_Id(recordId);
 		recordCompetencyTagRepository.deleteAllByRecord_Id(recordId);
-		recordAnalysis.complete(response.summary(), evidenceSnippetsJson);
+		recordAnalysis.complete(response.summary(), evidenceSnippetsJson, snapshot.recordUpdatedAt());
 		saveCompetencyTags(record, response.competencyTags());
 		recordEmbeddingWriter.save(record, response.embeddingModel(), response.embedding());
 		recordAnalysisRepository.flush();
 		recordCompetencyTagRepository.flush();
 	}
 
-	private void clearDerivedAnalysisData(UUID recordId) {
-		recordEmbeddingRepository.deleteAllByRecord_Id(recordId);
-		recordCompetencyTagRepository.deleteAllByRecord_Id(recordId);
-	}
-
 	private void markFailed(UUID recordId, String failureReason, boolean retryable) {
 		transactionTemplate.executeWithoutResult(status ->
-			recordAnalysisRepository.findByRecord_Id(recordId)
-				.ifPresent(recordAnalysis -> recordAnalysis.fail(failureReason, retryable))
+			recordRepository.findById(recordId)
+				.filter(this::isAnalyzable)
+				.ifPresent(record -> getOrCreate(record).fail(failureReason, retryable))
 		);
 	}
 
-	private RecordAnalysis getOrCreatePending(Record record) {
+	private RecordAnalysis getOrCreate(Record record) {
 		return recordAnalysisRepository.findByRecord_Id(record.getId())
-			.map(recordAnalysis -> {
-				recordAnalysis.markPending();
-				return recordAnalysis;
-			})
 			.orElseGet(() -> recordAnalysisRepository.save(RecordAnalysis.pending(record)));
 	}
 
@@ -234,6 +231,9 @@ public class RecordAnalysisService {
 			if (competencyTag.score() < 0.0f || competencyTag.score() > 1.0f) {
 				throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 			}
+			if (Float.isNaN(competencyTag.score())) {
+				throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
+			}
 		}
 	}
 
@@ -284,5 +284,11 @@ public class RecordAnalysisService {
 			return recordAnalysisErrorCode.isRetryable();
 		}
 		return false;
+	}
+
+	private record AnalysisSnapshot(
+		RecordAnalysisRequest request,
+		LocalDateTime recordUpdatedAt
+	) {
 	}
 }

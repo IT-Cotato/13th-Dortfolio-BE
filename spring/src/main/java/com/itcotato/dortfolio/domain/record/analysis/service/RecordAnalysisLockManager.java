@@ -1,18 +1,25 @@
 package com.itcotato.dortfolio.domain.record.analysis.service;
 
+import com.itcotato.dortfolio.domain.record.analysis.config.RecordAnalysisProperties;
+import com.itcotato.dortfolio.global.exception.CustomException;
+import com.itcotato.dortfolio.global.exception.types.RecordErrorCode;
 import java.util.Arrays;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
+@RequiredArgsConstructor
 public class RecordAnalysisLockManager {
 
 	private static final int LOCK_STRIPES = 64;
 
+	private final RecordAnalysisProperties recordAnalysisProperties;
 	private final ReentrantLock[] locks = createLocks();
 
 	public void executeWithLock(UUID recordId, Runnable runnable) {
@@ -24,7 +31,7 @@ public class RecordAnalysisLockManager {
 
 	public <T> T executeWithLock(UUID recordId, Supplier<T> supplier) {
 		ReentrantLock lock = lock(recordId);
-		lock.lock();
+		acquire(lock);
 		try {
 			return supplier.get();
 		} finally {
@@ -34,7 +41,7 @@ public class RecordAnalysisLockManager {
 
 	public void lockUntilTransactionCompletion(UUID recordId) {
 		ReentrantLock lock = lock(recordId);
-		lock.lock();
+		acquire(lock);
 		if (!TransactionSynchronizationManager.isSynchronizationActive()) {
 			lock.unlock();
 			throw new IllegalStateException("Transaction synchronization is required for record analysis lock.");
@@ -45,6 +52,17 @@ public class RecordAnalysisLockManager {
 				lock.unlock();
 			}
 		});
+	}
+
+	private void acquire(ReentrantLock lock) {
+		try {
+			if (!lock.tryLock(recordAnalysisProperties.lockTimeout().toMillis(), TimeUnit.MILLISECONDS)) {
+				throw new CustomException(RecordErrorCode.RECORD_ANALYSIS_IN_PROGRESS);
+			}
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			throw new CustomException(RecordErrorCode.RECORD_ANALYSIS_IN_PROGRESS);
+		}
 	}
 
 	private static ReentrantLock[] createLocks() {
