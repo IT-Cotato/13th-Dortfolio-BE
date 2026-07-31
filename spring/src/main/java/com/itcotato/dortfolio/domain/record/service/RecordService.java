@@ -3,6 +3,7 @@ package com.itcotato.dortfolio.domain.record.service;
 import com.itcotato.dortfolio.domain.activity.entity.Activity;
 import com.itcotato.dortfolio.domain.record.analysis.event.RecordAnalysisJobPublisher;
 import com.itcotato.dortfolio.domain.record.analysis.service.RecordAnalysisCleaner;
+import com.itcotato.dortfolio.domain.record.analysis.service.RecordAnalysisLockManager;
 import com.itcotato.dortfolio.domain.record.config.RecordProperties;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordSearchCondition;
@@ -39,6 +40,7 @@ public class RecordService {
     private final RecordProperties recordProperties;
     private final RecordAnalysisJobPublisher recordAnalysisJobPublisher;
     private final RecordAnalysisCleaner recordAnalysisCleaner;
+    private final RecordAnalysisLockManager recordAnalysisLockManager;
 
     @Transactional
     public RecordResponse createRecord(UUID userId, RecordCreateRequest request) {
@@ -123,15 +125,16 @@ public class RecordService {
 
     @Transactional
     public void deleteRecord(UUID userId, UUID recordId) {
+        recordAnalysisLockManager.lockUntilTransactionCompletion(recordId);
         Record record = getActiveRecordOrThrow(userId, recordId);
 
         recordMemoService.decreaseUseCounts(record);
         record.markDeleted(recordProperties.deleteGracePeriodDays());
-        recordAnalysisCleaner.deleteByRecordId(recordId);
     }
 
     @Transactional
     public void permanentlyDeleteRecord(UUID userId, UUID recordId) {
+        recordAnalysisLockManager.lockUntilTransactionCompletion(recordId);
         Record record = recordRepository.findByIdAndUser_Id(recordId, userId)
                 .orElseThrow(() -> new CustomException(RecordErrorCode.RECORD_NOT_FOUND));
 
@@ -146,6 +149,7 @@ public class RecordService {
 
     @Transactional
     public void restoreRecord(UUID userId, UUID recordId) {
+        recordAnalysisLockManager.lockUntilTransactionCompletion(recordId);
         Record record = recordRepository.findByIdAndUser_Id(recordId, userId)
                 .orElseThrow(() -> new CustomException(RecordErrorCode.RECORD_NOT_FOUND));
 
@@ -156,9 +160,6 @@ public class RecordService {
         validateRestorable(record);
         recordMemoService.increaseUseCounts(record);
         record.restore();
-        if (record.getStatus() == RecordStatus.COMPLETED) {
-            recordAnalysisJobPublisher.publish(record.getId());
-        }
     }
 
     private RecordResponse toRecordResponse(Record record) {
