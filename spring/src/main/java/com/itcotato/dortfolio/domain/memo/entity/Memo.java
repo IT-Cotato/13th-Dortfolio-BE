@@ -50,8 +50,15 @@ public class Memo extends BaseEntity {
 	@Column(nullable = false)
 	private int sortOrder;
 
+	// [사용되지 않는 상태] 메모 삭제는 복구 불가(기능명세서 3.2.3.1.1)라 하드 삭제이고,
+	// 기록에 연결된 메모는 아예 삭제를 막으므로(M004) 이 소프트 삭제 상태는 설정되지 않는다.
+	// Record 도메인의 RecordMemoService#hasDeletedMemo가 아직 참조 중이라 남겨둔 상태.
+	// TODO: Record 도메인 정리와 함께 제거 예정 (PR #28 리뷰 합의)
 	@Column
 	private LocalDateTime deletedAt;
+
+	@Column
+	private LocalDateTime deletePendingUntil;
 
 	@Column
 	private LocalDateTime expiresAt;
@@ -83,6 +90,14 @@ public class Memo extends BaseEntity {
 
 	public void markImportant(boolean important) {
 		this.isImportant = important;
+	}
+
+	// [사용되지 않는 메서드] 메모 삭제 API는 하드 삭제라 호출하지 않는다.
+	// RecordServiceTest가 아직 호출 중이라 제거하지 못한 상태.
+	// TODO: Record 도메인 정리와 함께 제거 예정 (PR #28 리뷰 합의)
+	public void markDeleted(int gracePeriodDays) {
+		this.deletedAt = LocalDateTime.now();
+		this.deletePendingUntil = LocalDateTime.now().plusDays(gracePeriodDays);
 	}
 
 	public void increaseUseCount() {

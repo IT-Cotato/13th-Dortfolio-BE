@@ -14,6 +14,9 @@ import com.itcotato.dortfolio.domain.template.repository.ActivityTemplateReposit
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
+import com.itcotato.dortfolio.global.exception.CustomException;
+import com.itcotato.dortfolio.global.exception.types.ActivityErrorCode;
+import com.itcotato.dortfolio.global.exception.types.UserErrorCode;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -96,17 +99,17 @@ public class ActivityService {
 
     private Activity getActivityOrThrow(UUID activityId, UUID userId) {
         return activityRepository.findByIdAndUser_Id(activityId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 활동입니다."));
+                .orElseThrow(() -> new CustomException(ActivityErrorCode.ACTIVITY_NOT_FOUND));
     }
 
     private ActivityType getActivityTypeOrThrow(UUID activityTypeId, UUID userId) {
         return activityTypeRepository.findByIdAndUser_Id(activityTypeId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 활동 종류입니다."));
+                .orElseThrow(() -> new CustomException(ActivityErrorCode.ACTIVITY_TYPE_NOT_FOUND));
     }
 
     private User getUserOrThrow(UUID userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
+                .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
     }
 
     private void connectDefaultTemplates(Activity activity) {

@@ -2,6 +2,8 @@ package com.itcotato.dortfolio.domain.activity.entity;
 
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.global.entity.BaseEntity;
+import com.itcotato.dortfolio.global.exception.CustomException;
+import com.itcotato.dortfolio.global.exception.types.ActivityErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -103,10 +105,10 @@ public class Activity extends BaseEntity {
 
     private static void validatePeriod(LocalDate startedAt, LocalDate endedAt, boolean isOngoing) {
         if (!isOngoing && endedAt == null) {
-            throw new IllegalArgumentException("종료일 미정이 아니면 종료일을 입력해야 합니다.");
+            throw new CustomException(ActivityErrorCode.END_DATE_REQUIRED);
         }
         if (endedAt != null && startedAt.isAfter(endedAt)) {
-            throw new IllegalArgumentException("시작일은 종료일보다 늦을 수 없습니다.");
+            throw new CustomException(ActivityErrorCode.INVALID_ACTIVITY_PERIOD);
         }
     }
 }

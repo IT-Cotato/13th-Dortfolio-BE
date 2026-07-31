@@ -2,8 +2,10 @@ package com.itcotato.dortfolio.domain.memo.controller;
 
 import com.itcotato.dortfolio.domain.memo.controller.docs.MemoControllerDocs;
 import com.itcotato.dortfolio.domain.memo.dto.req.MemoCreateRequest;
-import com.itcotato.dortfolio.domain.memo.dto.res.MemoResponse;
+import com.itcotato.dortfolio.domain.memo.dto.req.MemoImagePresignedUrlRequest;
 import com.itcotato.dortfolio.domain.memo.dto.req.MemoUpdateRequest;
+import com.itcotato.dortfolio.domain.memo.dto.res.MemoImagePresignedUrlResponse;
+import com.itcotato.dortfolio.domain.memo.dto.res.MemoResponse;
 import com.itcotato.dortfolio.domain.memo.service.MemoService;
 import com.itcotato.dortfolio.global.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -12,6 +14,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -22,7 +25,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// TODO: auth 도메인 완성되면 @RequestParam UUID userId를 @AuthenticationPrincipal로 교체
 @RestController
 @RequestMapping("/api/memos")
 @RequiredArgsConstructor
@@ -33,7 +35,7 @@ public class MemoController implements MemoControllerDocs {
     @Override
     @PostMapping
     public ResponseEntity<ApiResponse<UUID>> createMemo(
-            @RequestParam UUID userId,
+            @AuthenticationPrincipal UUID userId,
             @Valid @RequestBody MemoCreateRequest request
     ) {
         UUID memoId = memoService.createMemo(userId, request);
@@ -42,16 +44,21 @@ public class MemoController implements MemoControllerDocs {
                 .body(ApiResponse.success("메모를 생성했습니다.", memoId));
     }
 
+    // 기능명세서 3.4: activityId 미지정 시 전체보기, 지정 시 해당 활동 태그로 필터링
     @Override
     @GetMapping
-    public ResponseEntity<ApiResponse<List<MemoResponse>>> getMemos(@RequestParam UUID userId) {
-        return ResponseEntity.ok(ApiResponse.success("메모 목록을 조회했습니다.", memoService.getMemos(userId)));
+    public ResponseEntity<ApiResponse<List<MemoResponse>>> getMemos(
+            @AuthenticationPrincipal UUID userId,
+            @RequestParam(required = false) UUID activityId
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.success("메모 목록을 조회했습니다.", memoService.getMemos(userId, activityId)));
     }
 
     @Override
     @GetMapping("/{memoId}")
     public ResponseEntity<ApiResponse<MemoResponse>> getMemo(
-            @RequestParam UUID userId,
+            @AuthenticationPrincipal UUID userId,
             @PathVariable UUID memoId
     ) {
         return ResponseEntity.ok(ApiResponse.success("메모를 조회했습니다.", memoService.getMemo(userId, memoId)));
@@ -60,7 +67,7 @@ public class MemoController implements MemoControllerDocs {
     @Override
     @PatchMapping("/{memoId}")
     public ResponseEntity<ApiResponse<Void>> updateMemo(
-            @RequestParam UUID userId,
+            @AuthenticationPrincipal UUID userId,
             @PathVariable UUID memoId,
             @Valid @RequestBody MemoUpdateRequest request
     ) {
@@ -71,7 +78,7 @@ public class MemoController implements MemoControllerDocs {
     @Override
     @PatchMapping("/{memoId}/important")
     public ResponseEntity<ApiResponse<Void>> markImportant(
-            @RequestParam UUID userId,
+            @AuthenticationPrincipal UUID userId,
             @PathVariable UUID memoId,
             @RequestParam boolean important
     ) {
@@ -80,13 +87,36 @@ public class MemoController implements MemoControllerDocs {
         return ResponseEntity.ok(ApiResponse.success(message));
     }
 
+    // 단건/다건(1~n개) 삭제 동일 API로 처리 (3.2.2, 3.3.3)
     @Override
-    @DeleteMapping("/{memoId}")
-    public ResponseEntity<ApiResponse<Void>> deleteMemo(
-            @RequestParam UUID userId,
-            @PathVariable UUID memoId
+    @DeleteMapping
+    public ResponseEntity<ApiResponse<Void>> deleteMemos(
+            @AuthenticationPrincipal UUID userId,
+            @RequestParam List<UUID> memoIds
     ) {
-        memoService.deleteMemo(userId, memoId);
+        memoService.deleteMemos(userId, memoIds);
         return ResponseEntity.ok(ApiResponse.success("메모를 삭제했습니다."));
+    }
+
+    /* 활동 사진 업로드 Presigned URL 발급 API (3.1.3) */
+    @Override
+    @PostMapping("/images/presigned-url")
+    public ResponseEntity<ApiResponse<MemoImagePresignedUrlResponse>> getMemoImagePresignedUrl(
+            @AuthenticationPrincipal UUID userId,
+            @Valid @RequestBody MemoImagePresignedUrlRequest request
+    ) {
+        MemoImagePresignedUrlResponse response = memoService.createMemoImagePresignedUrl(request);
+        return ResponseEntity.ok(ApiResponse.success("Presigned URL 발급에 성공하였습니다.", response));
+    }
+
+    /* 활동 사진 삭제 API (3.1.4) */
+    @Override
+    @DeleteMapping("/images/{imageId}")
+    public ResponseEntity<ApiResponse<Void>> deleteMemoImage(
+            @AuthenticationPrincipal UUID userId,
+            @PathVariable UUID imageId
+    ) {
+        memoService.deleteMemoImage(userId, imageId);
+        return ResponseEntity.ok(ApiResponse.success("이미지를 삭제했습니다."));
     }
 }
