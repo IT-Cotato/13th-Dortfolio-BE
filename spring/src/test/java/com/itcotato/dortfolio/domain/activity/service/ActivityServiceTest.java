@@ -2,7 +2,7 @@ package com.itcotato.dortfolio.domain.activity.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.itcotato.dortfolio.domain.activity.dto.ActivityCreateRequest;
+import com.itcotato.dortfolio.domain.activity.dto.req.ActivityCreateRequest;
 import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;

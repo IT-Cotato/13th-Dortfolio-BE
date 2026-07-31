@@ -19,3 +19,16 @@ record:
   recent-record-limit: 5
   default-page-size: 7
   max-page-size: 50
+
+app:
+  fastapi:
+    base-url: http://localhost:8000
+    connect-timeout: 1s
+    read-timeout: 1s
+
+record-analysis:
+  enabled: false
+  async-core-pool-size: 1
+  async-max-pool-size: 1
+  async-queue-capacity: 10
+  lock-timeout: 1s

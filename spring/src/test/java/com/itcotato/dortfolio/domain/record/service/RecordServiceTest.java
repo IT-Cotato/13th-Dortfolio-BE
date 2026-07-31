@@ -10,6 +10,8 @@ import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
 import com.itcotato.dortfolio.domain.memo.entity.Memo;
 import com.itcotato.dortfolio.domain.memo.repository.MemoRepository;
+import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysis;
+import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordAnswerRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordMemoRequest;
@@ -60,6 +62,9 @@ class RecordServiceTest {
 	private RecordRepository recordRepository;
 
 	@Autowired
+	private RecordAnalysisRepository recordAnalysisRepository;
+
+	@Autowired
 	private RecordAnswerRepository recordAnswerRepository;
 
 	@Autowired
@@ -100,7 +105,8 @@ class RecordServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		recordEmbeddingRepository.deleteAll();
+		recordAnalysisRepository.deleteAll();
+		jdbcTemplate.update("delete from record_embeddings");
 		recordCompetencyTagRepository.deleteAll();
 		competencyTagRepository.deleteAll();
 		recordMemoRepository.deleteAll();
@@ -352,6 +358,39 @@ class RecordServiceTest {
 	}
 
 	@Test
+	void deleteRecordKeepsAnalysisDataForRestore() {
+		User user = createUser();
+		Activity activity = createActivity(user, "도트폴리오");
+		Template template = createTemplate(user, "문제 해결", false);
+		connectTemplate(activity, template);
+		RecordResponse completed = recordService.createRecord(user.getId(), new RecordCreateRequest(
+				activity.getId(),
+				template.getId(),
+				"완료 기록",
+				List.of(),
+				List.of(),
+				RecordStatus.COMPLETED
+		));
+		com.itcotato.dortfolio.domain.record.entity.Record record = recordRepository.findById(completed.id()).orElseThrow();
+		recordAnalysisRepository.save(RecordAnalysis.pending(record));
+		insertRecordEmbedding(record.getId());
+		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("문제 해결", "문제를 해결한 역량"));
+		recordCompetencyTagRepository.save(RecordCompetencyTag.create(record, competencyTag, 0.9f));
+
+		recordService.deleteRecord(user.getId(), completed.id());
+
+		assertThat(recordAnalysisRepository.findByRecord_Id(completed.id())).isPresent();
+		assertThat(recordEmbeddingRepository.countByRecord_Id(completed.id())).isEqualTo(1);
+		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(completed.id())).hasSize(1);
+
+		recordService.restoreRecord(user.getId(), completed.id());
+
+		assertThat(recordAnalysisRepository.findByRecord_Id(completed.id())).isPresent();
+		assertThat(recordEmbeddingRepository.countByRecord_Id(completed.id())).isEqualTo(1);
+		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(completed.id())).hasSize(1);
+	}
+
+	@Test
 	void permanentlyDeleteRecordRemovesRecordAndChildren() {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
@@ -368,6 +407,7 @@ class RecordServiceTest {
 		));
 		recordService.deleteRecord(user.getId(), draft.id());
 		com.itcotato.dortfolio.domain.record.entity.Record record = recordRepository.findById(draft.id()).orElseThrow();
+		recordAnalysisRepository.save(RecordAnalysis.pending(record));
 		insertRecordEmbedding(record.getId());
 		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("문제 해결", "문제를 해결한 역량"));
 		recordCompetencyTagRepository.save(RecordCompetencyTag.create(record, competencyTag, 0.9f));
@@ -377,7 +417,8 @@ class RecordServiceTest {
 		assertThat(recordRepository.findById(draft.id())).isEmpty();
 		assertThat(recordAnswerRepository.findAllByRecord_IdOrderBySortOrderAsc(draft.id())).isEmpty();
 		assertThat(recordMemoRepository.findAllByRecord_IdOrderBySortOrderAsc(draft.id())).isEmpty();
-		assertThat(recordEmbeddingRepository.findAllByRecord_Id(draft.id())).isEmpty();
+		assertThat(recordAnalysisRepository.findByRecord_Id(draft.id())).isEmpty();
+		assertThat(recordEmbeddingRepository.countByRecord_Id(draft.id())).isZero();
 		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(draft.id())).isEmpty();
 		assertThat(memoRepository.findById(memo.getId()).orElseThrow().getUseCount()).isZero();
 	}

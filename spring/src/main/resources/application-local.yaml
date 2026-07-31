@@ -2,6 +2,7 @@ spring:
   config:
     activate:
       on-profile: local
+    import: optional:file:../.env[.properties]
 
   docker:
     compose:
@@ -56,6 +57,8 @@ spring:
 app:
   fastapi:
     base-url: http://localhost:${FASTAPI_PORT:8000}
+    connect-timeout: ${FASTAPI_CONNECT_TIMEOUT:3s}
+    read-timeout: ${FASTAPI_READ_TIMEOUT:30s}
   oauth2:
     success-redirect-uri: http://localhost:3000/oauth/redirect
     failure-redirect-uri: http://localhost:3000/login

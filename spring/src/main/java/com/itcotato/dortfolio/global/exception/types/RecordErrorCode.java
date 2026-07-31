@@ -23,7 +23,8 @@ public enum RecordErrorCode implements ErrorCode {
     RECORD_PERMANENT_DELETE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "R012", "삭제된 기록만 영구 삭제할 수 있습니다."),
     RECORD_INVALID_PAGE_REQUEST(HttpStatus.BAD_REQUEST, "R013", "올바르지 않은 기록 목록 페이지 요청입니다."),
     RECORD_USER_NOT_FOUND(HttpStatus.NOT_FOUND, "R014", "기록을 요청한 사용자를 찾을 수 없습니다."),
-    RECORD_ACTIVITY_NOT_FOUND(HttpStatus.NOT_FOUND, "R015", "기록에 사용할 활동을 찾을 수 없습니다.");
+    RECORD_ACTIVITY_NOT_FOUND(HttpStatus.NOT_FOUND, "R015", "기록에 사용할 활동을 찾을 수 없습니다."),
+    RECORD_ANALYSIS_IN_PROGRESS(HttpStatus.CONFLICT, "R016", "기록 AI 분석 작업 처리 중입니다.");
 
     private final HttpStatus status;
     private final String code;
