@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 
 public record InsightEligibilityResponse(
         boolean eligible,
-        InsightEligibilityReason reaseon,
+        InsightEligibilityReason reason,
         LocalDateTime nextAvailableAt,
         long completedRecordCount,
         int requiredRecordCount
