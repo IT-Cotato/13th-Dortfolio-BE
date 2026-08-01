@@ -7,14 +7,15 @@ import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 
 @ActiveProfiles("test")
 @SpringBootTest
+@Transactional
 class InsightRepositoryTest {
 
     @Autowired
@@ -22,12 +23,6 @@ class InsightRepositoryTest {
 
     @Autowired
     private UserRepository userRepository;
-
-    @BeforeEach
-    void setUp() {
-        insightRepository.deleteAll();
-        userRepository.deleteAll();
-    }
 
     @Test
     void findLatestCompletedByUserIdReturnsLatestCompletedInsight() {
