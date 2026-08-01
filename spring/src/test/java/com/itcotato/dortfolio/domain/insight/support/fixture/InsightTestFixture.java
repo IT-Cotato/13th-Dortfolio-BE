@@ -41,6 +41,7 @@ public final class InsightTestFixture {
                 InsightEligibilityReason.AVAILABLE,
                 null,
                 10,
+                10,
                 10
         );
     }
@@ -50,6 +51,7 @@ public final class InsightTestFixture {
                 false,
                 InsightEligibilityReason.COOLDOWN,
                 SNAPSHOT_AT.plusHours(24),
+                12,
                 12,
                 10
         );

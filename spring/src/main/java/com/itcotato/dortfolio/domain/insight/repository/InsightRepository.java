@@ -20,4 +20,9 @@ public interface InsightRepository extends JpaRepository<Insight, UUID> {
                 InsightGenerationStatus.COMPLETED
         );
     }
+
+    boolean existsByUser_IdAndStatus(
+            UUID userId,
+            InsightGenerationStatus status
+    );
 }

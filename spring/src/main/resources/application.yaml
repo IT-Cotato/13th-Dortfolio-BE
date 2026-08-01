@@ -105,3 +105,7 @@ matching:
       content: 리더십을 발휘했던 경험에 대해 서술하시오.
     - id: DATA_PROBLEM_SOLVING
       content: 데이터를 활용하여 문제를 해결한 경험을 서술하시오.
+
+insight:
+  minimum-analyzed-record-count: 10
+  regeneration-cooldown: 24h
