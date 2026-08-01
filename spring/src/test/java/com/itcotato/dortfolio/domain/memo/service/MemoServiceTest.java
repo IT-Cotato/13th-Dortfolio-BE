@@ -19,6 +19,7 @@ import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRe
 import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.record.entity.RecordMemo;
 import com.itcotato.dortfolio.domain.record.repository.CompetencyTagRepository;
+import com.itcotato.dortfolio.domain.record.repository.RecordAnswerRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordMemoRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
@@ -38,6 +39,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -88,6 +90,9 @@ class MemoServiceTest {
 	private CompetencyTagRepository competencyTagRepository;
 
 	@Autowired
+	private RecordAnswerRepository recordAnswerRepository;
+
+	@Autowired
 	private JdbcTemplate jdbcTemplate;
 
 	@PersistenceContext
@@ -98,11 +103,22 @@ class MemoServiceTest {
 
 	@BeforeEach
 	void setUp() {
+		cleanUp();
+	}
+
+	// 다른 테스트 클래스에 데이터를 남기지 않도록 실행 후에도 정리한다
+	@AfterEach
+	void tearDown() {
+		cleanUp();
+	}
+
+	private void cleanUp() {
 		recordAnalysisRepository.deleteAll();
 		jdbcTemplate.update("delete from record_embeddings");
 		recordCompetencyTagRepository.deleteAll();
 		competencyTagRepository.deleteAll();
 		recordMemoRepository.deleteAll();
+		recordAnswerRepository.deleteAll();
 		recordRepository.deleteAll();
 		templateRepository.deleteAll();
 		memoImageRepository.deleteAll();

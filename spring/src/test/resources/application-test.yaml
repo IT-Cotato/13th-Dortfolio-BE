@@ -20,6 +20,10 @@ record:
   default-page-size: 7
   max-page-size: 50
 
+search:
+  default-page-size: 10
+  max-page-size: 50
+
 app:
   fastapi:
     base-url: http://localhost:8000
