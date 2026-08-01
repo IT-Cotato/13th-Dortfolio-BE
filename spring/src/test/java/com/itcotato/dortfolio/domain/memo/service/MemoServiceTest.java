@@ -15,8 +15,11 @@ import com.itcotato.dortfolio.domain.memo.dto.res.MemoImagePresignedUrlResponse;
 import com.itcotato.dortfolio.domain.memo.dto.res.MemoResponse;
 import com.itcotato.dortfolio.domain.memo.repository.MemoImageRepository;
 import com.itcotato.dortfolio.domain.memo.repository.MemoRepository;
+import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
 import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.record.entity.RecordMemo;
+import com.itcotato.dortfolio.domain.record.repository.CompetencyTagRepository;
+import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordMemoRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.template.entity.Template;
@@ -40,6 +43,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -74,6 +78,18 @@ class MemoServiceTest {
 	@Autowired
 	private TemplateRepository templateRepository;
 
+	@Autowired
+	private RecordAnalysisRepository recordAnalysisRepository;
+
+	@Autowired
+	private RecordCompetencyTagRepository recordCompetencyTagRepository;
+
+	@Autowired
+	private CompetencyTagRepository competencyTagRepository;
+
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
 	@PersistenceContext
 	private EntityManager entityManager;
 
@@ -82,6 +98,10 @@ class MemoServiceTest {
 
 	@BeforeEach
 	void setUp() {
+		recordAnalysisRepository.deleteAll();
+		jdbcTemplate.update("delete from record_embeddings");
+		recordCompetencyTagRepository.deleteAll();
+		competencyTagRepository.deleteAll();
 		recordMemoRepository.deleteAll();
 		recordRepository.deleteAll();
 		templateRepository.deleteAll();
