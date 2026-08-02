@@ -15,8 +15,12 @@ import com.itcotato.dortfolio.domain.memo.dto.res.MemoImagePresignedUrlResponse;
 import com.itcotato.dortfolio.domain.memo.dto.res.MemoResponse;
 import com.itcotato.dortfolio.domain.memo.repository.MemoImageRepository;
 import com.itcotato.dortfolio.domain.memo.repository.MemoRepository;
+import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
 import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.record.entity.RecordMemo;
+import com.itcotato.dortfolio.domain.record.repository.CompetencyTagRepository;
+import com.itcotato.dortfolio.domain.record.repository.RecordAnswerRepository;
+import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordMemoRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.template.entity.Template;
@@ -36,11 +40,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -77,6 +83,19 @@ class MemoServiceTest {
 
 	@Autowired
 	private ActivityTemplateRepository activityTemplateRepository;
+	private RecordAnalysisRepository recordAnalysisRepository;
+
+	@Autowired
+	private RecordCompetencyTagRepository recordCompetencyTagRepository;
+
+	@Autowired
+	private CompetencyTagRepository competencyTagRepository;
+
+	@Autowired
+	private RecordAnswerRepository recordAnswerRepository;
+
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	@PersistenceContext
 	private EntityManager entityManager;
@@ -86,7 +105,22 @@ class MemoServiceTest {
 
 	@BeforeEach
 	void setUp() {
+		cleanUp();
+	}
+
+	// 다른 테스트 클래스에 데이터를 남기지 않도록 실행 후에도 정리한다
+	@AfterEach
+	void tearDown() {
+		cleanUp();
+	}
+
+	private void cleanUp() {
+		recordAnalysisRepository.deleteAll();
+		jdbcTemplate.update("delete from record_embeddings");
+		recordCompetencyTagRepository.deleteAll();
+		competencyTagRepository.deleteAll();
 		recordMemoRepository.deleteAll();
+		recordAnswerRepository.deleteAll();
 		recordRepository.deleteAll();
 		activityTemplateRepository.deleteAll();
 		templateRepository.deleteAll();
