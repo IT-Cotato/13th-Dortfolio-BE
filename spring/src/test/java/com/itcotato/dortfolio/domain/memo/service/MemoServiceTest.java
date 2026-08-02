@@ -83,6 +83,8 @@ class MemoServiceTest {
 
 	@Autowired
 	private ActivityTemplateRepository activityTemplateRepository;
+
+	@Autowired
 	private RecordAnalysisRepository recordAnalysisRepository;
 
 	@Autowired
