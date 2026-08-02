@@ -1,0 +1,47 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  # 운영에서는 컨테이너를 compose로 직접 띄우므로 Spring의 docker-compose 연동은 끈다
+  docker:
+    compose:
+      enabled: false
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:dortfolio}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+
+  jpa:
+    hibernate:
+      # 스키마는 Flyway가 관리한다. Hibernate는 엔티티와 실제 스키마가 맞는지 검증만 한다
+      ddl-auto: ${JPA_DDL_AUTO:validate}
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+logging:
+  level:
+    root: INFO
+    com.itcotato.dortfolio: ${LOG_LEVEL:INFO}
+    org.hibernate.SQL: WARN
+
+# 운영에서는 헬스체크만 열고 나머지 액추에이터 엔드포인트는 닫는다
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
