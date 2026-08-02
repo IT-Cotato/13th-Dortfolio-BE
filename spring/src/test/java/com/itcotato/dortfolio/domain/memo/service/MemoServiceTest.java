@@ -24,6 +24,7 @@ import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagReposi
 import com.itcotato.dortfolio.domain.record.repository.RecordMemoRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.template.entity.Template;
+import com.itcotato.dortfolio.domain.template.repository.ActivityTemplateRepository;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
@@ -81,6 +82,9 @@ class MemoServiceTest {
 	private TemplateRepository templateRepository;
 
 	@Autowired
+	private ActivityTemplateRepository activityTemplateRepository;
+
+	@Autowired
 	private RecordAnalysisRepository recordAnalysisRepository;
 
 	@Autowired
@@ -120,6 +124,7 @@ class MemoServiceTest {
 		recordMemoRepository.deleteAll();
 		recordAnswerRepository.deleteAll();
 		recordRepository.deleteAll();
+		activityTemplateRepository.deleteAll();
 		templateRepository.deleteAll();
 		memoImageRepository.deleteAll();
 		memoRepository.deleteAll();
