@@ -21,7 +21,8 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      # 스키마는 Flyway가 관리한다
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
