@@ -36,3 +36,21 @@ record-analysis:
   async-max-pool-size: 1
   async-queue-capacity: 10
   lock-timeout: 1s
+
+matching:
+  default-record-limit: 3
+  max-record-limit: 10
+  candidate-record-limit: 10
+  embedding-dimension: 3072
+  indexed-embedding-models:
+    - gemini-embedding-2
+    - dortfolio-local-hash-v1
+  question-max-length: 500
+  min-match-rate: 30
+  daily-ai-request-limit: 20
+  daily-ai-request-ttl: 1d
+  question-tags:
+    - id: JOB_STUDY
+      content: 해당 직무에서 열심히 공부했던 경험에 대해 서술하시오.
+    - id: CONFLICT_RESOLUTION
+      content: 팀원과 갈등이 생겼을 때 어떻게 해결했는지 서술하시오.
