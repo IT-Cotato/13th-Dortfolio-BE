@@ -4,6 +4,7 @@ import com.itcotato.dortfolio.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -15,7 +16,12 @@ import org.hibernate.type.SqlTypes;
 
 @Getter
 @Entity
-@Table(name = "record_embeddings")
+@Table(
+	name = "record_embeddings",
+	indexes = {
+		@Index(name = "uk_record_embedding_record_model", columnList = "record_id, embedding_model", unique = true)
+	}
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RecordEmbedding extends BaseEntity {
 
