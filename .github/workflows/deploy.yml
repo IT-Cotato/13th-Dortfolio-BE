@@ -108,7 +108,12 @@ jobs:
             # github.actor를 쓰면 푸시한 사람에 따라 토큰 소유자와 어긋나 로그인이 실패할 수 있다.
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
 
-            export SPRING_IMAGE FASTAPI_IMAGE
+            # 이미지 주소를 .env에 기록해 둔다.
+            # 셸 환경변수로만 넘기면 이후 다른 세션(배포 검증, 수동 운영)에서 compose가 이미지를 찾지 못한다.
+            sed -i '/^SPRING_IMAGE=/d;/^FASTAPI_IMAGE=/d' .env
+            echo "SPRING_IMAGE=${SPRING_IMAGE}" >> .env
+            echo "FASTAPI_IMAGE=${FASTAPI_IMAGE}" >> .env
+
             docker compose -f docker-compose.prod.yml pull spring fastapi
             docker compose -f docker-compose.prod.yml up -d
 
@@ -133,7 +138,12 @@ jobs:
               sleep 5
             done
 
-            echo "배포 실패: 애플리케이션이 응답하지 않습니다. 로그를 출력합니다."
-            cd ~/13th-Dortfolio-BE
-            docker compose -f docker-compose.prod.yml logs --tail=100 spring
+            echo "=== 배포 실패: 진단 정보 ==="
+            echo "--- 컨테이너 상태 ---"
+            docker ps -a --format 'table {{.Names}}\t{{.Status}}'
+            echo "--- 헬스 응답 본문 (어떤 항목이 DOWN인지 확인) ---"
+            curl -s http://localhost/actuator/health || true
+            echo ""
+            echo "--- Spring 로그 ---"
+            docker logs --tail=100 dortfolio-spring
             exit 1
