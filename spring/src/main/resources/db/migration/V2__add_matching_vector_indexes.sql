@@ -1,5 +1,3 @@
--- flyway:executeInTransaction=false
-
 ALTER EXTENSION vector UPDATE;
 
 DO $$
