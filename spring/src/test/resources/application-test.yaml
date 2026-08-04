@@ -66,3 +66,9 @@ insight:
   embedding-model: gemini-embedding-2
   recommendation-max-attempts: 2
   recommendation-timeout: 10s
+
+  generation:
+    lock-ttl: 30s
+    async-core-pool-size: 1
+    async-max-pool-size: 1
+    async-queue-capacity: 10

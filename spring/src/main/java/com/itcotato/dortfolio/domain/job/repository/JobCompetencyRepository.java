@@ -8,7 +8,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface JobCompetencyRepository extends JpaRepository<JobCompetency, UUID> {
+public interface JobCompetencyRepository
+        extends JpaRepository<JobCompetency, UUID> {
 
     @EntityGraph(attributePaths = {
             "job",
@@ -20,5 +21,13 @@ public interface JobCompetencyRepository extends JpaRepository<JobCompetency, UU
             "job",
             "competencyTag"
     })
-    List<JobCompetency> findAllByOrderByJob_IdAscSortOrderAsc();
+    List<JobCompetency>
+    findAllByJob_IdOrderBySortOrderAsc(UUID jobId);
+
+    @EntityGraph(attributePaths = {
+            "job",
+            "competencyTag"
+    })
+    List<JobCompetency>
+    findAllByOrderByJob_IdAscSortOrderAsc();
 }

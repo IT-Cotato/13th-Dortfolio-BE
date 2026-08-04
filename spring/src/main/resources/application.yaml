@@ -113,3 +113,9 @@ insight:
   embedding-model: ${INSIGHT_EMBEDDING_MODEL:gemini-embedding-2}
   recommendation-max-attempts: ${INSIGHT_RECOMMENDATION_MAX_ATTEMPTS:2}
   recommendation-timeout: ${INSIGHT_RECOMMENDATION_TIMEOUT:10s}
+
+  generation:
+    lock-ttl: ${INSIGHT_GENERATION_LOCK_TTL:30s}
+    async-core-pool-size: ${INSIGHT_ASYNC_CORE_POOL_SIZE:2}
+    async-max-pool-size: ${INSIGHT_ASYNC_MAX_POOL_SIZE:5}
+    async-queue-capacity: ${INSIGHT_ASYNC_QUEUE_CAPACITY:50}
