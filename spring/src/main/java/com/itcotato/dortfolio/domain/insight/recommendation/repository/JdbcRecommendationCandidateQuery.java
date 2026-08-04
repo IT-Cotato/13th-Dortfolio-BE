@@ -1,9 +1,10 @@
-package com.itcotato.dortfolio.domain.insight.recommendation;
+package com.itcotato.dortfolio.domain.insight.recommendation.repository;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCandidate;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.JobErrorCode;
 import java.sql.ResultSet;

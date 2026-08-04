@@ -64,3 +64,5 @@ insight:
   regeneration-cooldown: 24h
   recommendation-candidate-limit: 5
   embedding-model: gemini-embedding-2
+  recommendation-max-attempts: 2
+  recommendation-timeout: 10s

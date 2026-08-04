@@ -1,4 +1,4 @@
-package com.itcotato.dortfolio.domain.insight.recommendation;
+package com.itcotato.dortfolio.domain.insight.recommendation.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -18,7 +18,9 @@ class JdbcRecommendationCandidateQueryTest {
                                 10,
                                 Duration.ofHours(24),
                                 5,
-                                "gemini-embedding-2"
+                                "gemini-embedding-2",
+                                2,
+                                Duration.ofSeconds(10)
                         )
                 );
 
@@ -49,7 +51,9 @@ class JdbcRecommendationCandidateQueryTest {
                                 10,
                                 Duration.ofHours(24),
                                 5,
-                                "model'value"
+                                "gemini-embedding-2",
+                                2,
+                                Duration.ofSeconds(10)
                         )
                 );
 

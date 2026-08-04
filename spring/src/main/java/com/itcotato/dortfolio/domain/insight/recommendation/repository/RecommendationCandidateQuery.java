@@ -1,4 +1,6 @@
-package com.itcotato.dortfolio.domain.insight.recommendation;
+package com.itcotato.dortfolio.domain.insight.recommendation.repository;
+
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCandidate;
 
 import java.time.LocalDateTime;
 import java.util.List;

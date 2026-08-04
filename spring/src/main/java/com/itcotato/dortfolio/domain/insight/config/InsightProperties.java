@@ -8,7 +8,9 @@ public record InsightProperties(
         int minimumAnalyzedRecordCount,
         Duration regenerationCooldown,
         int recommendationCandidateLimit,
-        String embeddingModel
+        String embeddingModel,
+        int recommendationMaxAttempts,
+        Duration recommendationTimeout
 ) {
 
     public InsightProperties {
@@ -35,6 +37,20 @@ public record InsightProperties(
         if (embeddingModel == null || embeddingModel.isBlank()) {
             throw new IllegalArgumentException(
                     "embeddingModel must not be blank"
+            );
+        }
+
+        if (recommendationMaxAttempts <= 0) {
+            throw new IllegalArgumentException(
+                    "recommendationMaxAttempts must be positive"
+            );
+        }
+
+        if (recommendationTimeout == null
+                || recommendationTimeout.isZero()
+                || recommendationTimeout.isNegative()) {
+            throw new IllegalArgumentException(
+                    "recommendationTimeout must be positive"
             );
         }
     }

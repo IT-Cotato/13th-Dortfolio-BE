@@ -77,7 +77,10 @@ class InsightEligibilityServiceTest {
                         10,
                         Duration.ofHours(24),
                         5,
-                        "gemini-embedding-2"),
+                        "gemini-embedding-2",
+                        2,
+                        Duration.ofSeconds(10)
+                ),
                 clock
         );
 
