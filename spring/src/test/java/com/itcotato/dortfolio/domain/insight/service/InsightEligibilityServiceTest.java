@@ -8,9 +8,9 @@ import com.itcotato.dortfolio.domain.insight.dto.res.InsightEligibilityReason;
 import com.itcotato.dortfolio.domain.insight.dto.res.InsightEligibilityResponse;
 import com.itcotato.dortfolio.domain.insight.entity.Insight;
 import com.itcotato.dortfolio.domain.insight.entity.InsightGenerationStatus;
+import com.itcotato.dortfolio.domain.insight.repository.InsightRecordQueryRepository;
 import com.itcotato.dortfolio.domain.insight.repository.InsightRepository;
 import com.itcotato.dortfolio.domain.job.entity.Job;
-import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.user.entity.UserJob;
 import com.itcotato.dortfolio.domain.user.repository.UserJobRepository;
@@ -46,7 +46,7 @@ class InsightEligibilityServiceTest {
     private RecordRepository recordRepository;
 
     @Mock
-    private RecordAnalysisRepository recordAnalysisRepository;
+    private InsightRecordQueryRepository insightRecordQueryRepository;
 
     @Mock
     private InsightRepository insightRepository;
@@ -71,7 +71,7 @@ class InsightEligibilityServiceTest {
         eligibilityService = new InsightEligibilityService(
                 userJobRepository,
                 recordRepository,
-                recordAnalysisRepository,
+                insightRecordQueryRepository,
                 insightRepository,
                 new InsightProperties(10, Duration.ofHours(24)),
                 clock
@@ -112,7 +112,7 @@ class InsightEligibilityServiceTest {
         givenPrimaryJob();
         given(recordRepository.countAvailableCompletedByUserId(USER_ID))
                 .willReturn(10L);
-        given(recordAnalysisRepository.countCompletedByUserId(USER_ID))
+        given(insightRecordQueryRepository.countEligibleRecords(USER_ID))
                 .willReturn(9L);
 
         InsightEligibilityResponse result = eligibilityService.check(USER_ID);
@@ -164,7 +164,7 @@ class InsightEligibilityServiceTest {
     @Test
     void allowsAtExactTwentyFourHourBoundaryWhenNewRecordExists() {
         givenLatestCompletedInsight(NOW.minusHours(24));
-        given(recordAnalysisRepository.existsCompletedAnalysisAfter(
+        given(insightRecordQueryRepository.existsEligibleRecordAnalyzedAfter(
                 USER_ID,
                 SNAPSHOT_AT
         )).willReturn(true);
@@ -178,7 +178,7 @@ class InsightEligibilityServiceTest {
     @Test
     void rejectsAfterCooldownWhenNothingHasChanged() {
         givenLatestCompletedInsight(NOW.minusHours(25));
-        given(recordAnalysisRepository.existsCompletedAnalysisAfter(
+        given(insightRecordQueryRepository.existsEligibleRecordAnalyzedAfter(
                 USER_ID,
                 SNAPSHOT_AT
         )).willReturn(false);
@@ -209,7 +209,7 @@ class InsightEligibilityServiceTest {
         givenPrimaryJob();
         given(recordRepository.countAvailableCompletedByUserId(USER_ID))
                 .willReturn(10L);
-        given(recordAnalysisRepository.countCompletedByUserId(USER_ID))
+        given(insightRecordQueryRepository.countEligibleRecords(USER_ID))
                 .willReturn(10L);
         given(insightRepository.existsByUser_IdAndStatus(
                 USER_ID,

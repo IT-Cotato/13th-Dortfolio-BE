@@ -5,8 +5,8 @@ import com.itcotato.dortfolio.domain.insight.dto.res.InsightEligibilityReason;
 import com.itcotato.dortfolio.domain.insight.dto.res.InsightEligibilityResponse;
 import com.itcotato.dortfolio.domain.insight.entity.Insight;
 import com.itcotato.dortfolio.domain.insight.entity.InsightGenerationStatus;
+import com.itcotato.dortfolio.domain.insight.repository.InsightRecordQueryRepository;
 import com.itcotato.dortfolio.domain.insight.repository.InsightRepository;
-import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.user.entity.UserJob;
 import com.itcotato.dortfolio.domain.user.repository.UserJobRepository;
@@ -25,7 +25,7 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
 
     private final UserJobRepository userJobRepository;
     private final RecordRepository recordRepository;
-    private final RecordAnalysisRepository recordAnalysisRepository;
+    private final InsightRecordQueryRepository insightRecordQueryRepository;
     private final InsightRepository insightRepository;
     private final InsightProperties properties;
     private final Clock insightClock;
@@ -62,7 +62,7 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
         }
 
         long analyzedRecordCount =
-                recordAnalysisRepository.countCompletedByUserId(userId);
+                insightRecordQueryRepository.countEligibleRecords(userId);
 
         if (analyzedRecordCount < requiredCount) {
             return unavailable(
@@ -127,10 +127,11 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
                 );
 
         boolean hasNewAnalyzedRecord =
-                recordAnalysisRepository.existsCompletedAnalysisAfter(
-                        userId,
-                        latestCompletedInsight.getRecordSnapshotAt()
-                );
+                insightRecordQueryRepository
+                        .existsEligibleRecordAnalyzedAfter(
+                                userId,
+                                latestCompletedInsight.getRecordSnapshotAt()
+                        );
 
         if (!jobChanged && !hasNewAnalyzedRecord) {
             return unavailable(
