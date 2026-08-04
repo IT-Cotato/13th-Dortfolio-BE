@@ -8,6 +8,10 @@ spring:
     hibernate:
       ddl-auto: create-drop
 
+  # 마이그레이션은 Postgres 전용(vector, pg_trgm)이라 H2 테스트에서는 사용하지 않는다
+  flyway:
+    enabled: false
+
 jwt:
   secret: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
   salt: 0123456789abcdef0123456789abcdef

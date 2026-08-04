@@ -1,0 +1,97 @@
+name: dortfolio-prod
+
+# EC2 운영용 compose 파일.
+# - spring 이미지는 GitHub Actions가 빌드해 GHCR에 올린 것을 받아서 실행한다.
+# - postgres/redis는 외부에 포트를 열지 않는다(컨테이너 네트워크 안에서만 접근).
+#   DB에 직접 붙어야 할 땐 SSH 터널을 쓴다.
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: dortfolio-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - dortfolio
+
+  redis:
+    image: redis:7-alpine
+    container_name: dortfolio-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dortfolio
+
+  fastapi:
+    build:
+      context: ./fastapi
+    image: dortfolio-fastapi:latest
+    container_name: dortfolio-fastapi
+    restart: unless-stopped
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    networks:
+      - dortfolio
+
+  spring:
+    image: ${SPRING_IMAGE}
+    container_name: dortfolio-spring
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_SALT: ${JWT_SALT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      FASTAPI_BASE_URL: http://fastapi:8000
+      FRONTEND_URL: ${FRONTEND_URL}
+      RECORD_ANALYSIS_ENABLED: ${RECORD_ANALYSIS_ENABLED:-true}
+    ports:
+      - "80:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - dortfolio
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  dortfolio:
