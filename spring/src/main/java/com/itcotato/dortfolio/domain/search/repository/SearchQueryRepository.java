@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class SearchQueryRepository {
 
-	// RecordAnswer.answerText가 @Lob(CLOB)이라 JPQL에서 lower()를 쓸 수 없어 답변 매칭만 네이티브 쿼리로 처리한다.
+	// answerText는 긴 텍스트 컬럼이라 Hibernate가 JPQL의 lower() 인자로 받아주지 않아 답변 매칭만 네이티브 쿼리로 처리한다.
 	// (cast(... as String)은 varchar 길이 제한으로 잘릴 수 있어 사용하지 않음)
 	private static final String ANSWER_MATCH_SQL = """
 			select distinct ra.record_id
