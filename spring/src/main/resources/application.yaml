@@ -77,12 +77,13 @@ matching:
   default-record-limit: ${MATCHING_DEFAULT_RECORD_LIMIT:3}
   max-record-limit: ${MATCHING_MAX_RECORD_LIMIT:10}
   candidate-record-limit: ${MATCHING_CANDIDATE_RECORD_LIMIT:10}
-  embedding-dimension: ${MATCHING_EMBEDDING_DIMENSION:3072}
-  indexed-embedding-models: ${MATCHING_INDEXED_EMBEDDING_MODELS:gemini-embedding-2,dortfolio-local-hash-v1}
+  embedding-dimension: 3072
+  indexed-embedding-models: ${MATCHING_INDEXED_EMBEDDING_MODELS:gemini-embedding-2}
   question-max-length: ${MATCHING_QUESTION_MAX_LENGTH:500}
   min-match-rate: ${MATCHING_MIN_MATCH_RATE:30}
   daily-ai-request-limit: ${MATCHING_DAILY_AI_REQUEST_LIMIT:20}
   daily-ai-request-ttl: ${MATCHING_DAILY_AI_REQUEST_TTL:1d}
+  daily-ai-request-zone: ${MATCHING_DAILY_AI_REQUEST_ZONE:Asia/Seoul}
   question-tags:
     - id: JOB_STUDY
       content: 해당 직무에서 열심히 공부했던 경험에 대해 서술하시오.

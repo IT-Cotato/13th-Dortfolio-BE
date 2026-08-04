@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.itcotato.dortfolio.domain.matching.config.MatchingProperties;
 import java.time.Duration;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +23,7 @@ class MatchingQuestionTagServiceTest {
 				30,
 				20,
 				Duration.ofDays(1),
+				ZoneId.of("Asia/Seoul"),
 				List.of(new MatchingProperties.QuestionTag("TEST", "테스트 문항"))
 			)
 		);

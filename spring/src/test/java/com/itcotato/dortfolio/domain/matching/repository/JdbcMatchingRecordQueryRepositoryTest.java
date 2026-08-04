@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -37,6 +38,7 @@ class JdbcMatchingRecordQueryRepositoryTest {
 	private JdbcTemplate jdbcTemplate;
 	private JdbcMatchingRecordQueryRepository repository;
 	private MatchingProperties matchingProperties;
+	private TransactionTemplate transactionTemplate;
 
 	@BeforeEach
 	void setUp() {
@@ -57,9 +59,12 @@ class JdbcMatchingRecordQueryRepositoryTest {
 			30,
 			20,
 			Duration.ofDays(1),
+			java.time.ZoneId.of("Asia/Seoul"),
 			List.of(new MatchingProperties.QuestionTag("TEST", "테스트 문항"))
 		);
-		repository = new JdbcMatchingRecordQueryRepository(jdbcTemplate, matchingProperties, new DataSourceTransactionManager(dataSource));
+		repository = new JdbcMatchingRecordQueryRepository(jdbcTemplate, matchingProperties);
+		transactionTemplate = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
+		transactionTemplate.setReadOnly(true);
 
 		createSchema();
 		createVectorIndexForTest();
@@ -171,7 +176,7 @@ class JdbcMatchingRecordQueryRepositoryTest {
 		insertAnswer(deletedRecordId, "상황", "삭제된 답변입니다.");
 		insertAnswer(otherUserRecordId, "상황", "다른 사용자 답변입니다.");
 
-		List<MatchingRecordCandidate> candidates = repository.findVectorCandidates(
+		List<MatchingRecordCandidate> candidates = findVectorCandidatesInTransaction(
 			userId,
 			EMBEDDING_MODEL,
 			vector(1.0f, 0.0f),
@@ -208,7 +213,7 @@ class JdbcMatchingRecordQueryRepositoryTest {
 		UUID secondRecordId = insertValidMatchingRecord(userId, activityId, templateId, "대상 사용자 기록 2", currentUpdatedAt, vector(0.5f, 0.5f));
 		UUID thirdRecordId = insertValidMatchingRecord(userId, activityId, templateId, "대상 사용자 기록 3", currentUpdatedAt, vector(0.4f, 0.6f));
 
-		List<MatchingRecordCandidate> candidates = repository.findVectorCandidates(
+		List<MatchingRecordCandidate> candidates = findVectorCandidatesInTransaction(
 			userId,
 			EMBEDDING_MODEL,
 			vector(1.0f, 0.0f),
@@ -218,6 +223,20 @@ class JdbcMatchingRecordQueryRepositoryTest {
 		assertThat(candidates)
 			.extracting(MatchingRecordCandidate::recordId)
 			.containsExactly(firstRecordId, secondRecordId, thirdRecordId);
+	}
+
+	private List<MatchingRecordCandidate> findVectorCandidatesInTransaction(
+		UUID userId,
+		String embeddingModel,
+		float[] questionEmbedding,
+		int limit
+	) {
+		return transactionTemplate.execute(status -> repository.findVectorCandidates(
+			userId,
+			embeddingModel,
+			questionEmbedding,
+			limit
+		));
 	}
 
 	private UUID insertValidMatchingRecord(

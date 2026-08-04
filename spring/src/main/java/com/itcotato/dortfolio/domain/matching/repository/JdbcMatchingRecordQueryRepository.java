@@ -11,8 +11,6 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 @Repository
 @RequiredArgsConstructor
@@ -20,7 +18,6 @@ public class JdbcMatchingRecordQueryRepository implements MatchingRecordQueryRep
 
 	private final JdbcTemplate jdbcTemplate;
 	private final MatchingProperties matchingProperties;
-	private final PlatformTransactionManager transactionManager;
 
 	@Override
 	public List<MatchingRecordCandidate> findVectorCandidates(
@@ -31,18 +28,14 @@ public class JdbcMatchingRecordQueryRepository implements MatchingRecordQueryRep
 	) {
 		String vectorLiteral = toVectorLiteral(questionEmbedding);
 		String sql = buildVectorCandidateSql(embeddingModel);
-		TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-		transactionTemplate.setReadOnly(true);
-		return transactionTemplate.execute(status -> {
-			jdbcTemplate.execute("set local hnsw.iterative_scan = strict_order");
-			return jdbcTemplate.query(sql,
-				this::mapCandidate,
-				vectorLiteral,
-				userId,
-				vectorLiteral,
-				limit
-			);
-		});
+		jdbcTemplate.execute("set local hnsw.iterative_scan = strict_order");
+		return jdbcTemplate.query(sql,
+			this::mapCandidate,
+			vectorLiteral,
+			userId,
+			vectorLiteral,
+			limit
+		);
 	}
 
 	String buildVectorCandidateSql(String embeddingModel) {

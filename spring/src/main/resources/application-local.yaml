@@ -72,3 +72,6 @@ logging:
 jwt:
   secret: ${JWT_SECRET}
   salt: ${JWT_SALT}
+
+matching:
+  indexed-embedding-models: ${MATCHING_INDEXED_EMBEDDING_MODELS:gemini-embedding-2,dortfolio-local-hash-v1}

@@ -1,7 +1,9 @@
 package com.itcotato.dortfolio.domain.matching.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.itcotato.dortfolio.domain.matching.config.MatchingProperties;
@@ -9,10 +11,13 @@ import com.itcotato.dortfolio.domain.matching.exception.MatchingErrorCode;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.util.RedisUtil;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -38,6 +43,7 @@ class RedisMatchingUsageLimiterTest {
 				30,
 				2,
 				Duration.ofDays(1),
+				ZoneId.of("Asia/Seoul"),
 				java.util.List.of(new MatchingProperties.QuestionTag("TEST", "테스트 문항"))
 			)
 		);
@@ -46,8 +52,14 @@ class RedisMatchingUsageLimiterTest {
 	@Test
 	void validateDailyLimitAllowsUsageWithinLimit() {
 		when(redisUtil.incrementWithExpireOnFirstUse(anyString(), org.mockito.ArgumentMatchers.anyLong())).thenReturn(1L);
+		UUID userId = UUID.randomUUID();
 
-		matchingUsageLimiter.validateDailyLimit(UUID.randomUUID());
+		matchingUsageLimiter.validateDailyLimit(userId);
+
+		ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
+		verify(redisUtil).incrementWithExpireOnFirstUse(keyCaptor.capture(), org.mockito.ArgumentMatchers.anyLong());
+		assertThat(keyCaptor.getValue())
+			.isEqualTo("matching:daily:" + LocalDate.now(ZoneId.of("Asia/Seoul")) + ":" + userId);
 	}
 
 	@Test

@@ -20,7 +20,7 @@ public class RedisMatchingUsageLimiter implements MatchingUsageLimiter {
 
 	@Override
 	public void validateDailyLimit(UUID userId) {
-		String key = KEY_PREFIX + LocalDate.now() + ":" + userId;
+		String key = KEY_PREFIX + LocalDate.now(matchingProperties.dailyAiRequestZone()) + ":" + userId;
 		Long count = redisUtil.incrementWithExpireOnFirstUse(key, matchingProperties.dailyAiRequestTtl().toMillis());
 		if (count != null && count > matchingProperties.dailyAiRequestLimit()) {
 			throw new CustomException(MatchingErrorCode.MATCHING_DAILY_LIMIT_EXCEEDED);

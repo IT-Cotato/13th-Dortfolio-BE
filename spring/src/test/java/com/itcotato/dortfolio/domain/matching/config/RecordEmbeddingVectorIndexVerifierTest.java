@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.time.Duration;
+import java.time.ZoneId;
 import java.util.List;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
@@ -98,6 +99,7 @@ class RecordEmbeddingVectorIndexVerifierTest {
 				30,
 				20,
 				Duration.ofDays(1),
+				ZoneId.of("Asia/Seoul"),
 				List.of(new MatchingProperties.QuestionTag("TEST", "테스트 문항"))
 			)
 		);
