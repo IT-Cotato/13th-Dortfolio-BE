@@ -1,8 +1,10 @@
 package com.itcotato.dortfolio.domain.matching.config;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
 import java.time.ZoneId;
@@ -35,6 +37,7 @@ public record MatchingProperties(
 	@NotNull
 	ZoneId dailyAiRequestZone,
 	@NotNull
+	@Valid
 	List<QuestionTag> questionTags
 ) {
 	public static final int SUPPORTED_EMBEDDING_DIMENSION = 3072;
@@ -70,9 +73,9 @@ public record MatchingProperties(
 	}
 
 	public record QuestionTag(
-		@NotNull
+		@NotBlank
 		String id,
-		@NotNull
+		@NotBlank
 		String content
 	) {
 	}

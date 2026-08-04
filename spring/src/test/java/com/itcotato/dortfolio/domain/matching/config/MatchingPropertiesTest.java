@@ -36,7 +36,36 @@ class MatchingPropertiesTest {
 			.contains("embeddingDimensionValid");
 	}
 
+	@Test
+	void validationRejectsBlankQuestionTagFields() {
+		MatchingProperties properties = properties(
+			3072,
+			30,
+			List.of(new MatchingProperties.QuestionTag("", " "))
+		);
+
+		var violations = Validation.buildDefaultValidatorFactory()
+			.getValidator()
+			.validate(properties);
+
+		assertThat(violations)
+			.extracting(violation -> violation.getPropertyPath().toString())
+			.contains("questionTags[0].id", "questionTags[0].content");
+	}
+
 	private MatchingProperties properties(int embeddingDimension, int minMatchRate) {
+		return properties(
+			embeddingDimension,
+			minMatchRate,
+			List.of(new MatchingProperties.QuestionTag("TEST", "테스트 문항"))
+		);
+	}
+
+	private MatchingProperties properties(
+		int embeddingDimension,
+		int minMatchRate,
+		List<MatchingProperties.QuestionTag> questionTags
+	) {
 		return new MatchingProperties(
 			3,
 			10,
@@ -48,7 +77,7 @@ class MatchingPropertiesTest {
 			20,
 			Duration.ofDays(1),
 			ZoneId.of("Asia/Seoul"),
-			List.of(new MatchingProperties.QuestionTag("TEST", "테스트 문항"))
+			questionTags
 		);
 	}
 }
