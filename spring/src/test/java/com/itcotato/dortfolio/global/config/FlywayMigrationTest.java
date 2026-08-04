@@ -1,0 +1,90 @@
+package com.itcotato.dortfolio.global.config;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.sql.Connection;
+import java.util.Map;
+import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.MigrationVersion;
+import org.flywaydb.core.api.output.MigrateResult;
+import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+
+@Testcontainers(disabledWithoutDocker = true)
+class FlywayMigrationTest {
+
+	@Container
+	private final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(
+		DockerImageName.parse("pgvector/pgvector:pg16").asCompatibleSubstituteFor("postgres")
+	);
+
+	@Test
+	void migratesFreshSchemaFromV1ThroughV2() {
+		MigrateResult result = flyway().migrate();
+
+		assertThat(result.migrationsExecuted).isEqualTo(2);
+		assertMatchingIndexesCreated();
+	}
+
+	@Test
+	void baselinesExistingSchemaAtV1AndRunsV2() throws Exception {
+		try (Connection connection = dataSource().getConnection()) {
+			ScriptUtils.executeSqlScript(
+				connection,
+				new ClassPathResource("db/migration/V1__init_schema.sql")
+			);
+		}
+
+		MigrateResult result = flyway().migrate();
+
+		assertThat(result.migrationsExecuted).isEqualTo(1);
+		assertThat(jdbcTemplate().queryForObject(
+			"select type from flyway_schema_history where version = '1'",
+			String.class
+		)).isEqualTo("BASELINE");
+		assertMatchingIndexesCreated();
+	}
+
+	private Flyway flyway() {
+		return Flyway.configure()
+			.configuration(Map.of("flyway.postgresql.transactional.lock", "false"))
+			.dataSource(dataSource())
+			.locations("classpath:db/migration")
+			.baselineOnMigrate(true)
+			.baselineVersion(MigrationVersion.fromVersion("1"))
+			.load();
+	}
+
+	private DriverManagerDataSource dataSource() {
+		DriverManagerDataSource dataSource = new DriverManagerDataSource(
+			postgres.getJdbcUrl(),
+			postgres.getUsername(),
+			postgres.getPassword()
+		);
+		dataSource.setDriverClassName(postgres.getDriverClassName());
+		return dataSource;
+	}
+
+	private JdbcTemplate jdbcTemplate() {
+		return new JdbcTemplate(dataSource());
+	}
+
+	private void assertMatchingIndexesCreated() {
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from pg_indexes
+				where tablename = 'record_embeddings'
+					and indexname in (
+						'uk_record_embedding_record_model',
+						'idx_record_embeddings_gemini_embedding_2_hvc'
+					)
+				""", Integer.class)).isEqualTo(2);
+	}
+}
