@@ -23,10 +23,10 @@ BEGIN
     END IF;
 END $$;
 
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS uk_record_embedding_record_model
+CREATE UNIQUE INDEX IF NOT EXISTS uk_record_embedding_record_model
 ON record_embeddings (record_id, embedding_model);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_record_embeddings_gemini_embedding_2_hvc
+CREATE INDEX IF NOT EXISTS idx_record_embeddings_gemini_embedding_2_hvc
 ON record_embeddings
 USING hnsw ((embedding::halfvec(3072)) halfvec_cosine_ops)
 WHERE embedding_model = 'gemini-embedding-2';

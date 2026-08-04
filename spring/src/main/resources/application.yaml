@@ -5,12 +5,9 @@ spring:
   flyway:
     enabled: ${FLYWAY_ENABLED:true}
     locations: classpath:db/migration
-    # 기존 ddl-auto 스키마는 V1까지 적용된 것으로 기준점을 잡고 V2부터 실행한다
+    # ddl-auto로 이미 테이블이 만들어진 DB에서도 동작하도록 한다
     baseline-on-migrate: true
-    baseline-version: 1
-    postgresql:
-      # CREATE INDEX CONCURRENTLY가 Flyway의 트랜잭션 잠금을 기다리지 않도록 한다
-      transactional-lock: false
+    baseline-version: 0
 
   data:
     redis:
