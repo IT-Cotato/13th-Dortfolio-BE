@@ -8,6 +8,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
+/* Redis 락 */
 @Component
 @RequiredArgsConstructor
 public class InsightGenerationLock {

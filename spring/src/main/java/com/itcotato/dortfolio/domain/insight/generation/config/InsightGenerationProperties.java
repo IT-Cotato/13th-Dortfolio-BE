@@ -3,6 +3,7 @@ package com.itcotato.dortfolio.domain.insight.generation.config;
 import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/* 비동기 설정값 */
 @ConfigurationProperties(prefix = "insight.generation")
 public record InsightGenerationProperties(
         Duration lockTtl,

@@ -17,6 +17,7 @@ public class InsightGenerationAsyncConfig {
 
     private final InsightGenerationProperties properties;
 
+    /* Insight 전용 Executer */
     @Bean(name = EXECUTOR_NAME)
     public Executor insightGenerationExecutor() {
         ThreadPoolTaskExecutor executor =
