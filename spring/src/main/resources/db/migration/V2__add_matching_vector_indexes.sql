@@ -30,8 +30,3 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_record_embeddings_gemini_embedding_2
 ON record_embeddings
 USING hnsw ((embedding::halfvec(3072)) halfvec_cosine_ops)
 WHERE embedding_model = 'gemini-embedding-2';
-
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_record_embeddings_dortfolio_local_hash_v1_hvc
-ON record_embeddings
-USING hnsw ((embedding::halfvec(3072)) halfvec_cosine_ops)
-WHERE embedding_model = 'dortfolio-local-hash-v1';

@@ -44,7 +44,6 @@ matching:
   embedding-dimension: 3072
   indexed-embedding-models:
     - gemini-embedding-2
-    - dortfolio-local-hash-v1
   question-max-length: 500
   min-match-rate: 30
   daily-ai-request-limit: 20
