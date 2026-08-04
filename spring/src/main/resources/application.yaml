@@ -79,3 +79,26 @@ record-analysis:
   async-max-pool-size: ${RECORD_ANALYSIS_ASYNC_MAX_POOL_SIZE:5}
   async-queue-capacity: ${RECORD_ANALYSIS_ASYNC_QUEUE_CAPACITY:100}
   lock-timeout: ${RECORD_ANALYSIS_LOCK_TIMEOUT:5s}
+
+matching:
+  default-record-limit: ${MATCHING_DEFAULT_RECORD_LIMIT:3}
+  max-record-limit: ${MATCHING_MAX_RECORD_LIMIT:10}
+  candidate-record-limit: ${MATCHING_CANDIDATE_RECORD_LIMIT:10}
+  embedding-dimension: 3072
+  indexed-embedding-models: ${MATCHING_INDEXED_EMBEDDING_MODELS:gemini-embedding-2}
+  question-max-length: ${MATCHING_QUESTION_MAX_LENGTH:500}
+  min-match-rate: ${MATCHING_MIN_MATCH_RATE:30}
+  daily-ai-request-limit: ${MATCHING_DAILY_AI_REQUEST_LIMIT:20}
+  daily-ai-request-ttl: ${MATCHING_DAILY_AI_REQUEST_TTL:1d}
+  daily-ai-request-zone: ${MATCHING_DAILY_AI_REQUEST_ZONE:Asia/Seoul}
+  question-tags:
+    - id: JOB_STUDY
+      content: 해당 직무에서 열심히 공부했던 경험에 대해 서술하시오.
+    - id: CONFLICT_RESOLUTION
+      content: 팀원과 갈등이 생겼을 때 어떻게 해결했는지 서술하시오.
+    - id: GOAL_ACHIEVEMENT
+      content: 목표를 달성하기 위해 노력했던 경험을 구체적으로 서술하시오.
+    - id: LEADERSHIP
+      content: 리더십을 발휘했던 경험에 대해 서술하시오.
+    - id: DATA_PROBLEM_SOLVING
+      content: 데이터를 활용하여 문제를 해결한 경험을 서술하시오.
