@@ -58,3 +58,9 @@ matching:
       content: 해당 직무에서 열심히 공부했던 경험에 대해 서술하시오.
     - id: CONFLICT_RESOLUTION
       content: 팀원과 갈등이 생겼을 때 어떻게 해결했는지 서술하시오.
+
+insight:
+  minimum-analyzed-record-count: 10
+  regeneration-cooldown: 24h
+  recommendation-candidate-limit: 5
+  embedding-model: gemini-embedding-2

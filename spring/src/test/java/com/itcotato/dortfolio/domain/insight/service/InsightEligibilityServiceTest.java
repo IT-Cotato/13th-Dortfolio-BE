@@ -73,7 +73,11 @@ class InsightEligibilityServiceTest {
                 recordRepository,
                 insightRecordQueryRepository,
                 insightRepository,
-                new InsightProperties(10, Duration.ofHours(24)),
+                new InsightProperties(
+                        10,
+                        Duration.ofHours(24),
+                        5,
+                        "gemini-embedding-2"),
                 clock
         );
 

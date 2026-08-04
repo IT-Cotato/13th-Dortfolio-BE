@@ -109,3 +109,5 @@ matching:
 insight:
   minimum-analyzed-record-count: 10
   regeneration-cooldown: 24h
+  recommendation-candidate-limit: 5
+  embedding-model: ${INSIGHT_EMBEDDING_MODEL:gemini-embedding-2}
