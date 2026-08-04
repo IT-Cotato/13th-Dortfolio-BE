@@ -86,9 +86,17 @@ openssl rand -hex 16      # JWT_SALT
 | `EC2_USER` | `ubuntu` |
 | `EC2_SSH_KEY` | `.pem` 파일 **전체 내용** (`-----BEGIN ...` 포함) |
 | `GHCR_TOKEN` | GitHub PAT (`read:packages` 권한) |
+| `GHCR_USERNAME` | 위 PAT을 발급한 GitHub 계정명 |
 
 `GHCR_TOKEN`은 Settings → Developer settings → Personal access tokens → Tokens (classic)에서
 `read:packages` 권한으로 발급합니다. EC2가 GHCR에서 이미지를 받을 때 씁니다.
+
+`GHCR_USERNAME`은 반드시 그 PAT을 발급한 계정이어야 합니다. 푸시한 사람 기준으로 로그인하면
+토큰 소유자와 어긋나 배포가 실패할 수 있습니다.
+
+> GHCR에 처음 이미지를 올리면 패키지가 **private**으로 생성됩니다.
+> EC2에서 pull이 403으로 실패하면 저장소 → Packages → 해당 패키지 → Package settings에서
+> 저장소와 연결(Manage Actions access)되어 있는지 확인하세요.
 
 ---
 

@@ -5,9 +5,6 @@ on:
     branches: [ develop ]
   workflow_dispatch:   # 필요할 때 수동 실행
 
-env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}/spring
-
 jobs:
   test:
     name: 테스트
@@ -35,13 +32,21 @@ jobs:
       contents: read
       packages: write
     outputs:
-      image: ${{ steps.meta.outputs.image }}
+      spring-image: ${{ steps.meta.outputs.spring-image }}
+      fastapi-image: ${{ steps.meta.outputs.fastapi-image }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: 이미지 태그 결정
+      # Docker 이미지 이름은 소문자만 허용하는데 저장소명(IT-Cotato/...)에 대문자가 있어 변환이 필요하다
+      - name: 이미지 이름/태그 결정
         id: meta
-        run: echo "image=${IMAGE_NAME}:${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+        run: |
+          REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          TAG="${GITHUB_SHA::7}"
+          echo "repo=ghcr.io/${REPO}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "spring-image=ghcr.io/${REPO}/spring:${TAG}" >> "$GITHUB_OUTPUT"
+          echo "fastapi-image=ghcr.io/${REPO}/fastapi:${TAG}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -52,16 +57,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 빌드 및 푸시
+      - name: Spring 이미지 빌드 및 푸시
         uses: docker/build-push-action@v6
         with:
           context: ./spring
           push: true
           tags: |
-            ${{ steps.meta.outputs.image }}
-            ${{ env.IMAGE_NAME }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ${{ steps.meta.outputs.spring-image }}
+            ${{ steps.meta.outputs.repo }}/spring:latest
+          cache-from: type=gha,scope=spring
+          cache-to: type=gha,mode=max,scope=spring
+
+      - name: FastAPI 이미지 빌드 및 푸시
+        uses: docker/build-push-action@v6
+        with:
+          context: ./fastapi
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.fastapi-image }}
+            ${{ steps.meta.outputs.repo }}/fastapi:latest
+          cache-from: type=gha,scope=fastapi
+          cache-to: type=gha,mode=max,scope=fastapi
 
   deploy:
     name: EC2 배포
@@ -70,23 +86,54 @@ jobs:
     steps:
       - name: SSH 접속 후 배포
         uses: appleboy/ssh-action@v1
+        env:
+          SPRING_IMAGE: ${{ needs.build-and-push.outputs.spring-image }}
+          FASTAPI_IMAGE: ${{ needs.build-and-push.outputs.fastapi-image }}
+          GITHUB_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: SPRING_IMAGE,FASTAPI_IMAGE,GITHUB_SHA
+          script: |
+            set -e
+            cd ~/13th-Dortfolio-BE
+
+            # 빌드된 바로 그 커밋의 compose 파일을 사용한다.
+            # (develop을 받으면 빌드 시점과 배포 시점이 어긋날 수 있고, 머지 전 브랜치 테스트도 불가능하다)
+            git fetch origin "$GITHUB_SHA"
+            git reset --hard "$GITHUB_SHA"
+
+            # GHCR_USERNAME은 GHCR_TOKEN(PAT)을 발급한 계정이어야 한다.
+            # github.actor를 쓰면 푸시한 사람에 따라 토큰 소유자와 어긋나 로그인이 실패할 수 있다.
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
+
+            export SPRING_IMAGE FASTAPI_IMAGE
+            docker compose -f docker-compose.prod.yml pull spring fastapi
+            docker compose -f docker-compose.prod.yml up -d
+
+            # 오래된 이미지 정리 (디스크 용량 확보)
+            docker image prune -f
+
+      - name: 배포 검증
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
+            # up -d는 컨테이너 기동만 확인하므로, 앱이 실제로 떴는지 헬스체크로 검증한다
+            for i in $(seq 1 30); do
+              if curl -fsS http://localhost/actuator/health > /dev/null; then
+                echo "배포 성공: 애플리케이션이 정상 응답합니다."
+                exit 0
+              fi
+              echo "기동 대기 중... ($i/30)"
+              sleep 5
+            done
+
+            echo "배포 실패: 애플리케이션이 응답하지 않습니다. 로그를 출력합니다."
             cd ~/13th-Dortfolio-BE
-
-            # 최신 compose 파일과 fastapi 소스를 받는다
-            git fetch origin develop
-            git reset --hard origin/develop
-
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            export SPRING_IMAGE="${{ needs.build-and-push.outputs.image }}"
-            docker compose -f docker-compose.prod.yml pull spring
-            docker compose -f docker-compose.prod.yml up -d
-
-            # 오래된 이미지 정리 (디스크 용량 확보)
-            docker image prune -f
+            docker compose -f docker-compose.prod.yml logs --tail=100 spring
+            exit 1

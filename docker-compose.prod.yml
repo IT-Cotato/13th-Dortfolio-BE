@@ -1,7 +1,8 @@
 name: dortfolio-prod
 
 # EC2 운영용 compose 파일.
-# - spring 이미지는 GitHub Actions가 빌드해 GHCR에 올린 것을 받아서 실행한다.
+# - spring/fastapi 이미지는 GitHub Actions가 빌드해 GHCR에 올린 것을 받아서 실행한다.
+#   (EC2에서 빌드하지 않으므로 메모리가 작은 인스턴스에서도 안전하고, 코드 변경이 항상 반영된다)
 # - postgres/redis는 외부에 포트를 열지 않는다(컨테이너 네트워크 안에서만 접근).
 #   DB에 직접 붙어야 할 땐 SSH 터널을 쓴다.
 
@@ -15,8 +16,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
+      # 확장(vector, pg_trgm) 생성은 Flyway V1 마이그레이션이 담당하므로 init 스크립트를 마운트하지 않는다
       - postgres-data:/var/lib/postgresql/data
-      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -41,13 +42,17 @@ services:
       - dortfolio
 
   fastapi:
-    build:
-      context: ./fastapi
-    image: dortfolio-fastapi:latest
+    image: ${FASTAPI_IMAGE}
     container_name: dortfolio-fastapi
     restart: unless-stopped
     environment:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - dortfolio
 
@@ -79,9 +84,11 @@ services:
       FRONTEND_URL: ${FRONTEND_URL}
       RECORD_ANALYSIS_ENABLED: ${RECORD_ANALYSIS_ENABLED:-true}
     ports:
+      # 80은 주소에 포트를 안 붙여도 되게, 8080은 개발 중 확인 편의를 위해 함께 연다
       - "80:8080"
+      - "8080:8080"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5

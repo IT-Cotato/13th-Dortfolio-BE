@@ -70,6 +70,8 @@ public class SecurityConfig {
                         .requestMatchers(SWAGGER_PATHS).permitAll()
                         .requestMatchers(PUBLIC_AUTH_PATHS).permitAll()
                         .requestMatchers("/login/oauth2/**", "/oauth2/**").permitAll()
+                        // 컨테이너/로드밸런서 헬스체크용. 상세 정보는 노출하지 않는다(management.endpoint.health.show-details=never)
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .anyRequest().authenticated()
                 )
 
