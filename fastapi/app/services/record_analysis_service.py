@@ -1,5 +1,3 @@
-from hashlib import sha256
-
 from fastapi import HTTPException, status
 from google.genai import errors
 
@@ -10,9 +8,7 @@ from app.schemas.record_analysis import (
     RecordAnalysisRequest,
     RecordAnalysisResponse,
 )
-
-LOCAL_EMBEDDING_MODEL = "dortfolio-local-hash-v1"
-LOCAL_EMBEDDING_DIMENSIONS = 3072
+from app.services.local_embedding_service import LOCAL_EMBEDDING_MODEL, create_local_embedding
 
 
 def analyze_record(request: RecordAnalysisRequest) -> RecordAnalysisResponse:
@@ -101,16 +97,3 @@ def select_competency_tags(request: RecordAnalysisRequest) -> list[AnalyzedCompe
         )
         for index, candidate in enumerate(request.competencyTagCandidates[:3])
     ]
-
-
-def create_local_embedding(source_text: str) -> list[float]:
-    values: list[float] = []
-    seed = source_text.encode("utf-8")
-    round_index = 0
-
-    while len(values) < LOCAL_EMBEDDING_DIMENSIONS:
-        digest = sha256(seed + round_index.to_bytes(4, "big")).digest()
-        values.extend(((byte / 255.0) * 2.0) - 1.0 for byte in digest)
-        round_index += 1
-
-    return values[:LOCAL_EMBEDDING_DIMENSIONS]

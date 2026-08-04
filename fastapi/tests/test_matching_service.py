@@ -1,18 +1,18 @@
-import os
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
-os.environ["FASTAPI_ALLOW_LOCAL_ANALYSIS"] = "true"
-
-from app.core.config import get_settings
 from app.schemas.matching import QuestionEmbeddingRequest
 from app.services.matching_service import embed_question
 
 
 class MatchingServiceTest(unittest.TestCase):
-    def setUp(self):
-        get_settings.cache_clear()
-
-    def test_embed_question_uses_local_embedding_when_gemini_key_is_absent(self):
+    @patch("app.services.matching_service.get_settings")
+    def test_embed_question_uses_local_embedding_when_gemini_key_is_absent(self, get_settings):
+        get_settings.return_value = SimpleNamespace(
+            gemini_api_key=None,
+            allow_local_analysis=True,
+        )
         response = embed_question(QuestionEmbeddingRequest(question="목표 달성 경험"))
 
         self.assertEqual(response.embeddingModel, "dortfolio-local-hash-v1")
