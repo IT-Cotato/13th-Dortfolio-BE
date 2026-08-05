@@ -128,22 +128,30 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
-            # up -d는 컨테이너 기동만 확인하므로, 앱이 실제로 떴는지 헬스체크로 검증한다
+            # up -d는 컨테이너 기동만 확인하므로, 앱이 실제로 떴는지 헬스체크로 검증한다.
+            # FastAPI는 외부에 포트를 열지 않으므로 컨테이너 헬스 상태로 확인한다
+            # (Spring만 보면 AI 서버가 죽어도 배포가 성공으로 잡힌다)
             for i in $(seq 1 30); do
-              if curl -fsS http://localhost/actuator/health > /dev/null; then
-                echo "배포 성공: 애플리케이션이 정상 응답합니다."
+              SPRING_OK=$(curl -fsS http://localhost/actuator/health > /dev/null 2>&1 && echo yes || echo no)
+              FASTAPI_STATE=$(docker inspect -f '{{.State.Health.Status}}' dortfolio-fastapi 2>/dev/null || echo unknown)
+
+              if [ "$SPRING_OK" = "yes" ] && [ "$FASTAPI_STATE" = "healthy" ]; then
+                echo "배포 성공: Spring, FastAPI 모두 정상 응답합니다."
                 exit 0
               fi
-              echo "기동 대기 중... ($i/30)"
+
+              echo "기동 대기 중... ($i/30) spring=$SPRING_OK fastapi=$FASTAPI_STATE"
               sleep 5
             done
 
             echo "=== 배포 실패: 진단 정보 ==="
             echo "--- 컨테이너 상태 ---"
             docker ps -a --format 'table {{.Names}}\t{{.Status}}'
-            echo "--- 헬스 응답 본문 (어떤 항목이 DOWN인지 확인) ---"
+            echo "--- Spring 헬스 응답 본문 (어떤 항목이 DOWN인지 확인) ---"
             curl -s http://localhost/actuator/health || true
             echo ""
             echo "--- Spring 로그 ---"
             docker logs --tail=100 dortfolio-spring
+            echo "--- FastAPI 로그 ---"
+            docker logs --tail=50 dortfolio-fastapi
             exit 1
