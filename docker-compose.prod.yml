@@ -116,9 +116,15 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    # 인증서가 갱신돼도 nginx는 시작할 때 읽은 걸 계속 쓴다. 6시간마다 reload해서 새 인증서를 반영한다
+    # 인증서가 갱신돼도 nginx는 시작할 때 읽은 걸 계속 쓴다. 6시간마다 reload해서 새 인증서를 반영한다.
+    #
+    # 마지막에 /docker-entrypoint.sh를 직접 호출하는 이유:
+    # 이 스크립트는 첫 인자가 nginx일 때만 템플릿(envsubst) 치환을 수행한다.
+    # command를 sh로 덮으면 첫 인자가 sh가 되어 치환이 통째로 건너뛰어지고,
+    # 이미지 기본 설정이 그대로 떠서 443을 아무도 듣지 않게 된다
     command: >
-      sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g "daemon off;"'
+      sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done &
+             exec /docker-entrypoint.sh nginx -g "daemon off;"'
     networks:
       - dortfolio
 
