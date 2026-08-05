@@ -8,6 +8,7 @@ import com.itcotato.dortfolio.global.security.oauth.HttpCookieOAuth2Authorizatio
 import com.itcotato.dortfolio.global.security.oauth.OAuth2FailureHandler;
 import com.itcotato.dortfolio.global.security.oauth.OAuth2SuccessHandler;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -35,6 +36,11 @@ public class SecurityConfig {
     private final OAuth2FailureHandler oAuth2FailureHandler;
     private final HttpCookieOAuth2AuthorizationRequestRepository httpCookieOAuth2AuthorizationRequestRepository;
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
+
+    // 허용할 프론트엔드 출처. 배포 환경마다 달라서 설정으로 뺀다
+    // (기본값은 기존과 동일한 로컬 개발 주소라, 설정을 안 해도 동작이 바뀌지 않는다)
+    @Value("${app.cors.allowed-origins}")
+    private List<String> allowedOrigins;
 
     private static final String[] SWAGGER_PATHS = {
             "/swagger-ui/**",
@@ -93,7 +99,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOriginPatterns(List.of("http://localhost:8080", "http://localhost:3000"));
+        configuration.setAllowedOriginPatterns(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

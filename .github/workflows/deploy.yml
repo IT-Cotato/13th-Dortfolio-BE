@@ -132,12 +132,28 @@ jobs:
             # FastAPI는 외부에 포트를 열지 않으므로 컨테이너 헬스 상태로 확인한다
             # (Spring만 보면 AI 서버가 죽어도 배포가 성공으로 잡힌다)
             for i in $(seq 1 30); do
-              SPRING_OK=$(curl -fsS http://localhost/actuator/health > /dev/null 2>&1 && echo yes || echo no)
+              SPRING_OK=$(curl -fsS http://127.0.0.1:8080/actuator/health > /dev/null 2>&1 && echo yes || echo no)
               FASTAPI_STATE=$(docker inspect -f '{{.State.Health.Status}}' dortfolio-fastapi 2>/dev/null || echo unknown)
 
               if [ "$SPRING_OK" = "yes" ] && [ "$FASTAPI_STATE" = "healthy" ]; then
-                echo "배포 성공: Spring, FastAPI 모두 정상 응답합니다."
-                exit 0
+                # 여기까지는 컨테이너 내부 상태다.
+                # 사용자가 실제로 쓰는 경로(HTTPS → nginx → spring)까지 확인해야 배포가 끝난 것이다
+                DOMAIN=$(grep '^DOMAIN=' ~/13th-Dortfolio-BE/.env | cut -d= -f2)
+                if [ -z "$DOMAIN" ]; then
+                  echo "배포 성공: Spring, FastAPI 정상. (DOMAIN 미설정이라 HTTPS 검증은 건너뜁니다)"
+                  exit 0
+                fi
+                # --resolve로 접속 대상만 루프백으로 바꾼다.
+                # EC2는 자기 자신의 탄력적 IP로 되돌아오는 접속이 안 되기 때문이다.
+                # 도메인 이름은 그대로 유지되므로 SNI와 인증서 검증은 실제와 동일하게 이뤄진다
+                if curl -fsS --resolve "${DOMAIN}:443:127.0.0.1" \
+                     "https://${DOMAIN}/v3/api-docs" > /dev/null 2>&1; then
+                  echo "배포 성공: HTTPS 경로까지 정상 응답합니다. (https://${DOMAIN})"
+                  exit 0
+                fi
+                echo "기동 대기 중... ($i/30) spring=yes fastapi=healthy https=no"
+                sleep 5
+                continue
               fi
 
               echo "기동 대기 중... ($i/30) spring=$SPRING_OK fastapi=$FASTAPI_STATE"
@@ -148,10 +164,12 @@ jobs:
             echo "--- 컨테이너 상태 ---"
             docker ps -a --format 'table {{.Names}}\t{{.Status}}'
             echo "--- Spring 헬스 응답 본문 (어떤 항목이 DOWN인지 확인) ---"
-            curl -s http://localhost/actuator/health || true
+            curl -s http://127.0.0.1:8080/actuator/health || true
             echo ""
             echo "--- Spring 로그 ---"
             docker logs --tail=100 dortfolio-spring
             echo "--- FastAPI 로그 ---"
             docker logs --tail=50 dortfolio-fastapi
+            echo "--- Nginx 로그 ---"
+            docker logs --tail=50 dortfolio-nginx 2>&1 || echo "(nginx 컨테이너 없음)"
             exit 1

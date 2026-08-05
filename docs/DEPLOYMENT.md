@@ -4,11 +4,15 @@
 
 ```
 GitHub(develop) → Actions(테스트/빌드) → GHCR(이미지) → EC2(docker compose)
-                                                          ├─ spring
+                                                          ├─ nginx (80/443, HTTPS 종단)
+                                                          │    └─ spring (127.0.0.1:8080)
+                                                          ├─ certbot (인증서 자동 갱신)
                                                           ├─ postgres (pgvector)
                                                           ├─ redis
                                                           └─ fastapi
 ```
+
+외부에 열린 포트는 nginx의 80/443뿐입니다. 나머지는 전부 컨테이너 네트워크 안에서만 통신합니다.
 
 ---
 
@@ -31,14 +35,35 @@ AWS 콘솔 → EC2 → 인스턴스 시작
 | 유형 | 포트 | 소스 | 용도 |
 |---|---|---|---|
 | SSH | 22 | 내 IP | 접속 |
-| HTTP | 80 | 0.0.0.0/0 | API |
+| HTTP | 80 | 0.0.0.0/0 | HTTPS 리다이렉트 + 인증서 갱신 |
+| HTTPS | 443 | 0.0.0.0/0 | API |
 
 DB(5432)와 Redis(6379)는 **절대 열지 않습니다.** 컨테이너 네트워크 안에서만 통신하며,
 외부에서 DB를 봐야 하면 SSH 터널을 씁니다.
 
 ```bash
-ssh -i key.pem -L 5432:localhost:5432 ubuntu@<EC2_IP>
+ssh -i key.pem -L 5432:localhost:5432 ubuntu@<도메인>
 ```
+
+Spring의 8080 포트도 외부에 열지 않습니다. compose가 `127.0.0.1:8080`에만 바인딩하므로
+서버 안에서만 접근되며, 외부 요청은 전부 nginx(443)를 거칩니다.
+
+---
+
+## 1-2. 고정 IP (탄력적 IP)
+
+인스턴스를 중지했다 켜면 퍼블릭 IP가 바뀌어 도메인·시크릿·OAuth 설정이 전부 어긋납니다.
+도메인을 붙이기 전에 먼저 고정해야 합니다.
+
+EC2 콘솔 → **탄력적 IP** → `탄력적 IP 주소 할당` → 생성된 주소 선택 → `작업` → `탄력적 IP 주소 연결` → 인스턴스 선택
+
+> 탄력적 IP는 **실행 중인 인스턴스에 연결돼 있는 동안만 무료**입니다.
+> 할당만 하고 방치하거나 인스턴스를 종료하면 시간당 요금이 붙으니, 프로젝트가 끝나면 반드시 릴리스하세요.
+
+nip.io 도메인은 IP를 그대로 포함하므로(`<IP>.nip.io`), **IP가 바뀌면 도메인도 바뀌고 인증서를 다시 발급받아야 합니다.**
+탄력적 IP를 먼저 붙여야 하는 이유입니다.
+
+연결 후 바뀐 주소를 반영할 곳: GitHub `EC2_HOST` 시크릿, 서버 `.env`의 `DOMAIN`, 구글 OAuth 리다이렉트 URI.
 
 ---
 
@@ -100,6 +125,68 @@ openssl rand -hex 16      # JWT_SALT
 
 ---
 
+## 3-2. 도메인과 HTTPS
+
+Let's Encrypt는 IP 주소로는 인증서를 발급하지 않으므로 도메인이 필요합니다.
+
+### 도메인 (nip.io)
+
+nip.io는 `<IP>.nip.io` 형태의 이름을 그대로 그 IP로 응답해주는 서비스입니다. 가입도 설정도 없습니다.
+탄력적 IP가 `3.27.226.133`이면 도메인은 `3.27.226.133.nip.io`입니다.
+
+확인:
+```bash
+dig +short 3.27.226.133.nip.io     # 같은 IP가 나와야 합니다
+```
+
+> **주의: nip.io는 Public Suffix List에 없어서 모든 사용자가 Let's Encrypt 주간 발급 한도(50장)를 공유합니다.**
+> 최초 발급이나 갱신이 `too many certificates already issued for: nip.io`로 실패할 수 있습니다.
+> 그런 경우 [DuckDNS](https://www.duckdns.org)에서 이름을 하나 받아 `.env`의 `DOMAIN`만 바꾸면 됩니다.
+> 설정은 도메인에 종속적이지 않습니다.
+
+### 인증서 최초 발급
+
+nginx는 인증서 파일이 없으면 기동에 실패합니다. 그래서 최초 1회는 nginx 없이 발급받고,
+이후 갱신만 certbot 컨테이너가 자동으로 처리합니다.
+
+```bash
+cd ~/13th-Dortfolio-BE
+
+# .env에 도메인 추가
+echo 'DOMAIN=3.27.226.133.nip.io' >> .env
+
+# 80 포트를 비운다 (certbot이 직접 사용해야 함)
+docker compose -f docker-compose.prod.yml down
+
+docker run --rm -p 80:80 \
+  -v dortfolio-prod_certbot-conf:/etc/letsencrypt \
+  certbot/certbot certonly --standalone \
+  -d 3.27.226.133.nip.io \
+  --email dotfolio.cotato@gmail.com --agree-tos --no-eff-email
+
+# 전체 기동 (nginx 포함)
+docker compose -f docker-compose.prod.yml up -d
+```
+
+확인:
+```bash
+curl -I https://3.27.226.133.nip.io/swagger-ui.html
+```
+
+> Let's Encrypt는 같은 도메인에 **주당 5회**까지만 발급해줍니다.
+> 명령이 실패하면 무작정 재시도하지 말고 오류 메시지부터 읽으세요.
+
+### 발급 후 반영할 곳
+
+| 위치 | 값 |
+|---|---|
+| GitHub `EC2_HOST` 시크릿 | 탄력적 IP (도메인도 가능) |
+| 서버 `.env`의 `DOMAIN` | `3.27.226.133.nip.io` |
+| 서버 `.env`의 `FRONTEND_URL` | 배포된 프론트 주소 |
+| 구글 OAuth 리다이렉트 URI | `https://3.27.226.133.nip.io/login/oauth2/code/google` |
+
+---
+
 ## 4. 첫 배포
 
 첫 배포는 이미지가 아직 없으므로 Actions를 한 번 돌려야 합니다.
@@ -109,9 +196,10 @@ openssl rand -hex 16      # JWT_SALT
 
 배포 후 확인:
 ```bash
-curl http://<EC2_IP>/actuator/health      # {"status":"UP"}
+# 액추에이터는 외부에 열려 있지 않으므로 서버 안에서 확인합니다
+ssh -i key.pem ubuntu@<도메인> 'curl -s http://127.0.0.1:8080/actuator/health'
 ```
-Swagger: `http://<EC2_IP>/swagger-ui.html`
+Swagger: `https://<도메인>/swagger-ui.html`
 
 ---
 
@@ -135,11 +223,13 @@ docker exec dortfolio-postgres pg_dump -U dortfolio dortfolio > backup_$(date +%
 
 ## 아직 안 된 것 / 논의 필요
 
-- **HTTPS 없음** — 지금은 HTTP만 열려 있습니다. 프론트가 HTTPS로 배포되면 브라우저가 HTTP API 호출을 막으므로,
-  도메인을 준비해 Nginx + Let's Encrypt를 붙이거나 ALB를 두어야 합니다.
+- **인증서 갱신 확인** — certbot 컨테이너가 12시간마다 갱신을 시도하지만, 실제 갱신은 만료 30일 전에야 일어납니다.
+  발급 후 두 달쯤 뒤에 `docker logs dortfolio-certbot`으로 갱신이 정상 동작했는지 한 번 확인하세요.
 - **DB 백업 자동화 없음** — 위 `pg_dump`를 cron에 걸거나, 데이터가 중요해지면 RDS 전환을 검토합니다.
 - **스키마 변경 시 마이그레이션 파일 필수** — Flyway를 쓰므로 엔티티만 고치면 배포 시 `validate`에서 실패합니다.
   `spring/src/main/resources/db/migration/`에 `V2__xxx.sql` 형태로 파일을 추가해야 합니다.
   이미 적용된 마이그레이션 파일은 절대 수정하지 않습니다(체크섬 불일치로 실패).
 - **단일 인스턴스** — 배포 중 짧은 다운타임이 있습니다.
-- **OAuth 리다이렉트 URI** — Google 콘솔에 `http://<EC2_IP>/login/oauth2/code/google`를 등록해야 소셜 로그인이 동작합니다.
+- **OAuth 리다이렉트 URI** — Google 콘솔에 `https://<도메인>/login/oauth2/code/google`를 등록해야 소셜 로그인이 동작합니다.
+- **프론트(Vercel) 연동** — Vercel은 HTTPS로만 서비스되므로 백엔드도 HTTPS여야 브라우저가 API 호출을 막지 않습니다.
+  프론트 주소가 정해지면 `.env`의 `FRONTEND_URL`과 CORS 허용 목록을 함께 갱신해야 합니다.
