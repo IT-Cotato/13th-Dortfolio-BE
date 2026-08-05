@@ -30,6 +30,12 @@ spring:
       hibernate:
         format_sql: false
 
+# nginx 뒤에서 동작하므로 X-Forwarded-* 헤더를 신뢰한다.
+# 이게 없으면 Spring이 자기 주소를 http로 인식해 OAuth 리다이렉트 URI가 http로 생성되고,
+# 구글이 등록된 https URI와 다르다며 로그인을 거부한다
+server:
+  forward-headers-strategy: framework
+
 logging:
   level:
     root: INFO

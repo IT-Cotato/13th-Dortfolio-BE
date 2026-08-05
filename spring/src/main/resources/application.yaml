@@ -54,6 +54,9 @@ jwt:
   refresh-expiration: 1209600000  # Refresh Token 만료 시간: 14일
 
 app:
+  cors:
+    # 쉼표로 구분. 배포 환경에서는 프론트 주소(Vercel 등)를 CORS_ALLOWED_ORIGINS로 넘긴다
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080}
   fastapi:
     base-url: ${FASTAPI_BASE_URL:http://localhost:8000}
     connect-timeout: ${FASTAPI_CONNECT_TIMEOUT:3s}

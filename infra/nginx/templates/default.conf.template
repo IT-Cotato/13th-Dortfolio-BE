@@ -1,0 +1,66 @@
+# Nginx 리버스 프록시 설정.
+#
+# 파일명이 default.conf.template인 이유:
+# nginx 이미지는 기동 시 /etc/nginx/templates/*.template을 치환해 /etc/nginx/conf.d/에 쓴다.
+# 이미지에 이미 들어 있는 default.conf를 덮어쓰지 않으면 80 포트를 쓰는 서버 블록이 둘이 되어 헷갈린다.
+#
+# ${DOMAIN}은 .env의 값으로 치환된다.
+# ($host, $scheme 같은 nginx 내부 변수까지 치환되면 안 되므로
+#  compose에서 NGINX_ENVSUBST_FILTER=DOMAIN 으로 대상을 한정한다)
+
+# HTTP: 인증서 갱신용 요청만 처리하고 나머지는 전부 HTTPS로 넘긴다
+server {
+    listen 80 default_server;
+    server_name ${DOMAIN};
+
+    # Let's Encrypt가 도메인 소유를 확인할 때 이 경로로 파일을 읽어간다.
+    # HTTPS로 리다이렉트해버리면 갱신이 실패하므로 이 위치만 예외로 둔다
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl default_server;
+    http2 on;
+    server_name ${DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # 메모 이미지 업로드용. 기본값(1MB)이면 사진 첨부가 413으로 실패한다
+    client_max_body_size 20M;
+
+    # 액추에이터는 외부에 열지 않는다.
+    # 서버 안에서 127.0.0.1:8080으로 직접 확인하며, 배포 검증도 그쪽을 쓴다
+    location /actuator {
+        return 404;
+    }
+
+    location / {
+        # 도커의 내장 DNS. 주소를 변수로 넘겨야 nginx가 요청마다 이름을 다시 푼다.
+        # 상수로 쓰면 기동 시점의 IP를 계속 붙들고 있어서,
+        # 배포로 spring 컨테이너가 새로 뜨면 옛 IP로 붙다가 502가 난다
+        resolver 127.0.0.11 valid=10s ipv6=off;
+        set $spring_host spring;
+        proxy_pass http://$spring_host:8080;
+
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        # 이 헤더가 없으면 Spring이 자기 주소를 http로 인식해
+        # OAuth 리다이렉트 URI가 http로 생성되고 구글 로그인이 깨진다
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_connect_timeout 5s;
+        proxy_read_timeout    60s;
+    }
+}
