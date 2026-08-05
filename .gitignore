@@ -15,5 +15,7 @@ _workspace/
 
 # QueryDSL generated Q-types
 **/Q*.java
+!spring/src/main/java/com/itcotato/dortfolio/domain/matching/dto/fastapi/QuestionEmbeddingRequest.java
+!spring/src/main/java/com/itcotato/dortfolio/domain/matching/dto/fastapi/QuestionEmbeddingResponse.java
 
 .env
