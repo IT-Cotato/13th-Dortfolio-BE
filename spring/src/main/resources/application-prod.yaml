@@ -44,4 +44,12 @@ management:
         include: health
   endpoint:
     health:
+      # 상세 값(DB 버전, 접속 정보 등)은 숨기되, 어떤 구성요소가 DOWN인지는 보이게 한다.
+      # 배포가 실패했을 때 원인을 바로 알 수 있어야 한다
       show-details: never
+      show-components: always
+  health:
+    mail:
+      # Gmail SMTP는 외부 의존성이라 잠깐 안 된다고 앱 전체가 DOWN이 되면 안 된다.
+      # (컨테이너 헬스체크가 실패해 배포가 막히고, 메일과 무관한 API까지 죽은 것으로 취급된다)
+      enabled: false
