@@ -1,17 +1,38 @@
 -- PR #41의 V2 마이그레이션 적용 이후 Insight 스키마를 확장
 
--- 기존 데이터가 존재할 경우 NOT NULL 컬럼 추가 실패를 방지하기 위한 정돈
-DELETE FROM insights;
-
--- Insight 스키마 확장
+-- 컬럼들을 NULL 허용(Nullable) 상태로 추가
 ALTER TABLE insights
-    ADD COLUMN job_id_snapshot uuid NOT NULL,
-    ADD COLUMN job_name_snapshot varchar(255) NOT NULL,
-    ADD COLUMN record_snapshot_at timestamp(6) NOT NULL,
-    ADD COLUMN base_completed_record_count integer NOT NULL,
-    ADD COLUMN requested_at timestamp(6) NOT NULL,
+    ADD COLUMN job_id_snapshot uuid,
+    ADD COLUMN job_name_snapshot varchar(255),
+    ADD COLUMN record_snapshot_at timestamp(6),
+    ADD COLUMN base_completed_record_count integer,
+    ADD COLUMN requested_at timestamp(6),
     ADD COLUMN failure_code varchar(100),
     ADD COLUMN failure_message text;
+
+-- 데이터 백필(Backfill)
+DELETE FROM insights
+WHERE (status = 'PENDING' OR status = 'FAILED')
+  AND job_id_snapshot IS NULL;
+
+-- 기존 COMPLETED 데이터의 필수 시점 및 기본값 보정
+UPDATE insights
+SET requested_at = COALESCE(requested_at, created_at),
+    record_snapshot_at = COALESCE(record_snapshot_at, created_at),
+    base_completed_record_count = COALESCE(base_completed_record_count, 0),
+    job_name_snapshot = COALESCE(job_name_snapshot, '기본 직무')
+WHERE requested_at IS NULL
+   OR record_snapshot_at IS NULL
+   OR base_completed_record_count IS NULL
+   OR job_name_snapshot IS NULL;
+
+-- 필수 컬럼들에 NOT NULL 제약조건 적용
+ALTER TABLE insights
+    ALTER COLUMN job_id_snapshot SET NOT NULL,
+ALTER COLUMN job_name_snapshot SET NOT NULL,
+    ALTER COLUMN record_snapshot_at SET NOT NULL,
+    ALTER COLUMN base_completed_record_count SET NOT NULL,
+    ALTER COLUMN requested_at SET NOT NULL;
 
 
 -- Insight 강점 통계 결과
@@ -136,6 +157,13 @@ CREATE TABLE job_competency_embeddings
             ON DELETE CASCADE
 );
 
+-- 유니크 인덱스 생성 전, 중복 PENDING 레코드 정리
+DELETE FROM insights i1
+    USING insights i2
+WHERE i1.user_id = i2.user_id
+  AND i1.status = 'PENDING'
+  AND i2.status = 'PENDING'
+  AND i1.created_at < i2.created_at;
 
 -- 사용자당 PENDING 상태의 인사이트 중복 생성을 막는 유니크 인덱스
 CREATE UNIQUE INDEX uq_insights_user_pending
