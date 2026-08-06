@@ -21,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
+import static org.mockito.ArgumentMatchers.anyList;
 import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,7 +69,8 @@ class JpaAnalyzedRecordQueryTest {
                 analyzedRecordQuery.findAllForInsight(USER_ID, SNAPSHOT_AT);
 
         assertThat(result).isEmpty();
-        then(queryRepository).should(never()).findStrengthTags(List.of());
+
+        then(queryRepository).should(never()).findStrengthTags(anyList());
     }
 
     @Test

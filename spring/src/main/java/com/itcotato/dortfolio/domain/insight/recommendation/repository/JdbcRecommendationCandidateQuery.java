@@ -66,6 +66,7 @@ public class JdbcRecommendationCandidateQuery
 
                 userId,
                 snapshotAt,
+                snapshotAt,
 
                 // ORDER BY의 거리 계산에 다시 사용
                 competencyVector,
@@ -130,6 +131,7 @@ public class JdbcRecommendationCandidateQuery
                   and activity.deleted_at is null
                   and template.deleted_at is null
                   and record.completed_at <= ?
+                  and record.updated_at <= ?
                   and analysis.ai_analysis_status = 'COMPLETED'
                   and analysis.analyzed_record_updated_at
                         = record.updated_at

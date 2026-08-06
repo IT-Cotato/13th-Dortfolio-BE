@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -92,16 +93,24 @@ public class InsightGenerationRequestWriter {
         );
 
         // PENDING 저장은 비동기 실행을 요청하기 전에 커밋되어야 함
-        Insight insight = insightRepository.save(
-                Insight.pending(
-                        user,
-                        jobId,
-                        jobName,
-                        snapshotAt,
-                        baseRecordCount,
-                        snapshotAt
-                )
-        );
+        Insight insight;
+        // DB 유니크 제약 조건 위반 시 예외 처리
+        try {
+            insight = insightRepository.saveAndFlush(
+                    Insight.pending(
+                            user,
+                            jobId,
+                            jobName,
+                            snapshotAt,
+                            baseRecordCount,
+                            snapshotAt
+                    )
+            );
+        } catch (DataIntegrityViolationException e) {
+            throw new CustomException(
+                    InsightErrorCode.INSIGHT_GENERATION_NOT_ALLOWED // 혹은 이미 진행 중임을 나타내는 InsightErrorCode 사용
+            );
+        }
 
         List<JobCompetencySnapshot> competencySnapshots =
                 jobCompetencies.stream()

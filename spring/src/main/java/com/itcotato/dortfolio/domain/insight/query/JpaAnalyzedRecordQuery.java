@@ -105,11 +105,16 @@ public class JpaAnalyzedRecordQuery implements AnalyzedRecordQuery {
     }
 
     private List<String> parseEvidenceSnippets(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+
         try {
-            return objectMapper.readValue(
+            List<String> snippets = objectMapper.readValue(
                     json,
                     STRING_LIST_TYPE
             );
+            return snippets != null ? snippets : List.of();
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException(
                     "Failed to parse record analysis evidence snippets.",

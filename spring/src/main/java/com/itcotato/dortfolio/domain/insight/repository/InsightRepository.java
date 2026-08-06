@@ -9,13 +9,13 @@ import java.util.UUID;
 
 public interface InsightRepository extends JpaRepository<Insight, UUID> {
 
-    Optional<Insight> findFirstByUser_IdAndStatusOrderByCompletedAtDesc(
+    Optional<Insight> findFirstByUser_IdAndStatusAndCompletedAtIsNotNullOrderByCompletedAtDesc(
             UUID userId,
             InsightGenerationStatus status
     );
 
     default Optional<Insight> findLatestCompletedByUserId(UUID userId) {
-        return findFirstByUser_IdAndStatusOrderByCompletedAtDesc(
+        return findFirstByUser_IdAndStatusAndCompletedAtIsNotNullOrderByCompletedAtDesc(
                 userId,
                 InsightGenerationStatus.COMPLETED
         );

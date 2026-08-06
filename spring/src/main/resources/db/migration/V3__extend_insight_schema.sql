@@ -1,4 +1,9 @@
--- PR #41의 V2 마이그레이션 적용 이후 Insight 스키마를 확장한다.
+-- PR #41의 V2 마이그레이션 적용 이후 Insight 스키마를 확장
+
+-- 기존 데이터가 존재할 경우 NOT NULL 컬럼 추가 실패를 방지하기 위한 정돈
+DELETE FROM insights;
+
+-- Insight 스키마 확장
 ALTER TABLE insights
     ADD COLUMN job_id_snapshot uuid NOT NULL,
     ADD COLUMN job_name_snapshot varchar(255) NOT NULL,
@@ -130,3 +135,9 @@ CREATE TABLE job_competency_embeddings
             REFERENCES job_competencies (id)
             ON DELETE CASCADE
 );
+
+
+-- 사용자당 PENDING 상태의 인사이트 중복 생성을 막는 유니크 인덱스
+CREATE UNIQUE INDEX uq_insights_user_pending
+    ON insights (user_id)
+    WHERE status = 'PENDING';

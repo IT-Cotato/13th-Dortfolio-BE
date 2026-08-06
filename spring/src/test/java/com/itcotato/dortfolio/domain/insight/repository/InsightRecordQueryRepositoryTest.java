@@ -281,6 +281,8 @@ class InsightRecordQueryRepositoryTest {
     }
 
     private void saveEmbedding(Record record) {
+        String dummy3072Vector = "[" + String.join(",", java.util.Collections.nCopies(3072, "0.1")) + "]";
+
         jdbcTemplate.update("""
                         insert into record_embeddings (
                             id,
@@ -295,12 +297,13 @@ class InsightRecordQueryRepositoryTest {
                             current_timestamp,
                             ?,
                             ?,
-                            ARRAY[0.1, 0.2, 0.3]
+                            cast(? as vector)
                         )
                         """,
                 UUID.randomUUID(),
                 record.getId(),
-                "test-embedding"
+                "text-embedding-3-large",
+                dummy3072Vector
         );
     }
 

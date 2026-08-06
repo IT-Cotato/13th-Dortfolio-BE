@@ -1,5 +1,6 @@
 package com.itcotato.dortfolio.domain.job.embedding.service;
 
+import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
 import com.itcotato.dortfolio.domain.job.embedding.dto.EmbeddingRequest;
 import com.itcotato.dortfolio.domain.job.embedding.dto.EmbeddingResponse;
 import com.itcotato.dortfolio.domain.job.entity.JobCompetency;
@@ -21,17 +22,24 @@ import org.springframework.web.client.RestClientException;
 @RequiredArgsConstructor
 public class JobCompetencyEmbeddingService {
 
-    private final JobCompetencyRepository
-            jobCompetencyRepository;
-    private final JobCompetencyEmbeddingRepository
-            embeddingRepository;
-    private final JobCompetencyEmbeddingTextBuilder
-            textBuilder;
+    private final JobCompetencyRepository jobCompetencyRepository;
+    private final JobCompetencyEmbeddingRepository embeddingRepository;
+    private final JobCompetencyEmbeddingTextBuilder textBuilder;
     private final EmbeddingClient embeddingClient;
-    private final JobCompetencyEmbeddingWriter
-            embeddingWriter;
+    private final JobCompetencyEmbeddingWriter embeddingWriter;
+    private final InsightProperties insightProperties;
 
     public void generate(UUID jobCompetencyId) {
+        String targetModel = insightProperties.embeddingModel();
+
+        // 외부 API 호출 전에 DB에 해당 모델의 임베딩이 존재하는지 확인
+        if (embeddingRepository.existsByJobCompetency_IdAndEmbeddingModel(
+                jobCompetencyId,
+                targetModel
+        )) {
+            return;
+        }
+
         JobCompetency jobCompetency =
                 jobCompetencyRepository
                         .findWithDetailsById(jobCompetencyId)
@@ -46,15 +54,8 @@ public class JobCompetencyEmbeddingService {
                         sourceText
                 );
 
-        validate(response);
-
-        if (embeddingRepository
-                .existsByJobCompetency_IdAndEmbeddingModel(
-                        jobCompetencyId,
-                        response.embeddingModel()
-                )) {
-            return;
-        }
+        // 응답 검증 (targetModel과 일치하는지도 검증)
+        validate(response, targetModel);
 
         embeddingWriter.saveIfAbsent(
                 jobCompetencyId,
@@ -95,22 +96,19 @@ public class JobCompetencyEmbeddingService {
         }
     }
 
-    private void validate(EmbeddingResponse response) {
+    private void validate(EmbeddingResponse response, String targetModel) {
         if (response == null
-                || !StringUtils.hasText(
-                response.embeddingModel()
-        )
+                || !StringUtils.hasText(response.embeddingModel())
+                || !targetModel.equals(response.embeddingModel())
                 || response.embedding() == null
-                || response.embedding().length
-                != JobCompetencyEmbedding.EMBEDDING_DIMENSION) {
+                || response.embedding().length != JobCompetencyEmbedding.EMBEDDING_DIMENSION) {
             throw new CustomException(
                     JobErrorCode.JOB_COMPETENCY_EMBEDDING_INVALID_RESPONSE
             );
         }
 
         for (float value : response.embedding()) {
-            if (Float.isNaN(value)
-                    || Float.isInfinite(value)) {
+            if (Float.isNaN(value) || Float.isInfinite(value)) {
                 throw new CustomException(
                         JobErrorCode.JOB_COMPETENCY_EMBEDDING_INVALID_RESPONSE
                 );
