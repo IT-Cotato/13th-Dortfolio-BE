@@ -106,9 +106,9 @@ public class InsightGenerationRequestWriter {
                             snapshotAt
                     )
             );
-        } catch (DataIntegrityViolationException e) {
+        } catch (DataIntegrityViolationException exception) {
             throw new CustomException(
-                    InsightErrorCode.INSIGHT_GENERATION_NOT_ALLOWED // 혹은 이미 진행 중임을 나타내는 InsightErrorCode 사용
+                    InsightErrorCode.INSIGHT_GENERATION_IN_PROGRESS
             );
         }
 
