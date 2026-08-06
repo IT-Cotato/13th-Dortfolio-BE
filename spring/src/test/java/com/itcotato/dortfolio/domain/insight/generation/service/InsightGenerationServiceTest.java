@@ -6,8 +6,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.itcotato.dortfolio.domain.insight.entity.Insight;
+import com.itcotato.dortfolio.domain.insight.entity.InsightGenerationStatus;
 import com.itcotato.dortfolio.domain.insight.generation.lock.InsightGenerationLock;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationCommand;
+import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationStartResult;
+import com.itcotato.dortfolio.domain.insight.repository.InsightRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
 import java.time.Clock;
@@ -15,6 +19,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,6 +52,12 @@ class InsightGenerationServiceTest {
     @Mock
     private InsightGenerationFailureWriter failureWriter;
 
+    @Mock
+    private InsightRepository insightRepository;
+
+    @Mock
+    private Insight pendingInsight;
+
     private InsightGenerationService service;
     private Clock clock;
 
@@ -59,6 +70,7 @@ class InsightGenerationServiceTest {
                 requestWriter,
                 worker,
                 failureWriter,
+                insightRepository,
                 clock
         );
     }
@@ -82,11 +94,13 @@ class InsightGenerationServiceTest {
         )).thenReturn(command);
 
         // when
-        UUID generationId =
+        InsightGenerationStartResult result =
                 service.requestGeneration(USER_ID);
 
         // then
-        assertThat(generationId).isEqualTo(INSIGHT_ID);
+        assertThat(result.generationId()).isEqualTo(INSIGHT_ID);
+        assertThat(result.status())
+                .isEqualTo(InsightGenerationStatus.PENDING);
 
         verify(requestWriter).createPending(
                 USER_ID,
@@ -137,6 +151,65 @@ class InsightGenerationServiceTest {
                         org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.any()
                 );
+    }
+
+    @Test
+    void returnsExistingPendingWhenLockCannotBeAcquired() {
+        // given
+        when(generationLock.tryAcquire(USER_ID))
+                .thenReturn(null);
+        when(insightRepository.findPendingByUserId(USER_ID))
+                .thenReturn(Optional.of(pendingInsight));
+        when(pendingInsight.getId()).thenReturn(INSIGHT_ID);
+
+        // when
+        InsightGenerationStartResult result =
+                service.requestGeneration(USER_ID);
+
+        // then
+        assertThat(result.generationId()).isEqualTo(INSIGHT_ID);
+        assertThat(result.status())
+                .isEqualTo(InsightGenerationStatus.PENDING);
+
+        verify(requestWriter, never()).createPending(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()
+        );
+        verify(worker, never()).generate(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()
+        );
+    }
+
+    @Test
+    void returnsExistingPendingWhenDatabaseDetectsDuplicate() {
+        // given
+        String token = "lock-token";
+        LocalDateTime snapshotAt = LocalDateTime.now(clock);
+
+        when(generationLock.tryAcquire(USER_ID))
+                .thenReturn(token);
+        when(requestWriter.createPending(USER_ID, snapshotAt))
+                .thenThrow(new CustomException(
+                        InsightErrorCode.INSIGHT_GENERATION_IN_PROGRESS
+                ));
+        when(insightRepository.findPendingByUserId(USER_ID))
+                .thenReturn(Optional.of(pendingInsight));
+        when(pendingInsight.getId()).thenReturn(INSIGHT_ID);
+
+        // when
+        InsightGenerationStartResult result =
+                service.requestGeneration(USER_ID);
+
+        // then
+        assertThat(result.generationId()).isEqualTo(INSIGHT_ID);
+        assertThat(result.status())
+                .isEqualTo(InsightGenerationStatus.PENDING);
+        verify(generationLock).release(USER_ID, token);
+        verify(worker, never()).generate(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()
+        );
     }
 
     @Test
