@@ -1,4 +1,4 @@
-package com.itcotato.dortfolio.domain.insight.recommendation;
+package com.itcotato.dortfolio.domain.insight.recommendation.dto;
 
 import java.util.List;
 import java.util.UUID;

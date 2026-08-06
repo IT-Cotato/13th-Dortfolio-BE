@@ -11,6 +11,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,9 +26,24 @@ public class Insight extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @Column(name = "job_id_snapshot", nullable = false)
+    private UUID jobIdSnapshot;
+
+    @Column(name = "job_name_snapshot", nullable = false)
+    private String jobNameSnapshot;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private InsightGenerationStatus status;
+
+    @Column(name = "record_snapshot_at", nullable = false)
+    private LocalDateTime recordSnapshotAt;
+
+    @Column(name = "base_completed_record_count", nullable = false)
+    private int baseCompletedRecordCount;
+
+    @Column(name = "requested_at", nullable = false)
+    private LocalDateTime requestedAt;
 
     @Column
     private LocalDateTime completedAt;
@@ -35,24 +51,76 @@ public class Insight extends BaseEntity {
     @Column
     private LocalDateTime failedAt;
 
-    private Insight(User user) {
+    @Column(length = 100)
+    private String failureCode;
+
+    @Column(columnDefinition = "text")
+    private String failureMessage;
+
+    private Insight(
+            User user,
+            UUID jobIdSnapshot,
+            String jobNameSnapshot,
+            LocalDateTime recordSnapshotAt,
+            int baseCompletedRecordCount,
+            LocalDateTime requestedAt
+    ) {
         this.user = user;
+        this.jobIdSnapshot = jobIdSnapshot;
+        this.jobNameSnapshot = jobNameSnapshot;
         this.status = InsightGenerationStatus.PENDING;
+        this.recordSnapshotAt = recordSnapshotAt;
+        this.baseCompletedRecordCount = baseCompletedRecordCount;
+        this.requestedAt = requestedAt;
     }
 
-    public static Insight pending(User user) {
-        return new Insight(user);
+    public static Insight pending(
+            User user,
+            UUID jobIdSnapshot,
+            String jobNameSnapshot,
+            LocalDateTime recordSnapshotAt,
+            int baseCompletedRecordCount,
+            LocalDateTime requestedAt
+    ) {
+        return new Insight(
+                user,
+                jobIdSnapshot,
+                jobNameSnapshot,
+                recordSnapshotAt,
+                baseCompletedRecordCount,
+                requestedAt
+        );
     }
 
     public void complete(LocalDateTime completedAt) {
+        validatePending();
+
         this.status = InsightGenerationStatus.COMPLETED;
         this.completedAt = completedAt;
         this.failedAt = null;
+        this.failureCode = null;
+        this.failureMessage = null;
     }
 
-    public void fail(LocalDateTime failedAt) {
+    public void fail(
+            LocalDateTime failedAt,
+            String failureCode,
+            String failureMessage
+    ) {
+        validatePending();
+
         this.status = InsightGenerationStatus.FAILED;
         this.completedAt = null;
         this.failedAt = failedAt;
+        this.failureCode = failureCode;
+        this.failureMessage = failureMessage;
+    }
+
+    private void validatePending() {
+        if (status != InsightGenerationStatus.PENDING) {
+            throw new IllegalStateException(
+                    "Only pending Insight can change its generation status."
+            );
+        }
     }
 }

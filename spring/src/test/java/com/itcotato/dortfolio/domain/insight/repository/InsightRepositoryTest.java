@@ -28,10 +28,10 @@ class InsightRepositoryTest {
     void findLatestCompletedByUserIdReturnsLatestCompletedInsight() {
         User user = createUser();
 
-        Insight older = Insight.pending(user);
+        Insight older = createPendingInsight(user, LocalDateTime.of(2026, 7, 30, 9, 0));
         older.complete(LocalDateTime.of(2026, 7, 30, 10, 0));
 
-        Insight latest = Insight.pending(user);
+        Insight latest = createPendingInsight(user, LocalDateTime.of(2026, 7, 31, 9, 0));
         latest.complete(LocalDateTime.of(2026, 7, 31, 10, 0));
 
         insightRepository.save(older);
@@ -48,13 +48,13 @@ class InsightRepositoryTest {
     void findLatestCompletedByUserIdExcludesPendingAndFailedInsights() {
         User user = createUser();
 
-        Insight completed = Insight.pending(user);
+        Insight completed = createPendingInsight(user, LocalDateTime.of(2026, 7, 30, 9, 0));
         completed.complete(LocalDateTime.of(2026, 7, 30, 10, 0));
 
-        Insight pending = Insight.pending(user);
+        Insight pending = createPendingInsight(user, LocalDateTime.of(2026, 7, 31, 9, 0));
 
-        Insight failed = Insight.pending(user);
-        failed.fail(LocalDateTime.of(2026, 8, 1, 10, 0));
+        Insight failed = createPendingInsight(user, LocalDateTime.of(2026, 8, 1, 9, 0));
+        failed.fail(LocalDateTime.of(2026, 8, 1, 10, 0), "AI_ERROR", "AI response failed");
 
         insightRepository.save(completed);
         insightRepository.save(pending);
@@ -72,10 +72,10 @@ class InsightRepositoryTest {
         User firstUser = createUser();
         User secondUser = createUser();
 
-        Insight firstUserInsight = Insight.pending(firstUser);
+        Insight firstUserInsight = createPendingInsight(firstUser, LocalDateTime.of(2026, 7, 30, 9, 0));
         firstUserInsight.complete(LocalDateTime.of(2026, 7, 30, 10, 0));
 
-        Insight secondUserInsight = Insight.pending(secondUser);
+        Insight secondUserInsight = createPendingInsight(secondUser, LocalDateTime.of(2026, 8, 1, 9, 0));
         secondUserInsight.complete(LocalDateTime.of(2026, 8, 1, 10, 0));
 
         insightRepository.save(firstUserInsight);
@@ -92,7 +92,7 @@ class InsightRepositoryTest {
     void findLatestCompletedByUserIdReturnsEmptyWhenCompletedInsightDoesNotExist() {
         User user = createUser();
 
-        insightRepository.save(Insight.pending(user));
+        insightRepository.save(createPendingInsight(user, LocalDateTime.of(2026, 8, 1, 9, 0)));
 
         assertThat(
                 insightRepository.findLatestCompletedByUserId(user.getId())
@@ -107,5 +107,16 @@ class InsightRepositoryTest {
                 "encoded-password",
                 "인사이트 테스트"
         ));
+    }
+
+    private Insight createPendingInsight(User user, LocalDateTime requestedAt) {
+        return Insight.pending(
+                user,
+                UUID.randomUUID(),
+                "백엔드 개발자",
+                requestedAt,
+                10,
+                requestedAt
+        );
     }
 }

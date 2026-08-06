@@ -1,8 +1,8 @@
 package com.itcotato.dortfolio.domain.insight.support.fake;
 
-import com.itcotato.dortfolio.domain.insight.recommendation.InsightRecommendationGenerator;
-import com.itcotato.dortfolio.domain.insight.recommendation.RecommendationRequest;
-import com.itcotato.dortfolio.domain.insight.recommendation.RecommendationResult;
+import com.itcotato.dortfolio.domain.insight.recommendation.service.InsightRecommendationGenerator;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 
 import java.util.Objects;
 

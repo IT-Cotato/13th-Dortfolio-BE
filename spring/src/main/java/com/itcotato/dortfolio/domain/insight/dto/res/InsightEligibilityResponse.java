@@ -7,6 +7,7 @@ public record InsightEligibilityResponse(
         InsightEligibilityReason reason,
         LocalDateTime nextAvailableAt,
         long completedRecordCount,
+        long analyzedRecordCount,
         int requiredRecordCount
 ) {
 }

@@ -3,9 +3,9 @@ package com.itcotato.dortfolio.domain.insight.support.fixture;
 import com.itcotato.dortfolio.domain.insight.dto.res.InsightEligibilityReason;
 import com.itcotato.dortfolio.domain.insight.dto.res.InsightEligibilityResponse;
 import com.itcotato.dortfolio.domain.insight.query.AnalyzedRecordSnapshot;
-import com.itcotato.dortfolio.domain.insight.recommendation.RecommendationCandidate;
-import com.itcotato.dortfolio.domain.insight.recommendation.RecommendationRequest;
-import com.itcotato.dortfolio.domain.insight.recommendation.RecommendationResult;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCandidate;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 import com.itcotato.dortfolio.domain.insight.statistics.StrengthStatistic;
 import com.itcotato.dortfolio.domain.insight.statistics.TemplateStatistic;
 
@@ -29,6 +29,9 @@ public final class InsightTestFixture {
     public static final UUID JOB_COMPETENCY_ID =
             UUID.fromString("00000000-0000-0000-0000-000000000005");
 
+    public static final UUID JOB_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000006");
+
     public static final LocalDateTime SNAPSHOT_AT =
             LocalDateTime.of(2026, 8, 1, 15, 0);
 
@@ -41,6 +44,7 @@ public final class InsightTestFixture {
                 InsightEligibilityReason.AVAILABLE,
                 null,
                 10,
+                10,
                 10
         );
     }
@@ -50,6 +54,7 @@ public final class InsightTestFixture {
                 false,
                 InsightEligibilityReason.COOLDOWN,
                 SNAPSHOT_AT.plusHours(24),
+                12,
                 12,
                 10
         );
@@ -106,8 +111,9 @@ public final class InsightTestFixture {
 
     public static RecommendationRequest recommendationRequest() {
         return new RecommendationRequest(
-                JOB_COMPETENCY_ID,
+                JOB_ID,
                 "백엔드 개발자",
+                JOB_COMPETENCY_ID,
                 "문제 해결",
                 "문제의 원인을 분석하고 해결 방법을 적용하는 역량",
                 List.of(recommendationCandidate())
