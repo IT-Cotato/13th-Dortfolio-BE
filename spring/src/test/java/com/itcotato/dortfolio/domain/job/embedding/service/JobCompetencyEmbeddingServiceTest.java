@@ -5,6 +5,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
 import com.itcotato.dortfolio.domain.job.embedding.dto.EmbeddingRequest;
 import com.itcotato.dortfolio.domain.job.embedding.dto.EmbeddingResponse;
 import com.itcotato.dortfolio.domain.job.entity.Job;
@@ -36,6 +37,9 @@ class JobCompetencyEmbeddingServiceTest {
     @Mock
     private JobCompetencyEmbeddingWriter embeddingWriter;
 
+    @Mock
+    private InsightProperties insightProperties;
+
     private JobCompetencyEmbeddingService service;
 
     @BeforeEach
@@ -45,12 +49,15 @@ class JobCompetencyEmbeddingServiceTest {
                 embeddingRepository,
                 new JobCompetencyEmbeddingTextBuilder(),
                 embeddingClient,
-                embeddingWriter
+                embeddingWriter,
+                insightProperties
         );
     }
 
     @Test
     void generatesAndStoresEmbedding() {
+        when(insightProperties.embeddingModel()).thenReturn("gemini-embedding-2");
+
         UUID competencyId = UUID.randomUUID();
         JobCompetency competency = competency();
         float[] vector = new float[JobCompetencyEmbedding.EMBEDDING_DIMENSION];
@@ -76,11 +83,7 @@ class JobCompetencyEmbeddingServiceTest {
     @Test
     void skipsStoreWhenSameModelAlreadyExists() {
         UUID competencyId = UUID.randomUUID();
-        float[] vector = new float[JobCompetencyEmbedding.EMBEDDING_DIMENSION];
-        when(jobCompetencyRepository.findWithDetailsById(competencyId))
-                .thenReturn(Optional.of(competency()));
-        when(embeddingClient.embed(org.mockito.ArgumentMatchers.any()))
-                .thenReturn(new EmbeddingResponse("gemini-embedding-2", vector));
+        when(insightProperties.embeddingModel()).thenReturn("gemini-embedding-2");
         when(embeddingRepository.existsByJobCompetency_IdAndEmbeddingModel(
                 competencyId,
                 "gemini-embedding-2"
@@ -97,6 +100,8 @@ class JobCompetencyEmbeddingServiceTest {
 
     @Test
     void rejectsWrongEmbeddingDimensionWithCommonErrorCode() {
+        when(insightProperties.embeddingModel()).thenReturn("gemini-embedding-2");
+
         UUID competencyId = UUID.randomUUID();
         when(jobCompetencyRepository.findWithDetailsById(competencyId))
                 .thenReturn(Optional.of(competency()));
@@ -111,6 +116,8 @@ class JobCompetencyEmbeddingServiceTest {
 
     @Test
     void convertsAiClientFailureToCommonErrorCode() {
+        when(insightProperties.embeddingModel()).thenReturn("gemini-embedding-2");
+
         UUID competencyId = UUID.randomUUID();
         when(jobCompetencyRepository.findWithDetailsById(competencyId))
                 .thenReturn(Optional.of(competency()));
