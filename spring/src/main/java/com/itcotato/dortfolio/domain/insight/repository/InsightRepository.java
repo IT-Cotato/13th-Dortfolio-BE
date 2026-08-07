@@ -10,13 +10,13 @@ public interface InsightRepository
         extends JpaRepository<Insight, UUID> {
 
     Optional<Insight>
-    findFirstByUser_IdAndStatusAndCompletedAtIsNotNullOrderByCompletedAtDesc(
+    findFirstByUser_IdAndStatusAndCompletedAtIsNotNullOrderByCompletedAtDescIdDesc(
             UUID userId,
             InsightGenerationStatus status
     );
 
     Optional<Insight>
-    findFirstByUser_IdAndStatusOrderByRequestedAtDesc(
+    findFirstByUser_IdAndStatusOrderByRequestedAtDescIdDesc(
             UUID userId,
             InsightGenerationStatus status
     );
@@ -29,7 +29,7 @@ public interface InsightRepository
     default Optional<Insight> findLatestCompletedByUserId(
             UUID userId
     ) {
-        return findFirstByUser_IdAndStatusAndCompletedAtIsNotNullOrderByCompletedAtDesc(
+        return findFirstByUser_IdAndStatusAndCompletedAtIsNotNullOrderByCompletedAtDescIdDesc(
                 userId,
                 InsightGenerationStatus.COMPLETED
         );
@@ -38,7 +38,7 @@ public interface InsightRepository
     default Optional<Insight> findPendingByUserId(
             UUID userId
     ) {
-        return findFirstByUser_IdAndStatusOrderByRequestedAtDesc(
+        return findFirstByUser_IdAndStatusOrderByRequestedAtDescIdDesc(
                 userId,
                 InsightGenerationStatus.PENDING
         );

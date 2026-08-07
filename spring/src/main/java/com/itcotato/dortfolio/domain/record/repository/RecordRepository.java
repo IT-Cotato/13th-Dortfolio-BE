@@ -1,7 +1,9 @@
 package com.itcotato.dortfolio.domain.record.repository;
 
 import com.itcotato.dortfolio.domain.record.entity.Record;
+import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -28,5 +30,19 @@ public interface RecordRepository extends JpaRepository<Record, UUID>, RecordRep
         """)
     long countAvailableCompletedByUserId(
             @Param("userId") UUID userId
+    );
+
+    @Query("""
+        select record.id
+        from Record record
+        where record.user.id = :userId
+          and record.id in :recordIds
+          and record.deletedAt is null
+          and record.activity.deletedAt is null
+          and record.template.deletedAt is null
+        """)
+    Set<UUID> findAvailableRecordIds(
+            @Param("userId") UUID userId,
+            @Param("recordIds") Collection<UUID> recordIds
     );
 }

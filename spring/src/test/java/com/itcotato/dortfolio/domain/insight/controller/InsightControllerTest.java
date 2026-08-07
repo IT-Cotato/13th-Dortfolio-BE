@@ -7,12 +7,15 @@ import static org.mockito.Mockito.when;
 import com.itcotato.dortfolio.domain.insight.dto.res.InsightEligibilityReason;
 import com.itcotato.dortfolio.domain.insight.dto.res.InsightEligibilityResponse;
 import com.itcotato.dortfolio.domain.insight.dto.res.InsightGenerationStatusResponse;
+import com.itcotato.dortfolio.domain.insight.dto.res.LatestInsightResponse;
 import com.itcotato.dortfolio.domain.insight.entity.InsightGenerationStatus;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationStartResult;
 import com.itcotato.dortfolio.domain.insight.generation.service.InsightGenerationService;
 import com.itcotato.dortfolio.domain.insight.service.InsightEligibilityService;
 import com.itcotato.dortfolio.domain.insight.service.InsightGenerationQueryService;
+import com.itcotato.dortfolio.domain.insight.service.LatestInsightQueryService;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +39,9 @@ class InsightControllerTest {
     @Mock
     private InsightGenerationQueryService generationQueryService;
 
+    @Mock
+    private LatestInsightQueryService latestInsightQueryService;
+
     private InsightController controller;
 
     @BeforeEach
@@ -43,7 +49,8 @@ class InsightControllerTest {
         controller = new InsightController(
                 eligibilityService,
                 generationService,
-                generationQueryService
+                generationQueryService,
+                latestInsightQueryService
         );
     }
 
@@ -137,5 +144,39 @@ class InsightControllerTest {
                 USER_ID,
                 GENERATION_ID
         );
+    }
+
+    @Test
+    void returnsLatestCompletedInsight() {
+        // given
+        LatestInsightResponse expected =
+                new LatestInsightResponse(
+                        GENERATION_ID,
+                        new LatestInsightResponse.JobSnapshotResponse(
+                                UUID.randomUUID(),
+                                "backend-developer"
+                        ),
+                        LocalDateTime.of(2026, 8, 6, 16, 30),
+                        LocalDateTime.of(2026, 8, 6, 16, 31),
+                        12,
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        null
+                );
+
+        when(latestInsightQueryService.getLatest(USER_ID))
+                .thenReturn(expected);
+
+        // when
+        var response = controller.getLatestInsight(USER_ID);
+
+        // then
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getData())
+                .isEqualTo(expected);
+        verify(latestInsightQueryService).getLatest(USER_ID);
     }
 }

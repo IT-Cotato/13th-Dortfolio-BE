@@ -4,10 +4,12 @@ import com.itcotato.dortfolio.domain.insight.controller.docs.InsightControllerDo
 import com.itcotato.dortfolio.domain.insight.dto.res.InsightEligibilityApiResponse;
 import com.itcotato.dortfolio.domain.insight.dto.res.InsightGenerationCreateResponse;
 import com.itcotato.dortfolio.domain.insight.dto.res.InsightGenerationStatusResponse;
+import com.itcotato.dortfolio.domain.insight.dto.res.LatestInsightResponse;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationStartResult;
 import com.itcotato.dortfolio.domain.insight.generation.service.InsightGenerationService;
 import com.itcotato.dortfolio.domain.insight.service.InsightEligibilityService;
 import com.itcotato.dortfolio.domain.insight.service.InsightGenerationQueryService;
+import com.itcotato.dortfolio.domain.insight.service.LatestInsightQueryService;
 import com.itcotato.dortfolio.global.response.ApiResponse;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ public class InsightController
     private final InsightEligibilityService eligibilityService;
     private final InsightGenerationService generationService;
     private final InsightGenerationQueryService generationQueryService;
+    private final LatestInsightQueryService latestInsightQueryService;
 
     @Override
     @GetMapping("/eligibility")
@@ -88,6 +91,23 @@ public class InsightController
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Insight 생성 상태를 조회했습니다.",
+                        response
+                )
+        );
+    }
+
+    @Override
+    @GetMapping("/latest")
+    public ResponseEntity<ApiResponse<LatestInsightResponse>>
+    getLatestInsight(
+            @AuthenticationPrincipal UUID userId
+    ) {
+        LatestInsightResponse response =
+                latestInsightQueryService.getLatest(userId);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "최신 Insight를 조회했습니다.",
                         response
                 )
         );

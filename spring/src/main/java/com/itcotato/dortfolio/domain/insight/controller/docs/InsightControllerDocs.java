@@ -3,6 +3,7 @@ package com.itcotato.dortfolio.domain.insight.controller.docs;
 import com.itcotato.dortfolio.domain.insight.dto.res.InsightEligibilityApiResponse;
 import com.itcotato.dortfolio.domain.insight.dto.res.InsightGenerationCreateResponse;
 import com.itcotato.dortfolio.domain.insight.dto.res.InsightGenerationStatusResponse;
+import com.itcotato.dortfolio.domain.insight.dto.res.LatestInsightResponse;
 import com.itcotato.dortfolio.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -104,5 +105,35 @@ public interface InsightControllerDocs {
                     required = true
             )
             @PathVariable UUID generationId
+    );
+    @Operation(
+            summary = "최신 완료 Insight 조회",
+            description = """
+                인증 사용자의 가장 최근 COMPLETED Insight를 조회합니다.
+
+                최신 생성 요청이 PENDING 또는 FAILED여도 이전에 완료된
+                Insight를 반환합니다.
+
+                응답에는 생성 당시 직무와 기록 스냅샷, 강점 TOP 5,
+                템플릿 TOP 4, 직무 역량별 추천 기록이 포함됩니다.
+
+                현재 PENDING generation이 있으면 currentGeneration에
+                함께 반환합니다.
+                """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "최신 완료 Insight 조회 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "I006: 완료된 Insight가 존재하지 않음"
+            )
+    })
+    ResponseEntity<ApiResponse<LatestInsightResponse>>
+    getLatestInsight(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UUID userId
     );
 }
