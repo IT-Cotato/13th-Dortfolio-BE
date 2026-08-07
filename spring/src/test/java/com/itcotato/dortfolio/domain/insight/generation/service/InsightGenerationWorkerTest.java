@@ -25,6 +25,8 @@ import com.itcotato.dortfolio.domain.insight.statistics.StrengthStatistic;
 import com.itcotato.dortfolio.domain.insight.statistics.StrengthStatisticsCalculator;
 import com.itcotato.dortfolio.domain.insight.statistics.TemplateDistributionCalculator;
 import com.itcotato.dortfolio.domain.insight.statistics.TemplateStatistic;
+import com.itcotato.dortfolio.global.exception.CustomException;
+import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -513,6 +515,71 @@ class InsightGenerationWorkerTest {
                 USER_ID,
                 "token"
         );
+    }
+
+    @Test
+    void recordsAiFailureWhenRecommendationRetriesAreExhausted() {
+        // given: 분석과 후보 조회까지는 성공했지만 AI 추천이 최종 실패한 상황
+        UUID competencyId = UUID.randomUUID();
+        UUID recordId = UUID.randomUUID();
+        InsightGenerationCommand command =
+                commandWithCompetency(competencyId);
+
+        AnalyzedRecordSnapshot record = new AnalyzedRecordSnapshot(
+                recordId,
+                "추천 대상 기록",
+                SNAPSHOT_AT.minusDays(1),
+                UUID.randomUUID(),
+                "경험 템플릿",
+                "분석 요약",
+                List.of("근거 문장"),
+                List.of()
+        );
+        RecommendationCandidate candidate =
+                new RecommendationCandidate(
+                        recordId,
+                        "추천 대상 기록",
+                        "경험 템플릿",
+                        "분석 요약",
+                        List.of("근거 문장"),
+                        0.91
+                );
+
+        when(analyzedRecordQuery.findAllForInsight(
+                USER_ID,
+                SNAPSHOT_AT
+        )).thenReturn(List.of(record));
+        when(strengthCalculator.calculate(List.of(record)))
+                .thenReturn(List.of());
+        when(templateCalculator.calculate(List.of(record)))
+                .thenReturn(List.of());
+        when(candidateQuery.findTopCandidates(
+                USER_ID,
+                competencyId,
+                SNAPSHOT_AT,
+                5
+        )).thenReturn(List.of(candidate));
+        when(recommendationGenerator.generate(any()))
+                .thenThrow(new CustomException(
+                        InsightErrorCode
+                                .INSIGHT_RECOMMENDATION_AI_SERVICE_FAILED
+                ));
+
+        // when
+        worker.generate(command, "lock-token");
+
+        // then: 부분 결과를 완료 처리하지 않고 실패 코드와 함께 FAILED 저장
+        verify(resultWriter, never()).complete(any());
+        verify(failureWriter).fail(
+                INSIGHT_ID,
+                InsightErrorCode
+                        .INSIGHT_RECOMMENDATION_AI_SERVICE_FAILED
+                        .getCode(),
+                InsightErrorCode
+                        .INSIGHT_RECOMMENDATION_AI_SERVICE_FAILED
+                        .getMessage()
+        );
+        verify(generationLock).release(USER_ID, "lock-token");
     }
 
     @Test
