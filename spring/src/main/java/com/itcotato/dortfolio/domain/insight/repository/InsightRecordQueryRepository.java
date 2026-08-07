@@ -1,6 +1,7 @@
 package com.itcotato.dortfolio.domain.insight.repository;
 
 import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysis;
+import com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus;
 import com.itcotato.dortfolio.domain.record.entity.RecordCompetencyTag;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
@@ -65,6 +66,44 @@ public class InsightRecordQueryRepository {
                 .getResultList();
 
         return !result.isEmpty();
+    }
+
+    public long countEligibleRecordsAnalyzedAfter(
+            UUID userId,
+            LocalDateTime snapshotAt
+    ) {
+        return entityManager.createQuery("""
+                        select count(recordAnalysis)
+                        from RecordAnalysis recordAnalysis
+                        join recordAnalysis.record record
+                        where
+                        """ + ELIGIBLE_CONDITION + """
+                        and recordAnalysis.analyzedAt > :snapshotAt
+                        """, Long.class)
+                .setParameter("userId", userId)
+                .setParameter("snapshotAt", snapshotAt)
+                .getSingleResult();
+    }
+
+    public long countRecordsByAnalysisStatus(
+            UUID userId,
+            AiAnalysisStatus status
+    ) {
+        return entityManager.createQuery("""
+                        select count(recordAnalysis)
+                        from RecordAnalysis recordAnalysis
+                        join recordAnalysis.record record
+                        where record.user.id = :userId
+                          and record.status =
+                              com.itcotato.dortfolio.domain.record.entity.RecordStatus.COMPLETED
+                          and recordAnalysis.aiAnalysisStatus = :status
+                          and record.deletedAt is null
+                          and record.activity.deletedAt is null
+                          and record.template.deletedAt is null
+                        """, Long.class)
+                .setParameter("userId", userId)
+                .setParameter("status", status)
+                .getSingleResult();
     }
 
     public List<RecordAnalysis> findAllEligible(

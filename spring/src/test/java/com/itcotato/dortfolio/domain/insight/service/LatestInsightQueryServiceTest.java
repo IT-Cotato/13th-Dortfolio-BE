@@ -14,11 +14,16 @@ import com.itcotato.dortfolio.domain.insight.entity.InsightStrength;
 import com.itcotato.dortfolio.domain.insight.entity.InsightStrengthRecord;
 import com.itcotato.dortfolio.domain.insight.entity.InsightTemplateStatistic;
 import com.itcotato.dortfolio.domain.insight.repository.InsightJobRecommendationRepository;
+import com.itcotato.dortfolio.domain.insight.repository.InsightRecordQueryRepository;
 import com.itcotato.dortfolio.domain.insight.repository.InsightRepository;
 import com.itcotato.dortfolio.domain.insight.repository.InsightStrengthRecordRepository;
 import com.itcotato.dortfolio.domain.insight.repository.InsightStrengthRepository;
 import com.itcotato.dortfolio.domain.insight.repository.InsightTemplateStatisticRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
+import com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus;
+import com.itcotato.dortfolio.domain.job.entity.Job;
+import com.itcotato.dortfolio.domain.user.entity.UserJob;
+import com.itcotato.dortfolio.domain.user.repository.UserJobRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
 import java.time.LocalDateTime;
@@ -65,6 +70,18 @@ class LatestInsightQueryServiceTest {
     private RecordRepository recordRepository;
 
     @Mock
+    private InsightRecordQueryRepository insightRecordQueryRepository;
+
+    @Mock
+    private UserJobRepository userJobRepository;
+
+    @Mock
+    private UserJob primaryUserJob;
+
+    @Mock
+    private Job currentJob;
+
+    @Mock
     private Insight completedInsight;
 
     @Mock
@@ -92,7 +109,9 @@ class LatestInsightQueryServiceTest {
                 strengthRecordRepository,
                 templateRepository,
                 recommendationRepository,
-                recordRepository
+                recordRepository,
+                insightRecordQueryRepository,
+                userJobRepository
         );
     }
 
@@ -132,6 +151,23 @@ class LatestInsightQueryServiceTest {
                 .thenReturn(InsightGenerationStatus.PENDING);
         when(pendingInsight.getRequestedAt())
                 .thenReturn(SNAPSHOT_AT.plusHours(1));
+        UUID currentJobId = UUID.randomUUID();
+        when(userJobRepository.findByUserIdAndIsPrimaryTrue(USER_ID))
+                .thenReturn(Optional.of(primaryUserJob));
+        when(primaryUserJob.getJob()).thenReturn(currentJob);
+        when(currentJob.getId()).thenReturn(currentJobId);
+        when(insightRecordQueryRepository.countEligibleRecordsAnalyzedAfter(
+                USER_ID,
+                SNAPSHOT_AT
+        )).thenReturn(3L);
+        when(insightRecordQueryRepository.countRecordsByAnalysisStatus(
+                USER_ID,
+                AiAnalysisStatus.PENDING
+        )).thenReturn(1L);
+        when(insightRecordQueryRepository.countRecordsByAnalysisStatus(
+                USER_ID,
+                AiAnalysisStatus.FAILED
+        )).thenReturn(2L);
 
         // when
         LatestInsightResponse result = service.getLatest(USER_ID);
@@ -164,6 +200,13 @@ class LatestInsightQueryServiceTest {
         assertThat(result.currentGeneration()).isNotNull();
         assertThat(result.currentGeneration().status())
                 .isEqualTo(InsightGenerationStatus.PENDING);
+        assertThat(result.changes().newCompletedRecordCount())
+                .isEqualTo(3);
+        assertThat(result.changes().desiredJobChanged()).isTrue();
+        assertThat(result.changes().analysisPendingRecordCount())
+                .isEqualTo(1);
+        assertThat(result.changes().analysisFailedRecordCount())
+                .isEqualTo(2);
     }
 
     @Test
@@ -188,6 +231,8 @@ class LatestInsightQueryServiceTest {
                 )).thenReturn(List.of());
         when(insightRepository.findPendingByUserId(USER_ID))
                 .thenReturn(Optional.empty());
+        when(userJobRepository.findByUserIdAndIsPrimaryTrue(USER_ID))
+                .thenReturn(Optional.empty());
 
         // when
         LatestInsightResponse result = service.getLatest(USER_ID);
@@ -197,6 +242,7 @@ class LatestInsightQueryServiceTest {
         assertThat(result.templates()).isEmpty();
         assertThat(result.recommendations()).isEmpty();
         assertThat(result.currentGeneration()).isNull();
+        assertThat(result.changes().desiredJobChanged()).isTrue();
         verify(recordRepository, never())
                 .findAvailableRecordIds(
                         org.mockito.ArgumentMatchers.any(),

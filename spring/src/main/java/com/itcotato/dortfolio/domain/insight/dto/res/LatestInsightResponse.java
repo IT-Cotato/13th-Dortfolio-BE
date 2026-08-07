@@ -42,6 +42,9 @@ public record LatestInsightResponse(
         @Schema(description = "직무 역량별 추천 기록")
         List<JobRecommendationResponse> recommendations,
 
+        @Schema(description = "마지막 완료 Insight 이후 변경 내역")
+        ChangeSummaryResponse changes,
+
         @Schema(
                 description = "현재 진행 중인 Insight generation. 없으면 null",
                 nullable = true
@@ -53,6 +56,35 @@ public record LatestInsightResponse(
         strengths = List.copyOf(strengths);
         templates = List.copyOf(templates);
         recommendations = List.copyOf(recommendations);
+    }
+
+    @Schema(description = "마지막 완료 Insight 이후 현재까지의 변경 내역")
+    public record ChangeSummaryResponse(
+
+            @Schema(
+                    description = "마지막 완료 Insight의 기준 시각 이후 새로 분석 완료되어 Insight에 사용할 수 있는 기록 수",
+                    example = "3"
+            )
+            long newCompletedRecordCount,
+
+            @Schema(
+                    description = "현재 희망 직무가 Insight 생성 당시 직무와 다른지 여부",
+                    example = "false"
+            )
+            boolean desiredJobChanged,
+
+            @Schema(
+                    description = "현재 분석 진행 중인 유효 기록 수",
+                    example = "1"
+            )
+            long analysisPendingRecordCount,
+
+            @Schema(
+                    description = "현재 분석에 실패한 유효 기록 수",
+                    example = "0"
+            )
+            long analysisFailedRecordCount
+    ) {
     }
 
     @Schema(description = "Insight 생성 당시 직무 스냅샷")

@@ -119,6 +119,9 @@ public interface InsightControllerDocs {
 
                 현재 PENDING generation이 있으면 currentGeneration에
                 함께 반환합니다.
+
+                changes에는 마지막 완료 Insight 이후 신규 완료 기록 수,
+                희망 직무 변경 여부, 분석 진행 중 및 실패 기록 수를 반환합니다.
                 """
     )
     @ApiResponses({

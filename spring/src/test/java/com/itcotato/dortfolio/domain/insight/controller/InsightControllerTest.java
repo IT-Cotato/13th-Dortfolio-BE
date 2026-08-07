@@ -162,6 +162,12 @@ class InsightControllerTest {
                         List.of(),
                         List.of(),
                         List.of(),
+                        new LatestInsightResponse.ChangeSummaryResponse(
+                                0,
+                                false,
+                                0,
+                                0
+                        ),
                         null
                 );
 

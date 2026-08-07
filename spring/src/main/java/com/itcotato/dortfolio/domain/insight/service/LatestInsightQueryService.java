@@ -2,6 +2,7 @@ package com.itcotato.dortfolio.domain.insight.service;
 
 import com.itcotato.dortfolio.domain.insight.dto.res.LatestInsightResponse;
 import com.itcotato.dortfolio.domain.insight.dto.res.LatestInsightResponse.CurrentGenerationResponse;
+import com.itcotato.dortfolio.domain.insight.dto.res.LatestInsightResponse.ChangeSummaryResponse;
 import com.itcotato.dortfolio.domain.insight.dto.res.LatestInsightResponse.JobRecommendationResponse;
 import com.itcotato.dortfolio.domain.insight.dto.res.LatestInsightResponse.JobSnapshotResponse;
 import com.itcotato.dortfolio.domain.insight.dto.res.LatestInsightResponse.StrengthRecordResponse;
@@ -17,7 +18,10 @@ import com.itcotato.dortfolio.domain.insight.repository.InsightRepository;
 import com.itcotato.dortfolio.domain.insight.repository.InsightStrengthRecordRepository;
 import com.itcotato.dortfolio.domain.insight.repository.InsightStrengthRepository;
 import com.itcotato.dortfolio.domain.insight.repository.InsightTemplateStatisticRepository;
+import com.itcotato.dortfolio.domain.insight.repository.InsightRecordQueryRepository;
+import com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
+import com.itcotato.dortfolio.domain.user.repository.UserJobRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
 import java.util.Collection;
@@ -42,6 +46,8 @@ public class LatestInsightQueryService {
     private final InsightTemplateStatisticRepository templateRepository;
     private final InsightJobRecommendationRepository recommendationRepository;
     private final RecordRepository recordRepository;
+    private final InsightRecordQueryRepository insightRecordQueryRepository;
+    private final UserJobRepository userJobRepository;
 
     public LatestInsightResponse getLatest(UUID userId) {
         /* 항상 가장 최근 COMPLETED Insight만 조회 */
@@ -136,6 +142,25 @@ public class LatestInsightQueryService {
                         .map(this::toCurrentGenerationResponse)
                         .orElse(null);
 
+        ChangeSummaryResponse changes = new ChangeSummaryResponse(
+                insightRecordQueryRepository.countEligibleRecordsAnalyzedAfter(
+                        userId,
+                        insight.getRecordSnapshotAt()
+                ),
+                userJobRepository.findByUserIdAndIsPrimaryTrue(userId)
+                        .map(userJob -> !userJob.getJob().getId()
+                                .equals(insight.getJobIdSnapshot()))
+                        .orElse(true),
+                insightRecordQueryRepository.countRecordsByAnalysisStatus(
+                        userId,
+                        AiAnalysisStatus.PENDING
+                ),
+                insightRecordQueryRepository.countRecordsByAnalysisStatus(
+                        userId,
+                        AiAnalysisStatus.FAILED
+                )
+        );
+
         return new LatestInsightResponse(
                 insight.getId(),
                 new JobSnapshotResponse(
@@ -148,6 +173,7 @@ public class LatestInsightQueryService {
                 strengthResponses,
                 templateResponses,
                 recommendationResponses,
+                changes,
                 currentGeneration
         );
     }
