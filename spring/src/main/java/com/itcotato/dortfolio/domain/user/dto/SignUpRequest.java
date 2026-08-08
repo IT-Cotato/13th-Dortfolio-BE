@@ -26,11 +26,6 @@ public record SignUpRequest(
     @Size(max = 50, message = "닉네임은 50자를 초과할 수 없습니다.")
     String nickname,
 
-    // 약관 동의 (필수 항목 검증 유지)
-    @NotNull(message = "이용약관 동의 여부가 누락되었습니다.")
-    @AssertTrue(message = "이용약관 동의는 필수입니다.")
-    Boolean isTermsAgreed,
-
     @NotNull(message = "개인정보 수집 및 이용 동의 여부가 누락되었습니다.")
     @AssertTrue(message = "개인정보 수집 및 이용 동의는 필수입니다.")
     Boolean isPrivacyAgreed,

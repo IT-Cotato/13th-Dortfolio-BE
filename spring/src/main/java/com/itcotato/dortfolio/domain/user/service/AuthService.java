@@ -69,9 +69,6 @@ public class AuthService {
 
         // 개별 동의 내역 저장
         userTermAgreementRepository.save(
-                UserTermAgreement.create(user, "TERMS_OF_SERVICE", request.isTermsAgreed())
-        );
-        userTermAgreementRepository.save(
                 UserTermAgreement.create(user, "PRIVACY_POLICY", request.isPrivacyAgreed())
         );
         userTermAgreementRepository.save(
