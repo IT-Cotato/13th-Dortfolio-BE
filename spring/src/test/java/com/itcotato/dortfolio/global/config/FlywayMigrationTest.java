@@ -22,12 +22,13 @@ class FlywayMigrationTest {
 	);
 
 	@Test
-	void migratesFreshSchemaFromV1ThroughV3() {
+	void migratesFreshSchemaFromV1ThroughV4() {
 		MigrateResult result = flyway().migrate();
 
-		assertThat(result.migrationsExecuted).isEqualTo(3);
-		assertThat(result.targetSchemaVersion).isEqualTo("3");
+		assertThat(result.migrationsExecuted).isEqualTo(4);
+		assertThat(result.targetSchemaVersion).isEqualTo("4");
 		assertMatchingIndexesCreated();
+		assertMemoColorDropped();
 	}
 
 	private Flyway flyway() {
@@ -63,5 +64,15 @@ class FlywayMigrationTest {
 						'idx_record_embeddings_gemini_embedding_2_hvc'
 					)
 				""", Integer.class)).isEqualTo(2);
+	}
+
+	// V4: 메모에는 색상 개념이 없어 컬럼을 제거했다
+	private void assertMemoColorDropped() {
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from information_schema.columns
+				where table_name = 'memos'
+					and column_name = 'color'
+				""", Integer.class)).isZero();
 	}
 }

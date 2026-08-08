@@ -39,9 +39,6 @@ public class Memo extends BaseEntity {
 	@Column(nullable = false)
 	private String content;
 
-	@Column
-	private String color;
-
 	@Column(nullable = false)
 	private boolean isImportant;
 
@@ -66,27 +63,25 @@ public class Memo extends BaseEntity {
 
 	private static final int EXPIRE_AFTER_DAYS = 30;
 
-	private Memo(User user, Activity activity, String title, String content, String color, int sortOrder) {
+	private Memo(User user, Activity activity, String title, String content, int sortOrder) {
 		this.user = user;
 		this.activity = activity;
 		this.title = title;
 		this.content = content;
-		this.color = color;
 		this.sortOrder = sortOrder;
 		this.isImportant = false;
 		this.useCount = 0;
 		this.expiresAt = LocalDateTime.now().plusDays(EXPIRE_AFTER_DAYS);
 	}
 
-	public static Memo create(User user, Activity activity, String title, String content, String color, int sortOrder) {
-		return new Memo(user, activity, title, content, color, sortOrder);
+	public static Memo create(User user, Activity activity, String title, String content, int sortOrder) {
+		return new Memo(user, activity, title, content, sortOrder);
 	}
 
 	// 기능명세서 3.5.4: 메모 수정 시 제목/내용만 변경 가능, 활동 태그는 수정/추가 불가
-	public void update(String title, String content, String color) {
+	public void update(String title, String content) {
 		this.title = title;
 		this.content = content;
-		this.color = color;
 	}
 
 	public void markImportant(boolean important) {

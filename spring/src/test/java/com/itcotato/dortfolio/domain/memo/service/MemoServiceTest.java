@@ -139,7 +139,7 @@ class MemoServiceTest {
 		UUID userId = createUser().getId();
 
 		UUID memoId = memoService.createMemo(userId,
-				new MemoCreateRequest(null, null, "내용만 있는 메모", null, null));
+				new MemoCreateRequest(null, null, "내용만 있는 메모", null));
 
 		MemoResponse response = memoService.getMemo(userId, memoId);
 		assertThat(response.content()).isEqualTo("내용만 있는 메모");
@@ -155,7 +155,7 @@ class MemoServiceTest {
 		UUID userId = createUser().getId();
 
 		UUID memoId = memoService.createMemo(userId,
-				new MemoCreateRequest(null, null, "내용", null, null));
+				new MemoCreateRequest(null, null, "내용", null));
 
 		assertThat(memoService.getMemo(userId, memoId).remainingDaysUntilExpiration()).isEqualTo(30);
 	}
@@ -167,7 +167,7 @@ class MemoServiceTest {
 		Activity activity = createActivity(user);
 
 		UUID memoId = memoService.createMemo(user.getId(), new MemoCreateRequest(
-				activity.getId(), "제목", "내용", "BLUE",
+				activity.getId(), "제목", "내용",
 				List.of(imageRequest(user.getId(), "a.png"), imageRequest(user.getId(), "b.jpg"))));
 
 		MemoResponse response = memoService.getMemo(user.getId(), memoId);
@@ -185,7 +185,7 @@ class MemoServiceTest {
 		activity.markDeleted(30);
 		activityRepository.save(activity);
 
-		MemoCreateRequest request = new MemoCreateRequest(activity.getId(), null, "내용", null, null);
+		MemoCreateRequest request = new MemoCreateRequest(activity.getId(), null, "내용", null);
 
 		assertThatThrownBy(() -> memoService.createMemo(user.getId(), request))
 				.isInstanceOf(CustomException.class)
@@ -197,7 +197,7 @@ class MemoServiceTest {
 	@DisplayName("존재하지 않는 활동에는 메모를 연결할 수 없다")
 	void cannotLinkUnknownActivity() {
 		UUID userId = createUser().getId();
-		MemoCreateRequest request = new MemoCreateRequest(UUID.randomUUID(), null, "내용", null, null);
+		MemoCreateRequest request = new MemoCreateRequest(UUID.randomUUID(), null, "내용", null);
 
 		assertThatThrownBy(() -> memoService.createMemo(userId, request))
 				.isInstanceOf(CustomException.class)
@@ -206,19 +206,18 @@ class MemoServiceTest {
 	}
 
 	@Test
-	@DisplayName("메모 수정 시 제목/내용/색상만 변경되고 활동 태그는 유지된다")
+	@DisplayName("메모 수정 시 제목/내용만 변경되고 활동 태그는 유지된다")
 	void updateMemoKeepsActivity() {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		UUID memoId = memoService.createMemo(user.getId(),
-				new MemoCreateRequest(activity.getId(), "수정 전", "내용 전", "BLUE", null));
+				new MemoCreateRequest(activity.getId(), "수정 전", "내용 전", null));
 
-		memoService.updateMemo(user.getId(), memoId, new MemoUpdateRequest("수정 후", "내용 후", "GRAY"));
+		memoService.updateMemo(user.getId(), memoId, new MemoUpdateRequest("수정 후", "내용 후"));
 
 		MemoResponse response = memoService.getMemo(user.getId(), memoId);
 		assertThat(response.title()).isEqualTo("수정 후");
 		assertThat(response.content()).isEqualTo("내용 후");
-		assertThat(response.color()).isEqualTo("GRAY");
 		assertThat(response.activityId()).isEqualTo(activity.getId());
 	}
 
@@ -226,7 +225,7 @@ class MemoServiceTest {
 	@DisplayName("중요한 메모로 등록하거나 등록을 취소할 수 있다")
 	void markImportantToggles() {
 		UUID userId = createUser().getId();
-		UUID memoId = memoService.createMemo(userId, new MemoCreateRequest(null, null, "내용", null, null));
+		UUID memoId = memoService.createMemo(userId, new MemoCreateRequest(null, null, "내용", null));
 
 		memoService.markImportant(userId, memoId, true);
 		assertThat(memoService.getMemo(userId, memoId).isImportant()).isTrue();
@@ -240,8 +239,8 @@ class MemoServiceTest {
 	void filterMemosByActivity() {
 		User user = createUser();
 		Activity activity = createActivity(user);
-		memoService.createMemo(user.getId(), new MemoCreateRequest(activity.getId(), null, "태그 있음", null, null));
-		memoService.createMemo(user.getId(), new MemoCreateRequest(null, null, "태그 없음", null, null));
+		memoService.createMemo(user.getId(), new MemoCreateRequest(activity.getId(), null, "태그 있음", null));
+		memoService.createMemo(user.getId(), new MemoCreateRequest(null, null, "태그 없음", null));
 
 		assertThat(memoService.getMemos(user.getId(), null)).hasSize(2);
 		assertThat(memoService.getMemos(user.getId(), activity.getId()))
@@ -253,8 +252,8 @@ class MemoServiceTest {
 	@DisplayName("메모를 1개 이상 한 번에 삭제할 수 있고 복구되지 않는다")
 	void deleteMultipleMemos() {
 		UUID userId = createUser().getId();
-		UUID first = memoService.createMemo(userId, new MemoCreateRequest(null, null, "1", null, null));
-		UUID second = memoService.createMemo(userId, new MemoCreateRequest(null, null, "2", null, null));
+		UUID first = memoService.createMemo(userId, new MemoCreateRequest(null, null, "1", null));
+		UUID second = memoService.createMemo(userId, new MemoCreateRequest(null, null, "2", null));
 
 		memoService.deleteMemos(userId, List.of(first, second));
 
@@ -266,7 +265,7 @@ class MemoServiceTest {
 	@DisplayName("삭제 요청에 존재하지 않는 메모가 포함되면 아무것도 삭제되지 않는다")
 	void deleteFailsWhenAnyMemoIsMissing() {
 		UUID userId = createUser().getId();
-		UUID memoId = memoService.createMemo(userId, new MemoCreateRequest(null, null, "내용", null, null));
+		UUID memoId = memoService.createMemo(userId, new MemoCreateRequest(null, null, "내용", null));
 		List<UUID> ids = List.of(memoId, UUID.randomUUID());
 
 		assertThatThrownBy(() -> memoService.deleteMemos(userId, ids))
@@ -282,7 +281,7 @@ class MemoServiceTest {
 	void deleteMemoAlsoDeletesImages() {
 		UUID userId = createUser().getId();
 		UUID memoId = memoService.createMemo(userId,
-				new MemoCreateRequest(null, null, "내용", null, List.of(imageRequest(userId, "a.png"))));
+				new MemoCreateRequest(null, null, "내용", List.of(imageRequest(userId, "a.png"))));
 
 		memoService.deleteMemos(userId, List.of(memoId));
 
@@ -295,7 +294,7 @@ class MemoServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		UUID memoId = memoService.createMemo(user.getId(),
-				new MemoCreateRequest(activity.getId(), null, "내용", null, null));
+				new MemoCreateRequest(activity.getId(), null, "내용", null));
 		linkMemoToRecord(user, activity, memoId);
 
 		List<UUID> ids = List.of(memoId);
@@ -314,9 +313,9 @@ class MemoServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		UUID linked = memoService.createMemo(user.getId(),
-				new MemoCreateRequest(activity.getId(), null, "연결됨", null, null));
+				new MemoCreateRequest(activity.getId(), null, "연결됨", null));
 		UUID notLinked = memoService.createMemo(user.getId(),
-				new MemoCreateRequest(activity.getId(), null, "연결 안 됨", null, null));
+				new MemoCreateRequest(activity.getId(), null, "연결 안 됨", null));
 		linkMemoToRecord(user, activity, linked);
 
 		List<UUID> ids = List.of(linked, notLinked);
@@ -335,7 +334,7 @@ class MemoServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		UUID memoId = memoService.createMemo(user.getId(),
-				new MemoCreateRequest(activity.getId(), null, "내용", null, null));
+				new MemoCreateRequest(activity.getId(), null, "내용", null));
 		linkMemoToRecord(user, activity, memoId);
 		expireMemo(memoId);
 
@@ -347,7 +346,7 @@ class MemoServiceTest {
 	@DisplayName("기록에 연결되지 않은 만료 메모는 자동 삭제된다")
 	void expiredMemoWithoutRecordIsDeleted() {
 		UUID userId = createUser().getId();
-		UUID memoId = memoService.createMemo(userId, new MemoCreateRequest(null, null, "내용", null, null));
+		UUID memoId = memoService.createMemo(userId, new MemoCreateRequest(null, null, "내용", null));
 		expireMemo(memoId);
 
 		assertThat(memoService.deleteExpiredMemos()).isEqualTo(1);
@@ -359,7 +358,7 @@ class MemoServiceTest {
 	void doesNotDeleteUnexpiredMemos() {
 		UUID userId = createUser().getId();
 		memoService.createMemo(userId,
-				new MemoCreateRequest(null, null, "내용", null, List.of(imageRequest(userId, "a.png"))));
+				new MemoCreateRequest(null, null, "내용", List.of(imageRequest(userId, "a.png"))));
 
 		assertThat(memoService.deleteExpiredMemos()).isZero();
 		assertThat(memoRepository.findAll()).hasSize(1);
@@ -371,7 +370,7 @@ class MemoServiceTest {
 	void cannotAccessOtherUsersMemo() {
 		UUID ownerId = createUser().getId();
 		UUID otherId = createUser().getId();
-		UUID memoId = memoService.createMemo(ownerId, new MemoCreateRequest(null, null, "내용", null, null));
+		UUID memoId = memoService.createMemo(ownerId, new MemoCreateRequest(null, null, "내용", null));
 
 		assertThatThrownBy(() -> memoService.getMemo(otherId, memoId))
 				.isInstanceOf(CustomException.class)
@@ -408,7 +407,7 @@ class MemoServiceTest {
 	void deleteMemoImage() {
 		UUID userId = createUser().getId();
 		UUID memoId = memoService.createMemo(userId,
-				new MemoCreateRequest(null, null, "내용", null, List.of(imageRequest(userId, "a.png"))));
+				new MemoCreateRequest(null, null, "내용", List.of(imageRequest(userId, "a.png"))));
 		UUID imageId = memoService.getMemo(userId, memoId).images().get(0).id();
 
 		memoService.deleteMemoImage(userId, imageId);
@@ -422,7 +421,7 @@ class MemoServiceTest {
 		UUID ownerId = createUser().getId();
 		UUID otherId = createUser().getId();
 		UUID memoId = memoService.createMemo(ownerId,
-				new MemoCreateRequest(null, null, "내용", null, List.of(imageRequest(ownerId, "a.png"))));
+				new MemoCreateRequest(null, null, "내용", List.of(imageRequest(ownerId, "a.png"))));
 		UUID imageId = memoService.getMemo(ownerId, memoId).images().get(0).id();
 
 		assertThatThrownBy(() -> memoService.deleteMemoImage(otherId, imageId))
@@ -486,7 +485,7 @@ class MemoServiceTest {
 		UUID attackerId = createUser().getId();
 
 		MemoCreateRequest request = new MemoCreateRequest(
-				null, null, "내용", null, List.of(imageRequest(ownerId, "a.png")));
+				null, null, "내용", List.of(imageRequest(ownerId, "a.png")));
 
 		assertThatThrownBy(() -> memoService.createMemo(attackerId, request))
 				.isInstanceOf(CustomException.class)
@@ -500,7 +499,7 @@ class MemoServiceTest {
 		UUID userId = createUser().getId();
 
 		MemoCreateRequest request = new MemoCreateRequest(
-				null, null, "내용", null,
+				null, null, "내용",
 				List.of(new MemoImageRequest("https://s3/memo/a.png", "memo/a.png")));
 
 		assertThatThrownBy(() -> memoService.createMemo(userId, request))
