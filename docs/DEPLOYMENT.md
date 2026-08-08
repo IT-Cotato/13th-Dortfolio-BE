@@ -125,6 +125,73 @@ openssl rand -hex 16      # JWT_SALT
 
 ---
 
+## 3-1. S3 버킷 (이미지 업로드)
+
+메모 활동 사진과 프로필 이미지를 S3에 올립니다. 파일은 서버를 거치지 않고
+클라이언트가 presigned URL로 직접 주고받습니다.
+
+### 버킷 생성
+
+S3 콘솔 → 버킷 만들기
+
+| 항목 | 값 |
+|---|---|
+| 이름 | `dotfolio-images` |
+| 리전 | 아시아 태평양(서울) ap-northeast-2 |
+| 퍼블릭 액세스 차단 | **모두 차단 (기본값 유지)** |
+
+버킷은 비공개입니다. 조회도 만료 시간이 있는 presigned URL로만 하므로 공개할 필요가 없습니다.
+
+### CORS 설정
+
+브라우저가 presigned URL로 직접 업로드하므로 버킷에 CORS를 열어야 합니다.
+버킷 → 권한 → CORS(교차 출처 리소스 공유) → 편집
+
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["PUT", "GET"],
+    "AllowedOrigins": [
+      "https://dotfolio-theta.vercel.app",
+      "http://localhost:5173",
+      "http://localhost:3000"
+    ],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+### IAM 사용자와 액세스 키
+
+IAM → 사용자 → 사용자 생성 (이름 `dotfolio-s3`) → 콘솔 액세스는 주지 않음
+
+권한은 인라인 정책으로 이 버킷에만 붙입니다. `AmazonS3FullAccess` 같은 광범위한 정책은
+키가 유출되면 계정의 모든 버킷이 노출되므로 쓰지 않습니다.
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::dotfolio-images/*"
+    }
+  ]
+}
+```
+
+사용자 → 보안 자격 증명 → 액세스 키 만들기 → 사용 사례 `애플리케이션` 선택.
+발급된 키는 **한 번만 보여주므로** 바로 복사해 `.env`의 `AWS_ACCESS_KEY_ID`,
+`AWS_SECRET_ACCESS_KEY`에 넣습니다.
+
+> 액세스 키는 절대 커밋하지 않습니다. 실수로 올라가면 GitHub이 감지해 AWS에 통보하지만,
+> 그 전에 도용될 수 있으므로 즉시 비활성화하고 새로 발급해야 합니다.
+
+---
+
 ## 3-2. 도메인과 HTTPS
 
 Let's Encrypt는 IP 주소로는 인증서를 발급하지 않으므로 도메인이 필요합니다.

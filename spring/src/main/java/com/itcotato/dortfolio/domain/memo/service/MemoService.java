@@ -84,13 +84,19 @@ public class MemoService {
                         .collect(Collectors.groupingBy(memoImage -> memoImage.getMemo().getId()));
 
         return memos.stream()
-                .map(memo -> MemoResponse.from(memo, imagesByMemoId.getOrDefault(memo.getId(), List.of())))
+                .map(memo -> MemoResponse.from(
+                        memo,
+                        imagesByMemoId.getOrDefault(memo.getId(), List.of()),
+                        s3Provider::generateDownloadUrl))
                 .toList();
     }
 
     public MemoResponse getMemo(UUID userId, UUID memoId) {
         Memo memo = getMemoOrThrow(memoId, userId);
-        return MemoResponse.from(memo, memoImageRepository.findAllByMemo_IdOrderBySortOrderAsc(memoId));
+        return MemoResponse.from(
+                memo,
+                memoImageRepository.findAllByMemo_IdOrderBySortOrderAsc(memoId),
+                s3Provider::generateDownloadUrl);
     }
 
     @Transactional
