@@ -76,6 +76,7 @@ class InsightSnapshotRepositoryTest {
                         insight,
                         UUID.randomUUID(),
                         "문제 해결",
+                        0,
                         UUID.randomUUID(),
                         "성능 병목 개선",
                         "문제 해결 경험",

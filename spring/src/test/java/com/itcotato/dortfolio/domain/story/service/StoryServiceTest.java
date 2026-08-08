@@ -16,7 +16,6 @@ import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.story.dto.res.TimelineActivityResponse;
 import com.itcotato.dortfolio.domain.story.dto.res.TimelineRecordResponse;
 import com.itcotato.dortfolio.domain.template.entity.Template;
-import com.itcotato.dortfolio.domain.template.repository.ActivityTemplateRepository;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
@@ -58,9 +57,6 @@ class StoryServiceTest {
 	private TemplateRepository templateRepository;
 
 	@Autowired
-	private ActivityTemplateRepository activityTemplateRepository;
-
-	@Autowired
 	private UserRepository userRepository;
 
 	@Autowired
@@ -96,7 +92,6 @@ class StoryServiceTest {
 		recordMemoRepository.deleteAll();
 		recordAnswerRepository.deleteAll();
 		recordRepository.deleteAll();
-		activityTemplateRepository.deleteAll();
 		templateRepository.deleteAll();
 		activityRepository.deleteAll();
 		activityTypeRepository.deleteAll();

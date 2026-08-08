@@ -11,7 +11,6 @@ public enum RecordErrorCode implements ErrorCode {
 
     RECORD_NOT_FOUND(HttpStatus.NOT_FOUND, "R001", "기록을 찾을 수 없습니다."),
     RECORD_FORBIDDEN(HttpStatus.FORBIDDEN, "R002", "해당 기록에 접근할 수 없습니다."),
-    RECORD_TEMPLATE_NOT_CONNECTED(HttpStatus.BAD_REQUEST, "R003", "활동에 연결된 템플릿만 기록에 사용할 수 있습니다."),
     RECORD_MEMO_NOT_FOUND(HttpStatus.NOT_FOUND, "R004", "메모를 찾을 수 없습니다."),
     RECORD_MEMO_ACTIVITY_MISMATCH(HttpStatus.BAD_REQUEST, "R005", "기록과 같은 활동의 메모만 연결할 수 있습니다."),
     RECORD_QUESTION_NOT_FOUND(HttpStatus.BAD_REQUEST, "R006", "템플릿에 포함된 질문에만 답변할 수 있습니다."),
