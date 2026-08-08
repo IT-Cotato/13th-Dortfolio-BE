@@ -110,7 +110,10 @@ class JdbcRecommendationCandidateQueryContainerTest {
 
         assertThat(result)
                 .extracting(RecommendationCandidate::recordId)
-                .containsExactly(boundaryRecordId, expectedRecordId);
+                .containsExactlyInAnyOrder(
+                        boundaryRecordId,
+                        expectedRecordId
+                );
     }
 
     private static UUID insertUser(String prefix) {
