@@ -25,10 +25,8 @@ import com.itcotato.dortfolio.domain.record.repository.RecordEmbeddingRepository
 import com.itcotato.dortfolio.domain.record.repository.RecordMemoRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.record.service.RecordService;
-import com.itcotato.dortfolio.domain.template.entity.ActivityTemplate;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
-import com.itcotato.dortfolio.domain.template.repository.ActivityTemplateRepository;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
@@ -86,9 +84,6 @@ class RecordAnalysisServiceTest {
 	private RecordRepository recordRepository;
 
 	@Autowired
-	private ActivityTemplateRepository activityTemplateRepository;
-
-	@Autowired
 	private TemplateRepository templateRepository;
 
 	@Autowired
@@ -111,7 +106,6 @@ class RecordAnalysisServiceTest {
 		recordMemoRepository.deleteAll();
 		recordAnswerRepository.deleteAll();
 		recordRepository.deleteAll();
-		activityTemplateRepository.deleteAll();
 		templateRepository.deleteAll();
 		activityRepository.deleteAll();
 		activityTypeRepository.deleteAll();
@@ -123,7 +117,6 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, true);
-		connectTemplate(activity, template);
 		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("문제 해결", "문제를 해결하는 역량"));
 		TemplateQuestion question = template.getQuestions().get(0);
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
@@ -166,7 +159,6 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		connectTemplate(activity, template);
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
 			template.getId(),
@@ -195,7 +187,6 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		connectTemplate(activity, template);
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
 			template.getId(),
@@ -226,7 +217,6 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		connectTemplate(activity, template);
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
 			template.getId(),
@@ -257,7 +247,6 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		connectTemplate(activity, template);
 		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("문제 해결", "문제를 해결하는 역량"));
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
@@ -299,7 +288,6 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		connectTemplate(activity, template);
 		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("협업", "함께 일하는 역량"));
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
@@ -336,7 +324,6 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		connectTemplate(activity, template);
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
 			template.getId(),
@@ -366,7 +353,6 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		connectTemplate(activity, template);
 		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("문제 해결", "문제를 해결하는 역량"));
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
@@ -412,7 +398,6 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		connectTemplate(activity, template);
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
 			template.getId(),
@@ -447,7 +432,6 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		connectTemplate(activity, template);
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
 			template.getId(),
@@ -501,10 +485,6 @@ class RecordAnalysisServiceTest {
 		Template template = Template.createCustom(user, "문제 해결", "설명");
 		template.addQuestion(TemplateQuestion.create("질문", "설명", required, 1));
 		return templateRepository.save(template);
-	}
-
-	private void connectTemplate(Activity activity, Template template) {
-		activityTemplateRepository.save(ActivityTemplate.create(activity, template, 1));
 	}
 
 	@TestConfiguration
