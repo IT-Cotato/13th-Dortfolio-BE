@@ -7,6 +7,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -40,6 +41,9 @@ public class TemplateQuestion extends BaseEntity {
 	@Column(nullable = false)
 	private int sortOrder;
 
+	@Column
+	private LocalDateTime deletedAt;
+
 	private TemplateQuestion(String builtinCode, String questionText, String description, boolean required, int sortOrder) {
 		this.builtinCode = builtinCode;
 		this.questionText = questionText;
@@ -64,5 +68,9 @@ public class TemplateQuestion extends BaseEntity {
 
 	void assignTemplate(Template template) {
 		this.template = template;
+	}
+
+	public boolean isDeleted() {
+		return deletedAt != null;
 	}
 }

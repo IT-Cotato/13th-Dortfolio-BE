@@ -8,6 +8,7 @@ import com.itcotato.dortfolio.domain.template.dto.req.TemplateQuestionRequest;
 import com.itcotato.dortfolio.domain.template.dto.res.TemplateResponse;
 import com.itcotato.dortfolio.domain.template.config.BuiltinTemplateInitializer;
 import com.itcotato.dortfolio.domain.template.entity.Template;
+import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
@@ -16,6 +17,7 @@ import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.TemplateErrorCode;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ActiveProfiles("test")
 @SpringBootTest
@@ -86,6 +89,23 @@ class TemplateServiceTest {
 	}
 
 	@Test
+	void getTemplateExcludesArchivedQuestions() {
+		User user = createUser();
+		TemplateQuestion activeQuestion = TemplateQuestion.create("현재 질문", null, true, 1);
+		TemplateQuestion archivedQuestion = TemplateQuestion.create("이전 질문", null, true, 2);
+		ReflectionTestUtils.setField(archivedQuestion, "deletedAt", LocalDateTime.now());
+		Template template = Template.createCustom(user, "커스텀", null);
+		template.initializeQuestions(List.of(activeQuestion, archivedQuestion));
+		templateRepository.save(template);
+
+		TemplateResponse response = templateService.getTemplate(user.getId(), template.getId());
+
+		assertThat(response.questions())
+			.extracting(question -> question.questionText())
+			.containsExactly("현재 질문");
+	}
+
+	@Test
 	void builtinTemplateCannotBeDeleted() {
 		UUID userId = createUser().getId();
 		Template builtin = Template.createBuiltin("BASIC", 1, "기본", "기본 설명");
@@ -115,8 +135,8 @@ class TemplateServiceTest {
 
 	private static class TemplateQuestionRequestFixture {
 
-		private static com.itcotato.dortfolio.domain.template.entity.TemplateQuestion requiredQuestion(String text) {
-			return com.itcotato.dortfolio.domain.template.entity.TemplateQuestion.create(text, null, true, 1);
+		private static TemplateQuestion requiredQuestion(String text) {
+			return TemplateQuestion.create(text, null, true, 1);
 		}
 	}
 

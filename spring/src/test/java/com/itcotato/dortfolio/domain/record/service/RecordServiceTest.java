@@ -142,6 +142,31 @@ class RecordServiceTest {
 	}
 
 	@Test
+	void createRecordExcludesArchivedTemplateQuestions() {
+		User user = createUser();
+		Activity activity = createActivity(user, "도트폴리오");
+		TemplateQuestion activeQuestion = TemplateQuestion.create("현재 질문", null, false, 1);
+		TemplateQuestion archivedQuestion = TemplateQuestion.create("이전 질문", null, true, 2);
+		ReflectionTestUtils.setField(archivedQuestion, "deletedAt", LocalDateTime.now());
+		Template template = Template.createCustom(user, "문제 해결", null);
+		template.initializeQuestions(List.of(activeQuestion, archivedQuestion));
+		templateRepository.save(template);
+
+		RecordResponse response = recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(),
+			template.getId(),
+			"첫 기록",
+			List.of(),
+			List.of(),
+			RecordStatus.DRAFT
+		));
+
+		assertThat(response.answers())
+			.extracting(RecordAnswerResponse::questionText)
+			.containsExactly("현재 질문");
+	}
+
+	@Test
 	void createRecordAllowsOwnedTemplateWithoutActivityConnection() {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");

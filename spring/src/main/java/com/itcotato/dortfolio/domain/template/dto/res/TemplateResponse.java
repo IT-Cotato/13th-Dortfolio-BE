@@ -16,6 +16,7 @@ public record TemplateResponse(
 
 	public static TemplateResponse from(Template template) {
 		List<TemplateQuestionResponse> questions = template.getQuestions().stream()
+			.filter(question -> !question.isDeleted())
 			.sorted(Comparator.comparingInt(question -> question.getSortOrder()))
 			.map(TemplateQuestionResponse::from)
 			.toList();
