@@ -73,7 +73,7 @@ class InsightRecordQueryRepositoryTest {
     @Test
     void findsOnlyEligibleRecordsOwnedByUserAtSnapshot() {
         User user = createUser();
-        LocalDateTime snapshotAt = LocalDateTime.of(2026, 8, 4, 12, 0);
+        LocalDateTime snapshotAt = LocalDateTime.of(2100, 1, 1, 0, 0);
         Record eligible = createRecord(user, "정상 기록", true);
         ReflectionTestUtils.setField(eligible, "completedAt", snapshotAt);
         recordRepository.saveAndFlush(eligible);
@@ -367,7 +367,7 @@ class InsightRecordQueryRepositoryTest {
                         """,
                 UUID.randomUUID(),
                 record.getId(),
-                "text-embedding-3-large"
+                "gemini-embedding-2"
         );
     }
 

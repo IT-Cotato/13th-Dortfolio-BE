@@ -51,18 +51,18 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
         long completedRecordCount =
                 recordRepository.countAvailableCompletedByUserId(userId);
 
+        long analyzedRecordCount =
+                insightRecordQueryRepository.countEligibleRecords(userId);
+
         if (completedRecordCount < requiredCount) {
             return unavailable(
                     InsightEligibilityReason.NOT_ENOUGH_COMPLETED_RECORDS,
                     null,
                     completedRecordCount,
-                    0,
+                    analyzedRecordCount,
                     requiredCount
             );
         }
-
-        long analyzedRecordCount =
-                insightRecordQueryRepository.countEligibleRecords(userId);
 
         if (analyzedRecordCount < requiredCount) {
             return unavailable(

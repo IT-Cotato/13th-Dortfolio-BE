@@ -105,12 +105,15 @@ class InsightEligibilityServiceTest {
         givenPrimaryJob();
         given(recordRepository.countAvailableCompletedByUserId(USER_ID))
                 .willReturn(9L);
+        given(insightRecordQueryRepository.countEligibleRecords(USER_ID))
+                .willReturn(9L);
 
         InsightEligibilityResponse result = eligibilityService.check(USER_ID);
 
         assertThat(result.reason())
                 .isEqualTo(InsightEligibilityReason.NOT_ENOUGH_COMPLETED_RECORDS);
         assertThat(result.completedRecordCount()).isEqualTo(9);
+        assertThat(result.analyzedRecordCount()).isEqualTo(9);
         assertThat(result.requiredRecordCount()).isEqualTo(10);
     }
 

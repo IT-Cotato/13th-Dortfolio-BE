@@ -3,6 +3,7 @@ package com.itcotato.dortfolio.domain.insight.repository;
 import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysis;
 import com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus;
 import com.itcotato.dortfolio.domain.record.entity.RecordCompetencyTag;
+import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,13 +27,19 @@ public class InsightRecordQueryRepository {
                     select recordEmbedding.id
                     from RecordEmbedding recordEmbedding
                     where recordEmbedding.record = record
+                      and recordEmbedding.embeddingModel = :embeddingModel
                 )
             """;
 
     private final EntityManager entityManager;
+    private final InsightProperties insightProperties;
 
-    public InsightRecordQueryRepository(EntityManager entityManager) {
+    public InsightRecordQueryRepository(
+            EntityManager entityManager,
+            InsightProperties insightProperties
+    ) {
         this.entityManager = entityManager;
+        this.insightProperties = insightProperties;
     }
 
     public long countEligibleRecords(UUID userId) {
@@ -43,6 +50,7 @@ public class InsightRecordQueryRepository {
                         where
                         """ + ELIGIBLE_CONDITION, Long.class)
                 .setParameter("userId", userId)
+                .setParameter("embeddingModel", insightProperties.embeddingModel())
                 .getSingleResult();
     }
 
@@ -61,6 +69,7 @@ public class InsightRecordQueryRepository {
                                  recordAnalysis.id asc
                         """, UUID.class)
                 .setParameter("userId", userId)
+                .setParameter("embeddingModel", insightProperties.embeddingModel())
                 .setParameter("snapshotAt", snapshotAt)
                 .setMaxResults(1)
                 .getResultList();
@@ -81,6 +90,7 @@ public class InsightRecordQueryRepository {
                         and recordAnalysis.analyzedAt > :snapshotAt
                         """, Long.class)
                 .setParameter("userId", userId)
+                .setParameter("embeddingModel", insightProperties.embeddingModel())
                 .setParameter("snapshotAt", snapshotAt)
                 .getSingleResult();
     }
@@ -118,10 +128,13 @@ public class InsightRecordQueryRepository {
                         where
                         """ + ELIGIBLE_CONDITION + """
                         and record.completedAt <= :snapshotAt
+                        and record.updatedAt <= :snapshotAt
+                        and recordAnalysis.analyzedAt <= :snapshotAt
                         order by record.completedAt asc,
                                  record.id asc
                         """, RecordAnalysis.class)
                 .setParameter("userId", userId)
+                .setParameter("embeddingModel", insightProperties.embeddingModel())
                 .setParameter("snapshotAt", snapshotAt)
                 .getResultList();
     }
