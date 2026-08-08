@@ -43,10 +43,24 @@ public interface ActivityControllerDocs {
     })
     ResponseEntity<ApiResponse<Void>> archiveActivity(UUID userId, UUID activityId);
 
-    @Operation(summary = "활동 삭제", description = "활동을 소프트 삭제합니다. 유예기간 내에는 복구할 수 있습니다.")
+    @Operation(
+            summary = "활동 삭제",
+            description = "활동과 그 안의 기록을 함께 소프트 삭제합니다. 유예기간(1일) 내에는 복구할 수 있습니다."
+    )
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "삭제 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "A001: 존재하지 않는 활동")
     })
     ResponseEntity<ApiResponse<Void>> deleteActivity(UUID userId, UUID activityId);
+
+    @Operation(
+            summary = "활동 삭제 실행취소",
+            description = "삭제한 활동과, 그때 함께 삭제된 기록을 되살립니다. "
+                    + "삭제 전에 개별적으로 지웠던 기록은 복구 대상이 아닙니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "복구 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "A001: 존재하지 않는 활동")
+    })
+    ResponseEntity<ApiResponse<Void>> restoreActivity(UUID userId, UUID activityId);
 }
