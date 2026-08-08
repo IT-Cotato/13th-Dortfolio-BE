@@ -20,20 +20,20 @@ public class StaleInsightGenerationRecoveryScheduler {
     private final InsightGenerationFailureWriter failureWriter;
     private final Clock clock;
 
-    @Value("${insight.generation.stale-pending-timeout:10m}")
-    private Duration stalePendingTimeout;
+    @Value("${insight.generation.stale-running-timeout:10m}")
+    private Duration staleRunningTimeout;
 
     @Scheduled(
             fixedDelayString = "${insight.generation.recovery-interval:1m}",
             initialDelayString = "${insight.generation.recovery-initial-delay:10s}"
     )
     public void recover() {
-        LocalDateTime requestedBefore =
-                LocalDateTime.now(clock).minus(stalePendingTimeout);
+        LocalDateTime startedBefore =
+                LocalDateTime.now(clock).minus(staleRunningTimeout);
 
-        insightRepository.findAllByStatusAndRequestedAtBefore(
-                        InsightGenerationStatus.PENDING,
-                        requestedBefore
+        insightRepository.findAllByStatusAndStartedAtBefore(
+                        InsightGenerationStatus.RUNNING,
+                        startedBefore
                 )
                 .forEach(insight -> recover(insight.getId()));
     }
@@ -42,8 +42,8 @@ public class StaleInsightGenerationRecoveryScheduler {
         try {
             failureWriter.fail(
                     insightId,
-                    "STALE_PENDING_RECOVERED",
-                    "실행 중단으로 오래 남은 Insight 생성 요청을 실패 처리했습니다."
+                    "STALE_RUNNING_RECOVERED",
+                    "실행 중단으로 오래 남은 Insight 생성 작업을 실패 처리했습니다."
             );
         } catch (IllegalStateException exception) {
             log.debug(
@@ -52,7 +52,7 @@ public class StaleInsightGenerationRecoveryScheduler {
             );
         } catch (RuntimeException exception) {
             log.error(
-                    "오래된 Insight PENDING 복구에 실패했습니다. insightId={}",
+                    "오래된 Insight RUNNING 복구에 실패했습니다. insightId={}",
                     insightId,
                     exception
             );

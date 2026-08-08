@@ -22,11 +22,11 @@ class FlywayMigrationTest {
 	);
 
 	@Test
-	void migratesFreshSchemaFromV1ThroughV3() {
+	void migratesFreshSchemaThroughLatestVersion() {
 		MigrateResult result = flyway().migrate();
 
-		assertThat(result.migrationsExecuted).isEqualTo(3);
-		assertThat(result.targetSchemaVersion).isEqualTo("3");
+		assertThat(result.migrationsExecuted).isEqualTo(5);
+		assertThat(result.targetSchemaVersion).isEqualTo("5");
 		assertMatchingIndexesCreated();
 	}
 

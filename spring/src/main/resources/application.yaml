@@ -128,7 +128,7 @@ insight:
   recommendation-timeout: ${INSIGHT_RECOMMENDATION_TIMEOUT:30s}
 
   generation:
-    stale-pending-timeout: ${INSIGHT_STALE_PENDING_TIMEOUT:10m}
+    stale-running-timeout: ${INSIGHT_STALE_RUNNING_TIMEOUT:10m}
     recovery-interval: ${INSIGHT_RECOVERY_INTERVAL:1m}
     recovery-initial-delay: ${INSIGHT_RECOVERY_INITIAL_DELAY:10s}
     lock-ttl: ${INSIGHT_GENERATION_LOCK_TTL:2m}

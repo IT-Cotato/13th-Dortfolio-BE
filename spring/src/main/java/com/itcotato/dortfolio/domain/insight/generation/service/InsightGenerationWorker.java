@@ -54,6 +54,7 @@ public class InsightGenerationWorker {
     private final RecommendationCandidateQuery candidateQuery;
     private final InsightRecommendationGenerator recommendationGenerator;
     private final InsightGenerationResultWriter resultWriter;
+    private final InsightGenerationRunningWriter runningWriter;
     private final InsightGenerationFailureWriter failureWriter;
     private final InsightGenerationLock generationLock;
     private final InsightProperties insightProperties;
@@ -65,6 +66,8 @@ public class InsightGenerationWorker {
             String lockToken
     ) {
         try {
+            runningWriter.markRunning(command.insightId());
+
             InsightGenerationResult result = generateResult(command);
 
             // 모든 계산이 성공한 경우에만 결과 저장을 요청합니다.

@@ -147,6 +147,35 @@ class InsightEligibilityServiceTest {
     }
 
     @Test
+    void checksGenerationEligibilityAtRequestedSnapshot() {
+        givenPrimaryJob();
+        given(recordRepository.countAvailableCompletedByUserIdAt(
+                USER_ID,
+                SNAPSHOT_AT
+        )).willReturn(10L);
+        given(insightRecordQueryRepository.countEligibleRecordsAt(
+                USER_ID,
+                SNAPSHOT_AT
+        )).willReturn(10L);
+        given(insightRepository.existsByUser_IdAndStatusIn(
+                USER_ID,
+                java.util.List.of(
+                        InsightGenerationStatus.PENDING,
+                        InsightGenerationStatus.RUNNING
+                )
+        )).willReturn(false);
+        given(insightRepository.findLatestCompletedByUserId(USER_ID))
+                .willReturn(Optional.empty());
+
+        InsightEligibilityResponse result =
+                eligibilityService.check(USER_ID, SNAPSHOT_AT);
+
+        assertThat(result.eligible()).isTrue();
+        assertThat(result.completedRecordCount()).isEqualTo(10);
+        assertThat(result.analyzedRecordCount()).isEqualTo(10);
+    }
+
+    @Test
     void rejectsWhenGenerationIsInProgress() {
         givenBaseEligibilityConditions();
         given(insightRepository.existsByUser_IdAndStatus(

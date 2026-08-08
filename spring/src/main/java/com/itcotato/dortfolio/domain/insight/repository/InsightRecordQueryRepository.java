@@ -54,6 +54,26 @@ public class InsightRecordQueryRepository {
                 .getSingleResult();
     }
 
+    public long countEligibleRecordsAt(
+            UUID userId,
+            LocalDateTime snapshotAt
+    ) {
+        return entityManager.createQuery("""
+                        select count(recordAnalysis)
+                        from RecordAnalysis recordAnalysis
+                        join recordAnalysis.record record
+                        where
+                        """ + ELIGIBLE_CONDITION + """
+                        and record.completedAt <= :snapshotAt
+                        and record.updatedAt <= :snapshotAt
+                        and recordAnalysis.analyzedAt <= :snapshotAt
+                        """, Long.class)
+                .setParameter("userId", userId)
+                .setParameter("embeddingModel", insightProperties.embeddingModel())
+                .setParameter("snapshotAt", snapshotAt)
+                .getSingleResult();
+    }
+
     public boolean existsEligibleRecordAnalyzedAfter(
             UUID userId,
             LocalDateTime snapshotAt
@@ -70,6 +90,34 @@ public class InsightRecordQueryRepository {
                         """, UUID.class)
                 .setParameter("userId", userId)
                 .setParameter("embeddingModel", insightProperties.embeddingModel())
+                .setParameter("snapshotAt", snapshotAt)
+                .setMaxResults(1)
+                .getResultList();
+
+        return !result.isEmpty();
+    }
+
+    public boolean existsEligibleRecordAnalyzedBetween(
+            UUID userId,
+            LocalDateTime analyzedAfter,
+            LocalDateTime snapshotAt
+    ) {
+        List<UUID> result = entityManager.createQuery("""
+                        select recordAnalysis.id
+                        from RecordAnalysis recordAnalysis
+                        join recordAnalysis.record record
+                        where
+                        """ + ELIGIBLE_CONDITION + """
+                        and record.completedAt <= :snapshotAt
+                        and record.updatedAt <= :snapshotAt
+                        and recordAnalysis.analyzedAt > :analyzedAfter
+                        and recordAnalysis.analyzedAt <= :snapshotAt
+                        order by recordAnalysis.analyzedAt asc,
+                                 recordAnalysis.id asc
+                        """, UUID.class)
+                .setParameter("userId", userId)
+                .setParameter("embeddingModel", insightProperties.embeddingModel())
+                .setParameter("analyzedAfter", analyzedAfter)
                 .setParameter("snapshotAt", snapshotAt)
                 .setMaxResults(1)
                 .getResultList();

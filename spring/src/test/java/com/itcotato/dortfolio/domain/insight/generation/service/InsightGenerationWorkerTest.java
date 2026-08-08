@@ -68,6 +68,9 @@ class InsightGenerationWorkerTest {
     private InsightGenerationResultWriter resultWriter;
 
     @Mock
+    private InsightGenerationRunningWriter runningWriter;
+
+    @Mock
     private InsightGenerationFailureWriter failureWriter;
 
     @Mock
@@ -93,6 +96,7 @@ class InsightGenerationWorkerTest {
                 candidateQuery,
                 recommendationGenerator,
                 resultWriter,
+                runningWriter,
                 failureWriter,
                 generationLock,
                 properties
@@ -193,6 +197,8 @@ class InsightGenerationWorkerTest {
         verify(resultWriter).complete(
                 resultCaptor.capture()
         );
+
+        verify(runningWriter).markRunning(INSIGHT_ID);
 
         InsightGenerationResult result =
                 resultCaptor.getValue();

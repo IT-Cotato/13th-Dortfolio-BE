@@ -2,14 +2,13 @@ package com.itcotato.dortfolio.domain.insight.repository;
 
 import com.itcotato.dortfolio.domain.insight.entity.Insight;
 import com.itcotato.dortfolio.domain.insight.entity.InsightGenerationStatus;
-import java.util.Optional;
-import java.util.List;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface InsightRepository
-        extends JpaRepository<Insight, UUID> {
+public interface InsightRepository extends JpaRepository<Insight, UUID> {
 
     Optional<Insight>
     findFirstByUser_IdAndStatusAndCompletedAtIsNotNullOrderByCompletedAtDescIdDesc(
@@ -23,27 +22,33 @@ public interface InsightRepository
             InsightGenerationStatus status
     );
 
-    Optional<Insight> findByIdAndUser_Id(
-            UUID insightId,
-            UUID userId
+    Optional<Insight>
+    findFirstByUser_IdAndStatusInOrderByRequestedAtDescIdDesc(
+            UUID userId,
+            List<InsightGenerationStatus> statuses
     );
 
-    default Optional<Insight> findLatestCompletedByUserId(
-            UUID userId
-    ) {
+    Optional<Insight> findByIdAndUser_Id(UUID insightId, UUID userId);
+
+    default Optional<Insight> findLatestCompletedByUserId(UUID userId) {
         return findFirstByUser_IdAndStatusAndCompletedAtIsNotNullOrderByCompletedAtDescIdDesc(
                 userId,
                 InsightGenerationStatus.COMPLETED
         );
     }
 
-    default Optional<Insight> findPendingByUserId(
-            UUID userId
-    ) {
-        return findFirstByUser_IdAndStatusOrderByRequestedAtDescIdDesc(
+    default Optional<Insight> findPendingByUserId(UUID userId) {
+        return findFirstByUser_IdAndStatusInOrderByRequestedAtDescIdDesc(
                 userId,
-                InsightGenerationStatus.PENDING
+                List.of(
+                        InsightGenerationStatus.PENDING,
+                        InsightGenerationStatus.RUNNING
+                )
         );
+    }
+
+    default Optional<Insight> findActiveByUserId(UUID userId) {
+        return findPendingByUserId(userId);
     }
 
     boolean existsByUser_IdAndStatus(
@@ -51,8 +56,13 @@ public interface InsightRepository
             InsightGenerationStatus status
     );
 
-    List<Insight> findAllByStatusAndRequestedAtBefore(
+    boolean existsByUser_IdAndStatusIn(
+            UUID userId,
+            List<InsightGenerationStatus> statuses
+    );
+
+    List<Insight> findAllByStatusAndStartedAtBefore(
             InsightGenerationStatus status,
-            LocalDateTime requestedBefore
+            LocalDateTime startedBefore
     );
 }

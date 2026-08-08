@@ -20,3 +20,6 @@ _workspace/
 !spring/src/main/java/com/itcotato/dortfolio/domain/matching/dto/fastapi/QuestionEmbeddingResponse.java
 
 .env
+
+.codex-work/
+outputs/

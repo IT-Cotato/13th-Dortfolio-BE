@@ -49,7 +49,7 @@ public class InsightGenerationRequestWriter {
     ) {
         // 락을 획득한 뒤 실제 정책과 DB 상태를 다시 확인
         InsightEligibilityResponse eligibility =
-                eligibilityChecker.check(userId);
+                eligibilityChecker.check(userId, snapshotAt);
 
         if (!eligibility.eligible()) {
             throw new CustomException(
@@ -149,7 +149,8 @@ public class InsightGenerationRequestWriter {
         while (cause != null) {
             String message = cause.getMessage();
             if (message != null
-                    && message.contains("uq_insights_user_pending")) {
+                    && (message.contains("uq_insights_user_pending")
+                    || message.contains("uq_insights_user_active"))) {
                 return true;
             }
             cause = cause.getCause();

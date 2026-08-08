@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +33,26 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
 
     @Override
     public InsightEligibilityResponse check(UUID userId) {
+        return checkInternal(
+                userId,
+                LocalDateTime.now(insightClock),
+                false
+        );
+    }
+
+    @Override
+    public InsightEligibilityResponse check(
+            UUID userId,
+            LocalDateTime snapshotAt
+    ) {
+        return checkInternal(userId, snapshotAt, true);
+    }
+
+    private InsightEligibilityResponse checkInternal(
+            UUID userId,
+            LocalDateTime snapshotAt,
+            boolean snapshotBounded
+    ) {
         int requiredCount = properties.minimumAnalyzedRecordCount();
 
         UserJob primaryUserJob = userJobRepository
@@ -48,11 +69,19 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
             );
         }
 
-        long completedRecordCount =
-                recordRepository.countAvailableCompletedByUserId(userId);
+        long completedRecordCount = snapshotBounded
+                ? recordRepository.countAvailableCompletedByUserIdAt(
+                userId,
+                snapshotAt
+        )
+                : recordRepository.countAvailableCompletedByUserId(userId);
 
-        long analyzedRecordCount =
-                insightRecordQueryRepository.countEligibleRecords(userId);
+        long analyzedRecordCount = snapshotBounded
+                ? insightRecordQueryRepository.countEligibleRecordsAt(
+                userId,
+                snapshotAt
+        )
+                : insightRecordQueryRepository.countEligibleRecords(userId);
 
         if (completedRecordCount < requiredCount) {
             return unavailable(
@@ -74,10 +103,20 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
             );
         }
 
-        boolean generationInProgress =
-                insightRepository.existsByUser_IdAndStatus(
+        boolean generationInProgress = snapshotBounded
+                ? insightRepository.existsByUser_IdAndStatusIn(
+                        userId,
+                        List.of(
+                                InsightGenerationStatus.PENDING,
+                                InsightGenerationStatus.RUNNING
+                        )
+                )
+                : insightRepository.existsByUser_IdAndStatus(
                         userId,
                         InsightGenerationStatus.PENDING
+                ) || insightRepository.existsByUser_IdAndStatus(
+                        userId,
+                        InsightGenerationStatus.RUNNING
                 );
 
         if (generationInProgress) {
@@ -103,7 +142,7 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
             );
         }
 
-        LocalDateTime now = LocalDateTime.now(insightClock);
+        LocalDateTime now = snapshotAt;
         LocalDateTime nextAvailableAt =
                 latestCompletedInsight.getCompletedAt()
                         .plus(properties.regenerationCooldown());
@@ -126,12 +165,18 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
                         latestCompletedInsight.getJobIdSnapshot()
                 );
 
-        boolean hasNewAnalyzedRecord =
-                insightRecordQueryRepository
-                        .existsEligibleRecordAnalyzedAfter(
-                                userId,
-                                latestCompletedInsight.getRecordSnapshotAt()
-                        );
+        boolean hasNewAnalyzedRecord = snapshotBounded
+                ? insightRecordQueryRepository
+                .existsEligibleRecordAnalyzedBetween(
+                        userId,
+                        latestCompletedInsight.getRecordSnapshotAt(),
+                        snapshotAt
+                )
+                : insightRecordQueryRepository
+                .existsEligibleRecordAnalyzedAfter(
+                        userId,
+                        latestCompletedInsight.getRecordSnapshotAt()
+                );
 
         if (!jobChanged && !hasNewAnalyzedRecord) {
             return unavailable(
