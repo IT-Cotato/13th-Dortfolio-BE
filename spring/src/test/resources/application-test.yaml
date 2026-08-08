@@ -65,7 +65,7 @@ insight:
   recommendation-candidate-limit: 5
   embedding-model: gemini-embedding-2
   recommendation-max-attempts: 2
-  recommendation-timeout: 10s
+  recommendation-timeout: 30s
 
   generation:
     lock-ttl: 30s

@@ -11,6 +11,7 @@ spring/.gradle/
 # Agent-local instructions
 AGENTS.md
 docs/agent-instructions/
+docs/INSIGHT_ARCHITECTURE.md
 _workspace/
 
 # QueryDSL generated Q-types

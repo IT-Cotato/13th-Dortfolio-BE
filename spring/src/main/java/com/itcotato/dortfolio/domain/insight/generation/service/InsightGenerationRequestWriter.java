@@ -115,7 +115,7 @@ public class InsightGenerationRequestWriter {
                     userId,
                     exception
             );
-            if (exception instanceof DuplicateKeyException) {
+            if (isPendingUniqueConstraintViolation(exception)) {
                 throw new CustomException(
                         InsightErrorCode.INSIGHT_GENERATION_IN_PROGRESS
                 );
@@ -136,6 +136,25 @@ public class InsightGenerationRequestWriter {
                 snapshotAt,
                 competencySnapshots
         );
+    }
+
+    private boolean isPendingUniqueConstraintViolation(
+            DataIntegrityViolationException exception
+    ) {
+        if (exception instanceof DuplicateKeyException) {
+            return true;
+        }
+
+        Throwable cause = exception;
+        while (cause != null) {
+            String message = cause.getMessage();
+            if (message != null
+                    && message.contains("uq_insights_user_pending")) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     private void validateEmbeddings(
