@@ -7,12 +7,9 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 
 @Getter
 @Entity
@@ -26,7 +23,6 @@ public class TemplateQuestion extends BaseEntity {
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "template_id", nullable = false)
-	@OnDelete(action = OnDeleteAction.CASCADE)
 	private Template template;
 
 	@Column(name = "builtin_code", unique = true, length = BUILTIN_CODE_MAX_LENGTH)
@@ -43,9 +39,6 @@ public class TemplateQuestion extends BaseEntity {
 
 	@Column(nullable = false)
 	private int sortOrder;
-
-	@Column
-	private LocalDateTime deletedAt;
 
 	private TemplateQuestion(String builtinCode, String questionText, String description, boolean required, int sortOrder) {
 		this.builtinCode = builtinCode;

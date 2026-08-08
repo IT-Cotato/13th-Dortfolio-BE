@@ -17,7 +17,6 @@ import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.TemplateErrorCode;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,7 +25,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @ActiveProfiles("test")
 @SpringBootTest
@@ -86,28 +84,6 @@ class TemplateServiceTest {
 		assertThat(templateService.getTemplates(userId))
 				.extracting(TemplateResponse::id)
 				.doesNotContain(created.id());
-	}
-
-	@Test
-	void getTemplateExcludesArchivedQuestions() {
-		User user = createUser();
-		TemplateQuestion activeQuestion = TemplateQuestion.create("현재 질문", null, true, 1);
-		TemplateQuestion archivedQuestion = TemplateQuestion.create("이전 질문", null, true, 2);
-		ReflectionTestUtils.setField(archivedQuestion, "deletedAt", LocalDateTime.now());
-		Template template = Template.createCustom(user, "커스텀", null);
-		template.initializeQuestions(List.of(activeQuestion, archivedQuestion));
-		templateRepository.saveAndFlush(template);
-
-		Template reloaded = templateRepository.findByIdAndDeletedAtIsNull(template.getId()).orElseThrow();
-		assertThat(reloaded.getQuestions())
-			.extracting(TemplateQuestion::getQuestionText)
-			.containsExactly("현재 질문");
-
-		TemplateResponse response = templateService.getTemplate(user.getId(), template.getId());
-
-		assertThat(response.questions())
-			.extracting(question -> question.questionText())
-			.containsExactly("현재 질문");
 	}
 
 	@Test

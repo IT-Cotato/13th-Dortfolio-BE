@@ -17,9 +17,6 @@ import java.util.List;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
-import org.hibernate.annotations.SQLRestriction;
 
 @Getter
 @Entity
@@ -54,8 +51,6 @@ public class Template extends BaseEntity {
 	private LocalDateTime deletedAt;
 
 	@OneToMany(mappedBy = "template", cascade = CascadeType.ALL)
-	@OnDelete(action = OnDeleteAction.CASCADE)
-	@SQLRestriction("deleted_at is null")
 	private final List<TemplateQuestion> questions = new ArrayList<>();
 
 	private Template(User user, String builtinCode, Integer builtinVersion, String title, String description, boolean isBuiltin) {
