@@ -99,6 +99,53 @@ class InsightRepositoryTest {
         ).isEmpty();
     }
 
+    @Test
+    void findPendingByUserIdReturnsOnlyOwnedPendingInsight() {
+        User firstUser = createUser();
+        User secondUser = createUser();
+
+        Insight firstPending = insightRepository.save(
+                createPendingInsight(
+                        firstUser,
+                        LocalDateTime.of(2026, 8, 1, 9, 0)
+                )
+        );
+        insightRepository.save(
+                createPendingInsight(
+                        secondUser,
+                        LocalDateTime.of(2026, 8, 1, 10, 0)
+                )
+        );
+
+        Insight result = insightRepository
+                .findPendingByUserId(firstUser.getId())
+                .orElseThrow();
+
+        assertThat(result.getId()).isEqualTo(firstPending.getId());
+    }
+
+    @Test
+    void findByIdAndUserIdHidesAnotherUsersGeneration() {
+        User owner = createUser();
+        User anotherUser = createUser();
+        Insight insight = insightRepository.save(
+                createPendingInsight(
+                        owner,
+                        LocalDateTime.of(2026, 8, 1, 9, 0)
+                )
+        );
+
+        assertThat(insightRepository.findByIdAndUser_Id(
+                insight.getId(),
+                owner.getId()
+        )).isPresent();
+
+        assertThat(insightRepository.findByIdAndUser_Id(
+                insight.getId(),
+                anotherUser.getId()
+        )).isEmpty();
+    }
+
     private User createUser() {
         String uniqueEmail = UUID.randomUUID() + "@test.com";
 

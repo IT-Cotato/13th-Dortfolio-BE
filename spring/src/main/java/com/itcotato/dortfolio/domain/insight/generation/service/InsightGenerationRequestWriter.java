@@ -19,13 +19,16 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /* RequestWriter 책임 */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class InsightGenerationRequestWriter {
 
     private static final int REQUIRED_COMPETENCY_COUNT = 5;
@@ -46,7 +49,7 @@ public class InsightGenerationRequestWriter {
     ) {
         // 락을 획득한 뒤 실제 정책과 DB 상태를 다시 확인
         InsightEligibilityResponse eligibility =
-                eligibilityChecker.check(userId);
+                eligibilityChecker.check(userId, snapshotAt);
 
         if (!eligibility.eligible()) {
             throw new CustomException(
@@ -106,10 +109,18 @@ public class InsightGenerationRequestWriter {
                             snapshotAt
                     )
             );
-        } catch (DataIntegrityViolationException e) {
-            throw new CustomException(
-                    InsightErrorCode.INSIGHT_GENERATION_NOT_ALLOWED // 혹은 이미 진행 중임을 나타내는 InsightErrorCode 사용
+        } catch (DataIntegrityViolationException exception) {
+            log.warn(
+                    "Insight PENDING 저장 실패. userId={}",
+                    userId,
+                    exception
             );
+            if (isPendingUniqueConstraintViolation(exception)) {
+                throw new CustomException(
+                        InsightErrorCode.INSIGHT_GENERATION_IN_PROGRESS
+                );
+            }
+            throw exception;
         }
 
         List<JobCompetencySnapshot> competencySnapshots =
@@ -125,6 +136,26 @@ public class InsightGenerationRequestWriter {
                 snapshotAt,
                 competencySnapshots
         );
+    }
+
+    private boolean isPendingUniqueConstraintViolation(
+            DataIntegrityViolationException exception
+    ) {
+        if (exception instanceof DuplicateKeyException) {
+            return true;
+        }
+
+        Throwable cause = exception;
+        while (cause != null) {
+            String message = cause.getMessage();
+            if (message != null
+                    && (message.contains("uq_insights_user_pending")
+                    || message.contains("uq_insights_user_active"))) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     private void validateEmbeddings(

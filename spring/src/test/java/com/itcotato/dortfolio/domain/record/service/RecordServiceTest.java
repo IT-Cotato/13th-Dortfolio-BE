@@ -29,10 +29,8 @@ import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagReposi
 import com.itcotato.dortfolio.domain.record.repository.RecordEmbeddingRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordMemoRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
-import com.itcotato.dortfolio.domain.template.entity.ActivityTemplate;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
-import com.itcotato.dortfolio.domain.template.repository.ActivityTemplateRepository;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
@@ -86,9 +84,6 @@ class RecordServiceTest {
 	private TemplateRepository templateRepository;
 
 	@Autowired
-	private ActivityTemplateRepository activityTemplateRepository;
-
-	@Autowired
 	private ActivityRepository activityRepository;
 
 	@Autowired
@@ -113,7 +108,6 @@ class RecordServiceTest {
 		recordAnswerRepository.deleteAll();
 		recordRepository.deleteAll();
 		memoRepository.deleteAll();
-		activityTemplateRepository.deleteAll();
 		templateRepository.deleteAll();
 		activityRepository.deleteAll();
 		activityTypeRepository.deleteAll();
@@ -125,7 +119,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", true);
-		connectTemplate(activity, template);
 		Memo memo = createMemo(user, activity);
 		TemplateQuestion question = template.getQuestions().get(0);
 
@@ -148,22 +141,21 @@ class RecordServiceTest {
 	}
 
 	@Test
-	void createRecordRejectsTemplateNotConnectedToActivity() {
+	void createRecordAllowsOwnedTemplateWithoutActivityConnection() {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", true);
 
-		assertThatThrownBy(() -> recordService.createRecord(user.getId(), new RecordCreateRequest(
+		RecordResponse response = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
 				template.getId(),
 				"첫 기록",
 				List.of(),
 				List.of(),
 				RecordStatus.DRAFT
-		)))
-				.isInstanceOf(CustomException.class)
-				.extracting("errorCode")
-				.isEqualTo(RecordErrorCode.RECORD_TEMPLATE_NOT_CONNECTED);
+		));
+
+		assertThat(response.templateId()).isEqualTo(template.getId());
 	}
 
 	@Test
@@ -171,7 +163,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", true);
-		connectTemplate(activity, template);
 
 		assertThatThrownBy(() -> recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
@@ -191,7 +182,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", true);
-		connectTemplate(activity, template);
 
 		RecordResponse response = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
@@ -210,7 +200,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", true);
-		connectTemplate(activity, template);
 		TemplateQuestion question = template.getQuestions().get(0);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
@@ -237,7 +226,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", false);
-		connectTemplate(activity, template);
 		RecordResponse completed = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
 				template.getId(),
@@ -267,7 +255,6 @@ class RecordServiceTest {
 		Activity activity = createActivity(user, "도트폴리오");
 		Activity otherActivity = createActivity(user, "다른 활동");
 		Template template = createTemplate(user, "문제 해결", false);
-		connectTemplate(activity, template);
 		Memo otherActivityMemo = createMemo(user, otherActivity);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
@@ -294,7 +281,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", false);
-		connectTemplate(activity, template);
 		Memo firstMemo = createMemo(user, activity);
 		Memo secondMemo = createMemo(user, activity);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
@@ -331,7 +317,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", false);
-		connectTemplate(activity, template);
 		Memo memo = createMemo(user, activity);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
@@ -362,7 +347,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", false);
-		connectTemplate(activity, template);
 		RecordResponse completed = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
 				template.getId(),
@@ -395,7 +379,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", false);
-		connectTemplate(activity, template);
 		Memo memo = createMemo(user, activity);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
@@ -428,7 +411,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", false);
-		connectTemplate(activity, template);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
 				template.getId(),
@@ -450,7 +432,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", false);
-		connectTemplate(activity, template);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
 				template.getId(),
@@ -474,7 +455,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", false);
-		connectTemplate(activity, template);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
 				template.getId(),
@@ -498,7 +478,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", false);
-		connectTemplate(activity, template);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
 				template.getId(),
@@ -522,7 +501,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", false);
-		connectTemplate(activity, template);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
 				template.getId(),
@@ -545,7 +523,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", true);
-		connectTemplate(activity, template);
 		TemplateQuestion question = template.getQuestions().get(0);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
@@ -575,7 +552,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", false);
-		connectTemplate(activity, template);
 		TemplateQuestion question = template.getQuestions().get(0);
 		RecordResponse completed = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
@@ -606,15 +582,12 @@ class RecordServiceTest {
 	}
 
 	@Test
-	void getRecordsFiltersByActivityTemplateAndStatus() {
+	void getRecordsFiltersByActivityAndTemplateAndStatus() {
 		User user = createUser();
 		Activity firstActivity = createActivity(user, "첫 활동");
 		Activity secondActivity = createActivity(user, "두 번째 활동");
 		Template firstTemplate = createTemplate(user, "문제 해결", false);
 		Template secondTemplate = createTemplate(user, "협업", false);
-		connectTemplate(firstActivity, firstTemplate);
-		connectTemplate(firstActivity, secondTemplate);
-		connectTemplate(secondActivity, firstTemplate);
 
 		RecordResponse firstDraft = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				firstActivity.getId(),
@@ -660,7 +633,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", false);
-		connectTemplate(activity, template);
 		for (int index = 1; index <= 8; index++) {
 			recordService.createRecord(user.getId(), new RecordCreateRequest(
 					activity.getId(),
@@ -699,7 +671,6 @@ class RecordServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", false);
-		connectTemplate(activity, template);
 		RecordResponse older = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
 				template.getId(),
@@ -767,10 +738,6 @@ class RecordServiceTest {
 
 	private Memo createMemo(User user, Activity activity) {
 		return memoRepository.save(Memo.create(user, activity, "메모", "내용", 1));
-	}
-
-	private void connectTemplate(Activity activity, Template template) {
-		activityTemplateRepository.save(ActivityTemplate.create(activity, template, 1));
 	}
 
 	private void expireDeletePendingWindow(com.itcotato.dortfolio.domain.record.entity.Record record) {

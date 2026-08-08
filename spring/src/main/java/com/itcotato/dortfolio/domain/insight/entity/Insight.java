@@ -45,6 +45,9 @@ public class Insight extends BaseEntity {
     @Column(name = "requested_at", nullable = false)
     private LocalDateTime requestedAt;
 
+    @Column(name = "started_at")
+    private LocalDateTime startedAt;
+
     @Column
     private LocalDateTime completedAt;
 
@@ -93,7 +96,12 @@ public class Insight extends BaseEntity {
     }
 
     public void complete(LocalDateTime completedAt) {
-        validatePending();
+        if (status != InsightGenerationStatus.PENDING
+                && status != InsightGenerationStatus.RUNNING) {
+            throw new IllegalStateException(
+                    "Only active Insight can be completed."
+            );
+        }
 
         this.status = InsightGenerationStatus.COMPLETED;
         this.completedAt = completedAt;
@@ -107,7 +115,7 @@ public class Insight extends BaseEntity {
             String failureCode,
             String failureMessage
     ) {
-        validatePending();
+        validateActive();
 
         this.status = InsightGenerationStatus.FAILED;
         this.completedAt = null;
@@ -116,10 +124,22 @@ public class Insight extends BaseEntity {
         this.failureMessage = failureMessage;
     }
 
-    private void validatePending() {
+    public void start(LocalDateTime startedAt) {
         if (status != InsightGenerationStatus.PENDING) {
             throw new IllegalStateException(
-                    "Only pending Insight can change its generation status."
+                    "Only pending Insight can start."
+            );
+        }
+
+        this.status = InsightGenerationStatus.RUNNING;
+        this.startedAt = startedAt;
+    }
+
+    private void validateActive() {
+        if (status != InsightGenerationStatus.PENDING
+                && status != InsightGenerationStatus.RUNNING) {
+            throw new IllegalStateException(
+                    "Only active Insight can fail."
             );
         }
     }

@@ -7,6 +7,7 @@ import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
 import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysis;
+import com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus;
 import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
 import com.itcotato.dortfolio.domain.record.entity.CompetencyTag;
 import com.itcotato.dortfolio.domain.record.entity.Record;
@@ -72,7 +73,7 @@ class InsightRecordQueryRepositoryTest {
     @Test
     void findsOnlyEligibleRecordsOwnedByUserAtSnapshot() {
         User user = createUser();
-        LocalDateTime snapshotAt = LocalDateTime.of(2026, 8, 4, 12, 0);
+        LocalDateTime snapshotAt = LocalDateTime.of(2100, 1, 1, 0, 0);
         Record eligible = createRecord(user, "정상 기록", true);
         ReflectionTestUtils.setField(eligible, "completedAt", snapshotAt);
         recordRepository.saveAndFlush(eligible);
@@ -189,6 +190,71 @@ class InsightRecordQueryRepositoryTest {
     }
 
     @Test
+    void countsEligibleRecordsAnalyzedAfterSnapshot() {
+        User user = createUser();
+        LocalDateTime snapshotAt = LocalDateTime.now();
+
+        RecordAnalysis older = completeAnalysis(
+                createRecord(user, "기존 완료 기록", true),
+                true,
+                true
+        );
+        ReflectionTestUtils.setField(
+                older,
+                "analyzedAt",
+                snapshotAt.minusSeconds(1)
+        );
+
+        RecordAnalysis newer = completeAnalysis(
+                createRecord(user, "신규 완료 기록", true),
+                true,
+                true
+        );
+        ReflectionTestUtils.setField(
+                newer,
+                "analyzedAt",
+                snapshotAt.plusSeconds(1)
+        );
+
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(queryRepository.countEligibleRecordsAnalyzedAfter(
+                user.getId(),
+                snapshotAt
+        )).isEqualTo(1);
+    }
+
+    @Test
+    void countsCurrentPendingAndFailedAnalysesSeparately() {
+        User user = createUser();
+
+        Record pendingRecord = createRecord(user, "분석 진행 기록", true);
+        recordAnalysisRepository.save(RecordAnalysis.pending(pendingRecord));
+
+        Record failedRecord = createRecord(user, "분석 실패 기록", true);
+        RecordAnalysis failed = RecordAnalysis.pending(failedRecord);
+        failed.fail("분석 실패", false);
+        recordAnalysisRepository.save(failed);
+
+        Record deletedRecord = createRecord(user, "삭제된 분석 진행 기록", true);
+        deletedRecord.markDeleted(30);
+        recordAnalysisRepository.save(RecordAnalysis.pending(deletedRecord));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(queryRepository.countRecordsByAnalysisStatus(
+                user.getId(),
+                AiAnalysisStatus.PENDING
+        )).isEqualTo(1);
+        assertThat(queryRepository.countRecordsByAnalysisStatus(
+                user.getId(),
+                AiAnalysisStatus.FAILED
+        )).isEqualTo(1);
+    }
+
+    @Test
     void findsStrengthTagsInDeterministicOrder() {
         User user = createUser();
         Record record = createAnalyzedRecord(user, "강점 기록", true, true);
@@ -260,7 +326,7 @@ class InsightRecordQueryRepositoryTest {
         return recordRepository.saveAndFlush(record);
     }
 
-    private void completeAnalysis(
+    private RecordAnalysis completeAnalysis(
             Record record,
             boolean withEmbedding,
             boolean freshAnalysis
@@ -278,6 +344,7 @@ class InsightRecordQueryRepositoryTest {
         if (withEmbedding) {
             saveEmbedding(record);
         }
+        return analysis;
     }
 
     private void saveEmbedding(Record record) {
@@ -300,7 +367,7 @@ class InsightRecordQueryRepositoryTest {
                         """,
                 UUID.randomUUID(),
                 record.getId(),
-                "text-embedding-3-large"
+                "gemini-embedding-2"
         );
     }
 
