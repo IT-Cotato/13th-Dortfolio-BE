@@ -6,6 +6,11 @@ import com.itcotato.dortfolio.domain.activity.dto.req.ActivityCreateRequest;
 import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
+import com.itcotato.dortfolio.domain.record.entity.Record;
+import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
+import com.itcotato.dortfolio.domain.template.config.BuiltinTemplateInitializer;
+import com.itcotato.dortfolio.domain.template.entity.Template;
+import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import java.time.LocalDate;
@@ -14,6 +19,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.DefaultApplicationArguments;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -33,11 +40,23 @@ class ActivityServiceTest {
 	@Autowired
 	private UserRepository userRepository;
 
+	@Autowired
+	private RecordRepository recordRepository;
+
+	@Autowired
+	private TemplateRepository templateRepository;
+
+	@Autowired
+	private ApplicationRunner initializeBuiltinTemplates;
+
 	@BeforeEach
-	void setUp() {
+	void setUp() throws Exception {
+		recordRepository.deleteAll();
 		activityRepository.deleteAll();
 		activityTypeRepository.deleteAll();
+		templateRepository.deleteAll();
 		userRepository.deleteAll();
+		initializeBuiltinTemplates.run(new DefaultApplicationArguments());
 	}
 
 	@Test

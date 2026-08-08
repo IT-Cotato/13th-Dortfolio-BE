@@ -8,6 +8,7 @@ import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityRecordQueryRepository;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
+import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
@@ -32,6 +33,7 @@ public class ActivityService {
     private final ActivityRepository activityRepository;
     private final ActivityTypeRepository activityTypeRepository;
     private final UserRepository userRepository;
+    private final ActivityRecordQueryRepository activityRecordQueryRepository;
 
     @Transactional
     public UUID createActivity(UUID userId, ActivityCreateRequest request) {
