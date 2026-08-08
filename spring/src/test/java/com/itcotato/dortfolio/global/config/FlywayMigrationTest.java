@@ -28,6 +28,7 @@ class FlywayMigrationTest {
 		assertThat(result.migrationsExecuted).isEqualTo(5);
 		assertThat(result.targetSchemaVersion).isEqualTo("5");
 		assertMatchingIndexesCreated();
+		assertRunningInsightStatusAllowed();
 	}
 
 	private Flyway flyway() {
@@ -63,5 +64,13 @@ class FlywayMigrationTest {
 						'idx_record_embeddings_gemini_embedding_2_hvc'
 					)
 				""", Integer.class)).isEqualTo(2);
+	}
+
+	private void assertRunningInsightStatusAllowed() {
+		assertThat(jdbcTemplate().queryForObject("""
+				select pg_get_constraintdef(oid)
+				from pg_constraint
+				where conname = 'insights_status_check'
+				""", String.class)).contains("RUNNING");
 	}
 }
