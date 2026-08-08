@@ -62,7 +62,6 @@ public class MemoService {
                 activity,
                 request.title(),
                 request.content(),
-                request.color(),
                 DEFAULT_SORT_ORDER
         ));
 
@@ -107,7 +106,7 @@ public class MemoService {
     public void updateMemo(UUID userId, UUID memoId, MemoUpdateRequest request) {
         Memo memo = getMemoOrThrow(memoId, userId);
 
-        memo.update(request.title(), request.content(), request.color());
+        memo.update(request.title(), request.content());
     }
 
     @Transactional

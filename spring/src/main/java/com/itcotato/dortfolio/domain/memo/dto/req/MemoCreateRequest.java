@@ -10,7 +10,6 @@ public record MemoCreateRequest(
         UUID activityId,
         @Size(max = 255) String title,
         @NotBlank @Size(max = 500) String content,
-        @Size(max = 255) String color,
         // presigned URL로 업로드 완료한 활동 사진 목록 (선택)
         @Valid List<MemoImageRequest> images
 ) {

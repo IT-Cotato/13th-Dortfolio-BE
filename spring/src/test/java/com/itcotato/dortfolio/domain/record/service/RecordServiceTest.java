@@ -737,7 +737,7 @@ class RecordServiceTest {
 	}
 
 	private Memo createMemo(User user, Activity activity) {
-		return memoRepository.save(Memo.create(user, activity, "메모", "내용", null, 1));
+		return memoRepository.save(Memo.create(user, activity, "메모", "내용", 1));
 	}
 
 	private void expireDeletePendingWindow(com.itcotato.dortfolio.domain.record.entity.Record record) {
