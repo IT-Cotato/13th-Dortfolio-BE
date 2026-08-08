@@ -21,6 +21,7 @@ import com.itcotato.dortfolio.global.exception.types.GlobalErrorCode;
 import com.itcotato.dortfolio.global.exception.types.MemoErrorCode;
 import com.itcotato.dortfolio.global.exception.types.UserErrorCode;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -29,9 +30,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @RequiredArgsConstructor
@@ -62,7 +66,7 @@ public class MemoService {
                 DEFAULT_SORT_ORDER
         ));
 
-        saveMemoImages(memo, request.images());
+        saveMemoImages(userId, memo, request.images());
 
         return memo.getId();
     }
@@ -170,14 +174,42 @@ public class MemoService {
 
         memoRepository.deleteAll(memos);
 
-        memoImages.forEach(memoImage -> s3Provider.deleteObject(memoImage.getS3Key()));
+        deleteS3ObjectsAfterCommit(memoImages.stream().map(MemoImage::getS3Key).toList());
+    }
+
+    /**
+     * S3 객체는 트랜잭션이 커밋된 뒤에 지운다.
+     *
+     * 트랜잭션 안에서 지우면, 이후 커밋이 실패했을 때 DB에는 이미지가 남고 파일만 사라져
+     * 되돌릴 수 없는 깨진 이미지가 된다. 반대 순서(커밋 후 삭제)에서는 최악의 경우
+     * 쓰이지 않는 파일이 남을 뿐이고, 그건 나중에 정리할 수 있다.
+     */
+    private void deleteS3ObjectsAfterCommit(List<String> s3Keys) {
+        // s3Key는 nullable이라 예전에 저장된 이미지에는 값이 없을 수 있다
+        List<String> targets = s3Keys.stream().filter(Objects::nonNull).toList();
+
+        if (targets.isEmpty()) {
+            return;
+        }
+
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            targets.forEach(s3Provider::deleteObject);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                targets.forEach(s3Provider::deleteObject);
+            }
+        });
     }
 
     /* 활동 사진 업로드 Presigned URL 발급 (기능명세서 3.1.3) */
-    public MemoImagePresignedUrlResponse createMemoImagePresignedUrl(MemoImagePresignedUrlRequest request) {
+    public MemoImagePresignedUrlResponse createMemoImagePresignedUrl(UUID userId, MemoImagePresignedUrlRequest request) {
         validateImageExtension(request.fileName());
 
-        S3Provider.PresignedUrlResponse result = s3Provider.generatePresignedUrl(IMAGE_PREFIX, request.fileName());
+        S3Provider.PresignedUrlResponse result = s3Provider.generatePresignedUrl(imagePrefix(userId), request.fileName());
         return new MemoImagePresignedUrlResponse(result.presignedUrl(), result.s3Key());
     }
 
@@ -188,13 +220,31 @@ public class MemoService {
                 .orElseThrow(() -> new CustomException(MemoErrorCode.MEMO_IMAGE_NOT_FOUND));
 
         memoImageRepository.delete(memoImage);
-        s3Provider.deleteObject(memoImage.getS3Key());
+        deleteS3ObjectsAfterCommit(Collections.singletonList(memoImage.getS3Key()));
     }
 
-    private void saveMemoImages(Memo memo, List<MemoImageRequest> images) {
+    /**
+     * 업로드 경로에 사용자 ID를 넣어 소유자를 키 자체에 새긴다.
+     *
+     * 클라이언트가 s3Key를 보내오므로, 이렇게 하지 않으면 남의 키를 자기 메모에 붙여
+     * 다른 사람의 이미지를 조회하거나 삭제할 수 있다.
+     */
+    private String imagePrefix(UUID userId) {
+        return IMAGE_PREFIX + "/" + userId;
+    }
+
+    private void validateOwnedImageKey(UUID userId, String s3Key) {
+        if (s3Key == null || !s3Key.startsWith(imagePrefix(userId) + "/")) {
+            throw new CustomException(MemoErrorCode.INVALID_IMAGE_KEY);
+        }
+    }
+
+    private void saveMemoImages(UUID userId, Memo memo, List<MemoImageRequest> images) {
         if (images == null || images.isEmpty()) {
             return;
         }
+
+        images.forEach(image -> validateOwnedImageKey(userId, image.s3Key()));
 
         List<MemoImage> memoImages = IntStream.range(0, images.size())
                 .mapToObj(index -> {

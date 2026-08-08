@@ -105,7 +105,7 @@ public class MemoController implements MemoControllerDocs {
             @AuthenticationPrincipal UUID userId,
             @Valid @RequestBody MemoImagePresignedUrlRequest request
     ) {
-        MemoImagePresignedUrlResponse response = memoService.createMemoImagePresignedUrl(request);
+        MemoImagePresignedUrlResponse response = memoService.createMemoImagePresignedUrl(userId, request);
         return ResponseEntity.ok(ApiResponse.success("Presigned URL 발급에 성공하였습니다.", response));
     }
 

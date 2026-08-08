@@ -168,8 +168,7 @@ class MemoServiceTest {
 
 		UUID memoId = memoService.createMemo(user.getId(), new MemoCreateRequest(
 				activity.getId(), "제목", "내용", "BLUE",
-				List.of(new MemoImageRequest("https://s3/memo/a.png", "memo/a.png"),
-						new MemoImageRequest("https://s3/memo/b.jpg", "memo/b.jpg"))));
+				List.of(imageRequest(user.getId(), "a.png"), imageRequest(user.getId(), "b.jpg"))));
 
 		MemoResponse response = memoService.getMemo(user.getId(), memoId);
 		assertThat(response.activityId()).isEqualTo(activity.getId());
@@ -283,7 +282,7 @@ class MemoServiceTest {
 	void deleteMemoAlsoDeletesImages() {
 		UUID userId = createUser().getId();
 		UUID memoId = memoService.createMemo(userId,
-				new MemoCreateRequest(null, null, "내용", null, List.of(new MemoImageRequest("https://s3/memo/a.png", "memo/a.png"))));
+				new MemoCreateRequest(null, null, "내용", null, List.of(imageRequest(userId, "a.png"))));
 
 		memoService.deleteMemos(userId, List.of(memoId));
 
@@ -360,7 +359,7 @@ class MemoServiceTest {
 	void doesNotDeleteUnexpiredMemos() {
 		UUID userId = createUser().getId();
 		memoService.createMemo(userId,
-				new MemoCreateRequest(null, null, "내용", null, List.of(new MemoImageRequest("https://s3/memo/a.png", "memo/a.png"))));
+				new MemoCreateRequest(null, null, "내용", null, List.of(imageRequest(userId, "a.png"))));
 
 		assertThat(memoService.deleteExpiredMemos()).isZero();
 		assertThat(memoRepository.findAll()).hasSize(1);
@@ -383,19 +382,22 @@ class MemoServiceTest {
 	@Test
 	@DisplayName("JPG, PNG 이미지에 대해 Presigned URL을 발급한다")
 	void issuePresignedUrlForAllowedExtensions() {
+		UUID userId = createUser().getId();
+
 		MemoImagePresignedUrlResponse response =
-				memoService.createMemoImagePresignedUrl(new MemoImagePresignedUrlRequest("사진.PNG"));
+				memoService.createMemoImagePresignedUrl(userId, new MemoImagePresignedUrlRequest("사진.PNG"));
 
 		assertThat(response.presignedUrl()).isNotBlank();
-		assertThat(response.s3Key()).startsWith("memo/");
+		assertThat(response.s3Key()).startsWith("memo/" + userId + "/");
 	}
 
 	@Test
 	@DisplayName("JPG, PNG 외 확장자는 Presigned URL 발급이 거부된다")
 	void rejectPresignedUrlForDisallowedExtensions() {
+		UUID userId = createUser().getId();
 		MemoImagePresignedUrlRequest request = new MemoImagePresignedUrlRequest("문서.pdf");
 
-		assertThatThrownBy(() -> memoService.createMemoImagePresignedUrl(request))
+		assertThatThrownBy(() -> memoService.createMemoImagePresignedUrl(userId, request))
 				.isInstanceOf(CustomException.class)
 				.extracting("errorCode")
 				.isEqualTo(MemoErrorCode.UNSUPPORTED_IMAGE_EXTENSION);
@@ -406,7 +408,7 @@ class MemoServiceTest {
 	void deleteMemoImage() {
 		UUID userId = createUser().getId();
 		UUID memoId = memoService.createMemo(userId,
-				new MemoCreateRequest(null, null, "내용", null, List.of(new MemoImageRequest("https://s3/memo/a.png", "memo/a.png"))));
+				new MemoCreateRequest(null, null, "내용", null, List.of(imageRequest(userId, "a.png"))));
 		UUID imageId = memoService.getMemo(userId, memoId).images().get(0).id();
 
 		memoService.deleteMemoImage(userId, imageId);
@@ -420,7 +422,7 @@ class MemoServiceTest {
 		UUID ownerId = createUser().getId();
 		UUID otherId = createUser().getId();
 		UUID memoId = memoService.createMemo(ownerId,
-				new MemoCreateRequest(null, null, "내용", null, List.of(new MemoImageRequest("https://s3/memo/a.png", "memo/a.png"))));
+				new MemoCreateRequest(null, null, "내용", null, List.of(imageRequest(ownerId, "a.png"))));
 		UUID imageId = memoService.getMemo(ownerId, memoId).images().get(0).id();
 
 		assertThatThrownBy(() -> memoService.deleteMemoImage(otherId, imageId))
@@ -475,5 +477,41 @@ class MemoServiceTest {
 				LocalDate.now(),
 				false
 		));
+	}
+
+	@Test
+	@DisplayName("다른 사용자의 s3Key로는 메모 이미지를 저장할 수 없다")
+	void cannotUseOtherUsersImageKey() {
+		UUID ownerId = createUser().getId();
+		UUID attackerId = createUser().getId();
+
+		MemoCreateRequest request = new MemoCreateRequest(
+				null, null, "내용", null, List.of(imageRequest(ownerId, "a.png")));
+
+		assertThatThrownBy(() -> memoService.createMemo(attackerId, request))
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(MemoErrorCode.INVALID_IMAGE_KEY);
+	}
+
+	@Test
+	@DisplayName("경로가 조작된 s3Key는 거부한다")
+	void rejectsTamperedImageKey() {
+		UUID userId = createUser().getId();
+
+		MemoCreateRequest request = new MemoCreateRequest(
+				null, null, "내용", null,
+				List.of(new MemoImageRequest("https://s3/memo/a.png", "memo/a.png")));
+
+		assertThatThrownBy(() -> memoService.createMemo(userId, request))
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(MemoErrorCode.INVALID_IMAGE_KEY);
+	}
+
+	// 업로드 키에는 소유자 ID가 들어간다. 남의 키를 쓰면 저장 단계에서 막힌다
+	private MemoImageRequest imageRequest(UUID userId, String fileName) {
+		String s3Key = "memo/" + userId + "/" + fileName;
+		return new MemoImageRequest("https://s3/" + s3Key, s3Key);
 	}
 }

@@ -49,7 +49,9 @@ springdoc:
 
 aws:
   s3:
-    bucket: ${AWS_S3_BUCKET:dotfolio-images}
+    # 기본값을 두지 않는다. 운영 버킷 이름을 기본값으로 넣으면
+    # 다른 환경에서 유효한 자격 증명이 있을 때 운영 버킷에 파일을 쓰거나 지울 수 있다
+    bucket: ${AWS_S3_BUCKET:}
     region: ${AWS_REGION:ap-northeast-2}
     access-key: ${AWS_ACCESS_KEY_ID:}
     secret-key: ${AWS_SECRET_ACCESS_KEY:}
