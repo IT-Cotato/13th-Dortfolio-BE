@@ -21,7 +21,6 @@ public class InsightRecordQueryRepository {
                     com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus.COMPLETED
                 and record.deletedAt is null
                 and record.activity.deletedAt is null
-                and record.template.deletedAt is null
                 and recordAnalysis.analyzedRecordUpdatedAt = record.updatedAt
                 and exists (
                     select recordEmbedding.id
@@ -157,7 +156,6 @@ public class InsightRecordQueryRepository {
                           and recordAnalysis.aiAnalysisStatus = :status
                           and record.deletedAt is null
                           and record.activity.deletedAt is null
-                          and record.template.deletedAt is null
                         """, Long.class)
                 .setParameter("userId", userId)
                 .setParameter("status", status)

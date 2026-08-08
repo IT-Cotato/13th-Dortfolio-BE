@@ -37,7 +37,8 @@ public class BuiltinTemplateInitializer {
 		return args -> {
 			transactionTemplate.executeWithoutResult(status -> {
 				defaultTemplates().stream()
-					.map(this::upsert)
+					.filter(defaultTemplate -> templateRepository.findByBuiltinCode(defaultTemplate.code()).isEmpty())
+					.map(DefaultTemplate::toEntity)
 					.forEach(templateRepository::save);
 				retireOldBuiltinTemplates();
 			});
@@ -48,12 +49,6 @@ public class BuiltinTemplateInitializer {
 		List<Template> retiredTemplates = templateRepository.findAllByBuiltinCodeInAndDeletedAtIsNull(RETIRED_TEMPLATE_CODES);
 		retiredTemplates.forEach(Template::delete);
 		templateRepository.saveAll(retiredTemplates);
-	}
-
-	private Template upsert(DefaultTemplate defaultTemplate) {
-		return templateRepository.findByBuiltinCode(defaultTemplate.code())
-			.map(defaultTemplate::applyTo)
-			.orElseGet(defaultTemplate::toEntity);
 	}
 
 	private List<DefaultTemplate> defaultTemplates() {
@@ -115,17 +110,11 @@ public class BuiltinTemplateInitializer {
 
 		private Template toEntity() {
 			Template template = Template.createBuiltin(code, version, title, description);
-			upsertQuestions(template);
+			initializeQuestions(template);
 			return template;
 		}
 
-		private Template applyTo(Template template) {
-			template.updateBuiltin(version, title, description);
-			upsertQuestions(template);
-			return template;
-		}
-
-		private void upsertQuestions(Template template) {
+		private void initializeQuestions(Template template) {
 			List<TemplateQuestion> templateQuestions = new java.util.ArrayList<>();
 			for (int i = 0; i < questions.size(); i++) {
 				DefaultQuestion question = questions.get(i);
@@ -137,7 +126,7 @@ public class BuiltinTemplateInitializer {
 					i + 1
 				));
 			}
-			template.upsertBuiltinQuestions(templateQuestions);
+			template.initializeQuestions(templateQuestions);
 		}
 	}
 

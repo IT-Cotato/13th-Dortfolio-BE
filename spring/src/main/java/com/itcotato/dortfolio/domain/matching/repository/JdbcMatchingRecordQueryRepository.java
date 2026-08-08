@@ -64,7 +64,6 @@ public class JdbcMatchingRecordQueryRepository implements MatchingRecordQueryRep
 					and r.status = 'COMPLETED'
 					and r.deleted_at is null
 					and a.deleted_at is null
-					and t.deleted_at is null
 					and e.embedding_model = %s
 					and ra.ai_analysis_status = 'COMPLETED'
 					and ra.analyzed_record_updated_at = r.updated_at

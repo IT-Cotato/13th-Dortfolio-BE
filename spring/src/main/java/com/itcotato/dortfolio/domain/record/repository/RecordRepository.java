@@ -27,7 +27,6 @@ public interface RecordRepository extends JpaRepository<Record, UUID>, RecordRep
               com.itcotato.dortfolio.domain.record.entity.RecordStatus.COMPLETED
           and record.deletedAt is null
           and record.activity.deletedAt is null
-          and record.template.deletedAt is null
         """)
     long countAvailableCompletedByUserId(
             @Param("userId") UUID userId
@@ -43,7 +42,6 @@ public interface RecordRepository extends JpaRepository<Record, UUID>, RecordRep
           and record.updatedAt <= :snapshotAt
           and record.deletedAt is null
           and record.activity.deletedAt is null
-          and record.template.deletedAt is null
         """)
     long countAvailableCompletedByUserIdAt(
             @Param("userId") UUID userId,
@@ -57,7 +55,6 @@ public interface RecordRepository extends JpaRepository<Record, UUID>, RecordRep
           and record.id in :recordIds
           and record.deletedAt is null
           and record.activity.deletedAt is null
-          and record.template.deletedAt is null
         """)
     Set<UUID> findAvailableRecordIds(
             @Param("userId") UUID userId,

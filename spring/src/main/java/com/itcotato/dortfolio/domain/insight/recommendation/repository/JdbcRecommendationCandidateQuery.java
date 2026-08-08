@@ -130,7 +130,6 @@ public class JdbcRecommendationCandidateQuery
                   and record.status = 'COMPLETED'
                   and record.deleted_at is null
                   and activity.deleted_at is null
-                  and template.deleted_at is null
                   and record.completed_at <= ?
                   and record.updated_at <= ?
                   and analysis.ai_analysis_status = 'COMPLETED'

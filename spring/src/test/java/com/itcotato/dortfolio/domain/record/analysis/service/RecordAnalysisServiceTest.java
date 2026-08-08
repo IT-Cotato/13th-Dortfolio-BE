@@ -483,7 +483,7 @@ class RecordAnalysisServiceTest {
 
 	private Template createTemplate(User user, boolean required) {
 		Template template = Template.createCustom(user, "문제 해결", "설명");
-		template.addQuestion(TemplateQuestion.create("질문", "설명", required, 1));
+		template.initializeQuestions(List.of(TemplateQuestion.create("질문", "설명", required, 1)));
 		return templateRepository.save(template);
 	}
 

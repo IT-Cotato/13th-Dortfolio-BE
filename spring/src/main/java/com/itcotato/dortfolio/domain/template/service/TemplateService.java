@@ -3,7 +3,6 @@ package com.itcotato.dortfolio.domain.template.service;
 import com.itcotato.dortfolio.domain.template.dto.req.TemplateCreateRequest;
 import com.itcotato.dortfolio.domain.template.dto.req.TemplateQuestionRequest;
 import com.itcotato.dortfolio.domain.template.dto.res.TemplateResponse;
-import com.itcotato.dortfolio.domain.template.dto.req.TemplateUpdateRequest;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
@@ -43,25 +42,14 @@ public class TemplateService {
 	public TemplateResponse createTemplate(UUID userId, TemplateCreateRequest request) {
 		User user = getUserOrThrow(userId);
 		Template template = Template.createCustom(user, request.title(), request.description());
-		template.replaceQuestions(toQuestions(request.questions()));
+		template.initializeQuestions(toQuestions(request.questions()));
 		return TemplateResponse.from(templateRepository.save(template));
-	}
-
-	@Transactional
-	public TemplateResponse updateTemplate(UUID userId, UUID templateId, TemplateUpdateRequest request) {
-		Template template = getActiveTemplate(templateId);
-		validateWritable(template, userId);
-
-		template.update(request.title(), request.description());
-		template.replaceQuestions(toQuestions(request.questions()));
-
-		return TemplateResponse.from(template);
 	}
 
 	@Transactional
 	public void deleteTemplate(UUID userId, UUID templateId) {
 		Template template = getActiveTemplate(templateId);
-		validateWritable(template, userId);
+		validateDeletable(template, userId);
 		template.delete();
 	}
 
@@ -77,9 +65,9 @@ public class TemplateService {
 		throw new CustomException(TemplateErrorCode.TEMPLATE_FORBIDDEN);
 	}
 
-	private void validateWritable(Template template, UUID userId) {
+	private void validateDeletable(Template template, UUID userId) {
 		if (template.isBuiltin()) {
-			throw new CustomException(TemplateErrorCode.BUILTIN_TEMPLATE_MODIFICATION_NOT_ALLOWED);
+			throw new CustomException(TemplateErrorCode.BUILTIN_TEMPLATE_DELETION_NOT_ALLOWED);
 		}
 		if (!userId.equals(template.getUserId())) {
 			throw new CustomException(TemplateErrorCode.TEMPLATE_FORBIDDEN);
@@ -104,16 +92,4 @@ public class TemplateService {
 		return userRepository.findById(userId)
 			.orElseThrow(() -> new CustomException(TemplateErrorCode.TEMPLATE_USER_NOT_FOUND));
 	}
-
-    @Transactional
-    public TemplateResponse restoreTemplate(UUID userId, UUID templateId) {
-        Template template = templateRepository.findWithQuestionsById(templateId)
-                .orElseThrow(() -> new CustomException(TemplateErrorCode.TEMPLATE_NOT_FOUND));
-
-        validateWritable(template, userId);
-        template.restore();
-
-        return TemplateResponse.from(template);
-    }
-
 }

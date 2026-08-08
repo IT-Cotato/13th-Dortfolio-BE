@@ -21,7 +21,7 @@ public class RecordAnalysisRequestBuilder {
 	private final CompetencyTagRepository competencyTagRepository;
 
 	public RecordAnalysisRequest build(Record record) {
-		List<RecordAnswer> answers = recordAnswerRepository.findAllByRecord_IdOrderBySortOrderAsc(record.getId());
+		List<RecordAnswer> answers = recordAnswerRepository.findAllByRecord_IdOrderByTemplateQuestion_SortOrderAsc(record.getId());
 		List<RecordMemo> memos = recordMemoRepository.findAllByRecord_IdOrderBySortOrderAsc(record.getId());
 		List<CompetencyTag> competencyTagCandidates = competencyTagRepository.findAll();
 

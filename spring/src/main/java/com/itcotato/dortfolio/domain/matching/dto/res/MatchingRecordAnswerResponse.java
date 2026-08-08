@@ -8,6 +8,6 @@ public record MatchingRecordAnswerResponse(
 ) {
 
 	public static MatchingRecordAnswerResponse from(RecordAnswer answer) {
-		return new MatchingRecordAnswerResponse(answer.getQuestionText(), answer.getAnswerText());
+		return new MatchingRecordAnswerResponse(answer.getTemplateQuestion().getQuestionText(), answer.getAnswerText());
 	}
 }

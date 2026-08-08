@@ -190,7 +190,7 @@ public class RecordService {
         }
 
         if (templateId != null) {
-            recordValidator.getReadableActiveTemplateOrThrow(userId, templateId);
+			recordValidator.getReadableTemplateOrThrow(userId, templateId);
         }
     }
 
@@ -204,7 +204,7 @@ public class RecordService {
         if (record.getDeletePendingUntil() != null && LocalDateTime.now().isAfter(record.getDeletePendingUntil())) {
             throw new CustomException(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
         }
-        if (record.getActivity().isDeleted() || record.getTemplate().isDeleted()) {
+		if (record.getActivity().isDeleted()) {
             throw new CustomException(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
         }
     }
@@ -212,7 +212,7 @@ public class RecordService {
     private Record getActiveRecordOrThrow(UUID userId, UUID recordId) {
         Record record = recordRepository.findByIdAndUser_IdAndDeletedAtIsNull(recordId, userId)
                 .orElseThrow(() -> new CustomException(RecordErrorCode.RECORD_NOT_FOUND));
-        if (record.getActivity().isDeleted() || record.getTemplate().isDeleted()) {
+		if (record.getActivity().isDeleted()) {
             throw new CustomException(RecordErrorCode.RECORD_NOT_FOUND);
         }
         return record;

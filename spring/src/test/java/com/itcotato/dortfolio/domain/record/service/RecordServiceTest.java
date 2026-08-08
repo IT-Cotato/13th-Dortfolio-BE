@@ -36,6 +36,7 @@ import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.RecordErrorCode;
+import com.itcotato.dortfolio.global.exception.types.TemplateErrorCode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -159,6 +160,27 @@ class RecordServiceTest {
 	}
 
 	@Test
+	void createRecordRejectsDeletedTemplate() {
+		User user = createUser();
+		Activity activity = createActivity(user, "도트폴리오");
+		Template template = createTemplate(user, "문제 해결", false);
+		template.delete();
+		templateRepository.saveAndFlush(template);
+
+		assertThatThrownBy(() -> recordService.createRecord(user.getId(), new RecordCreateRequest(
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(),
+				RecordStatus.DRAFT
+		)))
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(TemplateErrorCode.TEMPLATE_NOT_FOUND);
+	}
+
+	@Test
 	void createCompleteRecordRejectsMissingRequiredAnswer() {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
@@ -234,7 +256,6 @@ class RecordServiceTest {
 				List.of(),
 				RecordStatus.COMPLETED
 		));
-
 		assertThatThrownBy(() -> recordService.updateRecord(user.getId(), completed.id(), new RecordUpdateRequest(
 				"완료 기록 수정",
 				List.of(),
@@ -398,7 +419,7 @@ class RecordServiceTest {
 		recordService.permanentlyDeleteRecord(user.getId(), draft.id());
 
 		assertThat(recordRepository.findById(draft.id())).isEmpty();
-		assertThat(recordAnswerRepository.findAllByRecord_IdOrderBySortOrderAsc(draft.id())).isEmpty();
+		assertThat(recordAnswerRepository.findAllByRecord_IdOrderByTemplateQuestion_SortOrderAsc(draft.id())).isEmpty();
 		assertThat(recordMemoRepository.findAllByRecord_IdOrderBySortOrderAsc(draft.id())).isEmpty();
 		assertThat(recordAnalysisRepository.findByRecord_Id(draft.id())).isEmpty();
 		assertThat(recordEmbeddingRepository.countByRecord_Id(draft.id())).isZero();
@@ -474,7 +495,7 @@ class RecordServiceTest {
 	}
 
 	@Test
-	void restoreRecordRejectsDeletedTemplate() {
+	void restoreRecordAllowsDeletedTemplate() {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", false);
@@ -490,10 +511,9 @@ class RecordServiceTest {
 		template.delete();
 		templateRepository.save(template);
 
-		assertThatThrownBy(() -> recordService.restoreRecord(user.getId(), draft.id()))
-				.isInstanceOf(CustomException.class)
-				.extracting("errorCode")
-				.isEqualTo(RecordErrorCode.RECORD_RESTORE_NOT_ALLOWED);
+		recordService.restoreRecord(user.getId(), draft.id());
+
+		assertThat(recordService.getRecord(user.getId(), draft.id()).id()).isEqualTo(draft.id());
 	}
 
 	@Test
@@ -519,7 +539,7 @@ class RecordServiceTest {
 	}
 
 	@Test
-	void recordAnswerKeepsQuestionSnapshotAfterTemplateQuestionReplacement() {
+	void getRecordAllowsDeletedTemplate() {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", true);
@@ -533,7 +553,7 @@ class RecordServiceTest {
 				RecordStatus.DRAFT
 		));
 
-		template.replaceQuestions(List.of(TemplateQuestion.create("새 질문", "새 설명", false, 1)));
+		template.delete();
 		templateRepository.saveAndFlush(template);
 
 		RecordResponse response = recordService.getRecord(user.getId(), draft.id());
@@ -548,7 +568,7 @@ class RecordServiceTest {
 	}
 
 	@Test
-	void updateCompletedRecordValidatesRequiredAnswersBySnapshotQuestions() {
+	void updateRecordAllowsDeletedTemplate() {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", false);
@@ -561,7 +581,7 @@ class RecordServiceTest {
 				List.of(),
 				RecordStatus.COMPLETED
 		));
-		template.replaceQuestions(List.of(TemplateQuestion.create("새 필수 질문", "새 설명", true, 1)));
+		template.delete();
 		templateRepository.saveAndFlush(template);
 
 		RecordResponse updated = recordService.updateRecord(user.getId(), completed.id(), new RecordUpdateRequest(
@@ -613,6 +633,8 @@ class RecordServiceTest {
 				List.of(),
 				RecordStatus.COMPLETED
 		));
+		secondTemplate.delete();
+		templateRepository.saveAndFlush(secondTemplate);
 
 		assertThat(recordService.getRecords(user.getId(), firstActivity.getId(), null, null))
 				.extracting(record -> record.id())
@@ -732,7 +754,7 @@ class RecordServiceTest {
 
 	private Template createTemplate(User user, String title, boolean required) {
 		Template template = Template.createCustom(user, title, "설명");
-		template.addQuestion(TemplateQuestion.create("질문", "설명", required, 1));
+		template.initializeQuestions(List.of(TemplateQuestion.create("질문", "설명", required, 1)));
 		return templateRepository.save(template);
 	}
 

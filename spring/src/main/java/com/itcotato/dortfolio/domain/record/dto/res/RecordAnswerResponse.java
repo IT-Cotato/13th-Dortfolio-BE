@@ -12,12 +12,13 @@ public record RecordAnswerResponse(
 	String answerText
 ) {
 	public static RecordAnswerResponse from(RecordAnswer answer) {
+		var question = answer.getTemplateQuestion();
 		return new RecordAnswerResponse(
-			answer.getTemplateQuestionId(),
-			answer.getQuestionText(),
-			answer.getQuestionDescription(),
-			answer.isRequired(),
-			answer.getSortOrder(),
+			question.getId(),
+			question.getQuestionText(),
+			question.getDescription(),
+			question.isRequired(),
+			question.getSortOrder(),
 			answer.getAnswerText()
 		);
 	}

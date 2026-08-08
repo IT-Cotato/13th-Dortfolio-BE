@@ -18,6 +18,7 @@ import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.search.dto.res.RecordSearchPageResponse;
 import com.itcotato.dortfolio.domain.search.dto.res.RecordSearchResponse;
 import com.itcotato.dortfolio.domain.template.entity.Template;
+import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
@@ -25,6 +26,7 @@ import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.SearchErrorCode;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
@@ -125,6 +127,21 @@ class SearchServiceTest {
 
 		assertThat(result.totalElements()).isEqualTo(1);
 		assertThat(result.content().get(0).content()).isEqualTo("팀원과 갈등을 해결한 경험");
+	}
+
+	@Test
+	@DisplayName("삭제된 템플릿으로 작성한 기존 기록도 검색된다")
+	void searchRecordUsingDeletedTemplate() {
+		Fixture fixture = createFixture();
+		createRecord(fixture, "면접 준비 회고", "내용");
+		fixture.template().delete();
+		templateRepository.saveAndFlush(fixture.template());
+
+		RecordSearchPageResponse result = searchService.searchRecords(fixture.userId(), "면접", 0, null);
+
+		assertThat(result.content())
+				.extracting(RecordSearchResponse::title)
+				.containsExactly("면접 준비 회고");
 	}
 
 	@Test
@@ -306,7 +323,12 @@ class SearchServiceTest {
 				user, activityType, "활동", "설명",
 				LocalDate.now().minusDays(10), LocalDate.now(), false
 		));
-		Template template = templateRepository.save(Template.createCustom(user, "템플릿", null));
+		Template template = Template.createCustom(user, "템플릿", null);
+		template.initializeQuestions(List.of(
+				TemplateQuestion.create("질문 1", null, true, 1),
+				TemplateQuestion.create("질문 2", null, true, 2)
+		));
+		templateRepository.save(template);
 
 		return new Fixture(user.getId(), user, activity, template);
 	}
@@ -334,10 +356,7 @@ class SearchServiceTest {
 	private void saveAnswer(Record record, String answerText, int sortOrder) {
 		recordAnswerRepository.save(RecordAnswer.builder()
 				.record(record)
-				.templateQuestionId(UUID.randomUUID())
-				.questionText("질문")
-				.required(true)
-				.sortOrder(sortOrder)
+				.templateQuestion(record.getTemplate().getQuestions().get(sortOrder - 1))
 				.answerText(answerText)
 				.build());
 	}

@@ -161,8 +161,7 @@ public class RecordAnalysisService {
 	private boolean isAnalyzable(Record record) {
 		return record.getStatus() == RecordStatus.COMPLETED
 			&& !record.isDeleted()
-			&& !record.getActivity().isDeleted()
-			&& !record.getTemplate().isDeleted();
+			&& !record.getActivity().isDeleted();
 	}
 
 	private RecordAnalysisResponse requestAnalysis(RecordAnalysisRequest request) {

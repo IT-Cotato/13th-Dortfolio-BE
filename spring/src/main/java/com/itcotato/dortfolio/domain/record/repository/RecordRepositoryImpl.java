@@ -45,7 +45,6 @@ public class RecordRepositoryImpl implements RecordRepositoryCustom {
 				record.user.id.eq(userId),
 				record.deletedAt.isNull(),
 				record.activity.deletedAt.isNull(),
-				record.template.deletedAt.isNull(),
 				activityIdEq(condition.activityId()),
 				templateIdEq(condition.templateId()),
 				statusEq(condition.status())
@@ -63,8 +62,7 @@ public class RecordRepositoryImpl implements RecordRepositoryCustom {
 			.where(
 				record.user.id.eq(userId),
 				record.deletedAt.isNull(),
-				record.activity.deletedAt.isNull(),
-				record.template.deletedAt.isNull()
+				record.activity.deletedAt.isNull()
 			)
 			.orderBy(record.createdAt.desc(), record.updatedAt.desc(), record.id.desc())
 			.limit(limit)
@@ -80,7 +78,6 @@ public class RecordRepositoryImpl implements RecordRepositoryCustom {
 				record.user.id.eq(userId),
 				record.deletedAt.isNull(),
 				record.activity.deletedAt.isNull(),
-				record.template.deletedAt.isNull(),
 				activityIdEq(condition.activityId()),
 				templateIdEq(condition.templateId()),
 				statusEq(condition.status())
