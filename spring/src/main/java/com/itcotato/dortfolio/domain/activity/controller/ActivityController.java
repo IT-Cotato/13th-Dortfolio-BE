@@ -79,4 +79,15 @@ public class ActivityController implements ActivityControllerDocs {
         activityService.deleteActivity(userId, activityId);
         return ResponseEntity.ok(ApiResponse.success("활동을 삭제했습니다."));
     }
+
+    /* 삭제 실행취소 (기능명세서 5.2.2.1) */
+    @Override
+    @PatchMapping("/{activityId}/restore")
+    public ResponseEntity<ApiResponse<Void>> restoreActivity(
+            @AuthenticationPrincipal UUID userId,
+            @PathVariable UUID activityId
+    ) {
+        activityService.restoreActivity(userId, activityId);
+        return ResponseEntity.ok(ApiResponse.success("활동을 복구했습니다."));
+    }
 }
