@@ -48,7 +48,6 @@ public class RecordService {
         Activity activity = recordValidator.getActiveActivityOrThrow(userId, request.activityId());
         Template template = recordValidator.getReadableActiveTemplateOrThrow(userId, request.templateId());
 
-        recordValidator.validateActivityTemplate(activity.getId(), template.getId());
         recordAnswerService.validateCreateAnswers(template, request.answersOrEmpty());
 
         Record record = recordRepository.save(Record.builder()

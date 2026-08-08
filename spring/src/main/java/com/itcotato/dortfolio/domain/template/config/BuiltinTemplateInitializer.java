@@ -1,14 +1,9 @@
 package com.itcotato.dortfolio.domain.template.config;
 
-import com.itcotato.dortfolio.domain.template.entity.ActivityTemplate;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
-import com.itcotato.dortfolio.domain.template.repository.ActivityTemplateRepository;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
@@ -33,15 +28,7 @@ public class BuiltinTemplateInitializer {
 		"RETROSPECTIVE"
 	);
 
-	private static final Map<String, String> RETIRED_TO_DEFAULT_TEMPLATE_CODE = Map.of(
-		"PROJECT_EXPERIENCE", "IDEA_PLANNING",
-		"PROBLEM_SOLVING", "PROBLEM_SOLVING_RESULT",
-		"COLLABORATION", "COLLABORATION_CONFLICT",
-		"RETROSPECTIVE", "IMMERSION_CHALLENGE"
-	);
-
 	private final TemplateRepository templateRepository;
-	private final ActivityTemplateRepository activityTemplateRepository;
 	private final TransactionTemplate transactionTemplate;
 
 	@Bean
@@ -49,51 +36,12 @@ public class BuiltinTemplateInitializer {
 		// TODO: Flyway 도입 후 기본 템플릿 seed를 DB migration으로 이관하고 이 initializer를 제거한다.
 		return args -> {
 			transactionTemplate.executeWithoutResult(status -> {
-				List<Template> defaultTemplates = defaultTemplates().stream()
+				defaultTemplates().stream()
 					.map(this::upsert)
-					.map(templateRepository::save)
-					.toList();
-				migrateRetiredDefaultTemplateConnections(defaultTemplates);
+					.forEach(templateRepository::save);
 				retireOldBuiltinTemplates();
 			});
 		};
-	}
-
-	private void migrateRetiredDefaultTemplateConnections(List<Template> defaultTemplates) {
-		List<ActivityTemplate> retiredConnections =
-			activityTemplateRepository.findAllByTemplate_BuiltinCodeIn(RETIRED_TEMPLATE_CODES);
-		if (retiredConnections.isEmpty()) {
-			return;
-		}
-
-		Map<String, Template> templatesByCode = defaultTemplates.stream()
-			.collect(java.util.stream.Collectors.toMap(Template::getBuiltinCode, Function.identity()));
-		activityTemplateRepository.deleteAll(retiredConnections);
-		activityTemplateRepository.flush();
-
-		List<ActivityTemplate> newConnections = retiredConnections.stream()
-			.map(activityTemplate -> toReplacementActivityTemplate(activityTemplate, templatesByCode))
-			.filter(Objects::nonNull)
-			.filter(activityTemplate -> !activityTemplateRepository.existsByActivity_IdAndTemplate_Id(
-				activityTemplate.getActivityId(),
-				activityTemplate.getTemplateId()
-			))
-			.toList();
-
-		activityTemplateRepository.saveAll(newConnections);
-	}
-
-	private ActivityTemplate toReplacementActivityTemplate(
-		ActivityTemplate retiredConnection,
-		Map<String, Template> templatesByCode
-	) {
-		String defaultTemplateCode = RETIRED_TO_DEFAULT_TEMPLATE_CODE.get(retiredConnection.getTemplate().getBuiltinCode());
-		Template defaultTemplate = templatesByCode.get(defaultTemplateCode);
-		return defaultTemplate == null ? null : ActivityTemplate.create(
-			retiredConnection.getActivity(),
-			defaultTemplate,
-			retiredConnection.getSortOrder()
-		);
 	}
 
 	private void retireOldBuiltinTemplates() {
