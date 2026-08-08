@@ -60,6 +60,10 @@ public interface InsightControllerDocs {
                     description = "생성 요청 접수 또는 기존 PENDING 반환"
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증되지 않은 사용자"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "409",
                     description = """
                             I004: 생성 조건 미충족
@@ -89,6 +93,10 @@ public interface InsightControllerDocs {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "200",
                     description = "조회 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증되지 않은 사용자"
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
@@ -128,6 +136,10 @@ public interface InsightControllerDocs {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "200",
                     description = "최신 완료 Insight 조회 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증되지 않은 사용자"
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",

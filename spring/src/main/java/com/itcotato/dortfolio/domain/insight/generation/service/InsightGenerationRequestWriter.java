@@ -19,13 +19,16 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /* RequestWriter 책임 */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class InsightGenerationRequestWriter {
 
     private static final int REQUIRED_COMPETENCY_COUNT = 5;
@@ -107,9 +110,17 @@ public class InsightGenerationRequestWriter {
                     )
             );
         } catch (DataIntegrityViolationException exception) {
-            throw new CustomException(
-                    InsightErrorCode.INSIGHT_GENERATION_IN_PROGRESS
+            log.warn(
+                    "Insight PENDING 저장 실패. userId={}",
+                    userId,
+                    exception
             );
+            if (exception instanceof DuplicateKeyException) {
+                throw new CustomException(
+                        InsightErrorCode.INSIGHT_GENERATION_IN_PROGRESS
+                );
+            }
+            throw exception;
         }
 
         List<JobCompetencySnapshot> competencySnapshots =

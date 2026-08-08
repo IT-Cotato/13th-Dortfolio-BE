@@ -285,7 +285,8 @@ public class InsightGenerationWorker {
                         + "insightId={}, failureCode={}, exceptionType={}",
                 insightId,
                 failure.code(),
-                generationException.getClass().getSimpleName()
+                generationException.getClass().getSimpleName(),
+                generationException
         );
     }
 

@@ -82,6 +82,11 @@ class JdbcRecommendationCandidateQueryContainerTest {
                 "소유자의 기준 시각 이전 기록",
                 snapshotAt.minusHours(1)
         );
+        UUID boundaryRecordId = insertAnalyzedRecord(
+                ownerId,
+                "소유자의 기준 시각과 같은 기록",
+                snapshotAt
+        );
         insertAnalyzedRecord(
                 ownerId,
                 "소유자의 기준 시각 이후 기록",
@@ -105,7 +110,7 @@ class JdbcRecommendationCandidateQueryContainerTest {
 
         assertThat(result)
                 .extracting(RecommendationCandidate::recordId)
-                .containsExactly(expectedRecordId);
+                .containsExactly(boundaryRecordId, expectedRecordId);
     }
 
     private static UUID insertUser(String prefix) {

@@ -37,12 +37,15 @@ class FastApiInsightRecommendationClientContractTest {
         UUID competencyId = UUID.randomUUID();
         UUID recordId = UUID.randomUUID();
         AtomicReference<JsonNode> receivedBody = new AtomicReference<>();
+        AtomicReference<String> receivedMethod = new AtomicReference<>();
+        AtomicReference<String> receivedContentType = new AtomicReference<>();
 
         server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/ai/insights/recommendation", exchange -> {
-            assertThat(exchange.getRequestMethod()).isEqualTo("POST");
-            assertThat(exchange.getRequestHeaders().getFirst("Content-Type"))
-                    .startsWith("application/json");
+            receivedMethod.set(exchange.getRequestMethod());
+            receivedContentType.set(
+                    exchange.getRequestHeaders().getFirst("Content-Type")
+            );
             receivedBody.set(objectMapper.readTree(
                     exchange.getRequestBody()
             ));
@@ -99,6 +102,8 @@ class FastApiInsightRecommendationClientContractTest {
 
         RecommendationResult result = client.generate(request);
 
+        assertThat(receivedMethod.get()).isEqualTo("POST");
+        assertThat(receivedContentType.get()).startsWith("application/json");
         JsonNode body = receivedBody.get();
         assertThat(body.get("jobId").asText())
                 .isEqualTo(jobId.toString());

@@ -448,8 +448,8 @@ class InsightGenerationWorkerTest {
 
         verify(failureWriter).fail(
                 eq(INSIGHT_ID),
-                eq("I009"),
-                eq("Insight 생성에 사용할 분석 완료 기록이 없습니다.")
+                eq(InsightErrorCode.INSIGHT_ANALYZED_RECORDS_EMPTY.getCode()),
+                eq(InsightErrorCode.INSIGHT_ANALYZED_RECORDS_EMPTY.getMessage())
         );
 
         verify(generationLock).release(
@@ -504,7 +504,9 @@ class InsightGenerationWorkerTest {
 
         verify(failureWriter).fail(
                 eq(INSIGHT_ID),
-                eq("I001"),
+                eq(InsightErrorCode
+                        .INSIGHT_RECOMMENDATION_CANDIDATES_EMPTY
+                        .getCode()),
                 any()
         );
 
@@ -601,7 +603,7 @@ class InsightGenerationWorkerTest {
         // then
         verify(failureWriter).fail(
                 eq(INSIGHT_ID),
-                eq("I007"),
+                eq(InsightErrorCode.INSIGHT_GENERATION_FAILED.getCode()),
                 any()
         );
 

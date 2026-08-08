@@ -21,12 +21,12 @@ public record SignUpRequest(
         )
     String password,
 
-    // 닉네임 검증 (ERD 구조 반영)
+    // 닉네임 검증
     @NotBlank(message = "닉네임은 필수 입력 항목입니다.")
     @Size(max = 50, message = "닉네임은 50자를 초과할 수 없습니다.")
     String nickname,
 
-    // 약관 동의 (필수 항목 검증 유지)
+    // 약관 동의
     @NotNull(message = "이용약관 동의 여부가 누락되었습니다.")
     @AssertTrue(message = "이용약관 동의는 필수입니다.")
     Boolean isTermsAgreed,

@@ -205,6 +205,9 @@ class InsightGenerationResultWriterTest {
         Insight insight = createPendingInsight();
         UUID duplicatedStrengthTagId = UUID.randomUUID();
 
+        // 같은 strengthTagId는 InsightStrength.strengthTagIdSnapshot으로
+        // 매핑되어 uk_insight_strength_tag(insight_id,
+        // strength_tag_id_snapshot) 유니크 제약을 위반한다.
         InsightGenerationResult invalidResult =
                 new InsightGenerationResult(
                         insight.getId(),
