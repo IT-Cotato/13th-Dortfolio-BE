@@ -21,6 +21,8 @@ import com.itcotato.dortfolio.domain.record.dto.res.RecordPageResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordSummaryResponse;
 import com.itcotato.dortfolio.domain.record.entity.CompetencyTag;
+import com.itcotato.dortfolio.domain.record.entity.Record;
+import com.itcotato.dortfolio.domain.record.entity.RecordAnswer;
 import com.itcotato.dortfolio.domain.record.entity.RecordCompetencyTag;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
 import com.itcotato.dortfolio.domain.record.repository.CompetencyTagRepository;
@@ -42,6 +44,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -115,6 +118,11 @@ class RecordServiceTest {
 		userRepository.deleteAll();
 	}
 
+	@AfterEach
+	void tearDown() {
+		setUp();
+	}
+
 	@Test
 	void createDraftRecordWithAnswersAndMemos() {
 		User user = createUser();
@@ -164,6 +172,37 @@ class RecordServiceTest {
 		assertThat(response.answers())
 			.extracting(RecordAnswerResponse::questionText)
 			.containsExactly("현재 질문");
+	}
+
+	@Test
+	void getRecordReadsArchivedQuestionThroughAnswer() {
+		User user = createUser();
+		Activity activity = createActivity(user, "도트폴리오");
+		TemplateQuestion archivedQuestion = TemplateQuestion.create("이전 질문", "이전 설명", true, 1);
+		ReflectionTestUtils.setField(archivedQuestion, "deletedAt", LocalDateTime.now());
+		Template template = Template.createCustom(user, "문제 해결", null);
+		template.initializeQuestions(List.of(archivedQuestion));
+		templateRepository.save(template);
+		Record record = recordRepository.save(
+			Record.builder()
+				.user(user)
+				.activity(activity)
+				.template(template)
+				.title("이전 기록")
+				.build()
+		);
+		recordAnswerRepository.saveAndFlush(RecordAnswer.builder()
+			.record(record)
+			.templateQuestion(archivedQuestion)
+			.answerText("이전 답변")
+			.build());
+		entityManager.clear();
+
+		RecordResponse response = recordService.getRecord(user.getId(), record.getId());
+
+		assertThat(response.answers())
+			.extracting(RecordAnswerResponse::questionText, RecordAnswerResponse::answerText)
+			.containsExactly(tuple("이전 질문", "이전 답변"));
 	}
 
 	@Test

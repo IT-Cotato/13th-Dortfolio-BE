@@ -23,6 +23,7 @@ class FlywayMigrationTest {
 	private static final String ORPHAN_ANSWER_ID = "00000000-0000-0000-0000-000000000031";
 	private static final String UPDATED_ANSWER_ID = "00000000-0000-0000-0000-000000000032";
 	private static final String DELETED_ANSWER_ID = "00000000-0000-0000-0000-000000000033";
+	private static final String DUPLICATE_SNAPSHOT_ANSWER_ID = "00000000-0000-0000-0000-000000000034";
 
 	@Container
 	private final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(
@@ -69,6 +70,15 @@ class FlywayMigrationTest {
 			true
 		);
 		assertHistoryAnswer(
+			DUPLICATE_SNAPSHOT_ANSWER_ID,
+			CURRENT_QUESTION_ID,
+			"이전 질문",
+			"이전 설명",
+			true,
+			1,
+			true
+		);
+		assertHistoryAnswer(
 			DELETED_ANSWER_ID,
 			DELETED_QUESTION_ID,
 			"삭제 질문",
@@ -77,6 +87,8 @@ class FlywayMigrationTest {
 			3,
 			false
 		);
+		assertThat(findQuestionId(UPDATED_ANSWER_ID))
+			.isEqualTo(findQuestionId(DUPLICATE_SNAPSHOT_ANSWER_ID));
 		assertLegacyTemplateQuestionsRemainSeparated();
 		assertRecordAnswersNormalized();
 	}
@@ -151,6 +163,11 @@ class FlywayMigrationTest {
 				where table_name = 'template_questions'
 					and column_name = 'deleted_at'
 				""", Integer.class)).isEqualTo(1);
+		assertThat(jdbcTemplate().queryForObject("""
+				select pg_get_constraintdef(oid)
+				from pg_constraint
+				where conname = 'fk_template_questions_template'
+				""", String.class)).contains("ON DELETE CASCADE");
 	}
 
 	private void seedLegacyRecordAnswers() {
@@ -200,6 +217,7 @@ class FlywayMigrationTest {
 		insertLegacyRecord(jdbcTemplate, "00000000-0000-0000-0000-000000000021", "orphan 기록");
 		insertLegacyRecord(jdbcTemplate, "00000000-0000-0000-0000-000000000022", "수정된 질문 기록");
 		insertLegacyRecord(jdbcTemplate, "00000000-0000-0000-0000-000000000023", "삭제된 질문 기록");
+		insertLegacyRecord(jdbcTemplate, "00000000-0000-0000-0000-000000000024", "같은 질문 기록");
 		insertLegacyAnswer(
 			jdbcTemplate,
 			ORPHAN_ANSWER_ID,
@@ -229,6 +247,16 @@ class FlywayMigrationTest {
 			"삭제 설명",
 			true,
 			3
+		);
+		insertLegacyAnswer(
+			jdbcTemplate,
+			DUPLICATE_SNAPSHOT_ANSWER_ID,
+			"00000000-0000-0000-0000-000000000024",
+			CURRENT_QUESTION_ID,
+			"이전 질문",
+			"이전 설명",
+			true,
+			1
 		);
 	}
 
@@ -298,6 +326,14 @@ class FlywayMigrationTest {
 			.containsEntry("required", required)
 			.containsEntry("sort_order", sortOrder);
 		assertThat(row.get("deleted_at")).isNotNull();
+	}
+
+	private String findQuestionId(String answerId) {
+		return jdbcTemplate().queryForObject("""
+			select template_question_id::text
+			from record_answers
+			where id = ?::uuid
+			""", String.class, answerId);
 	}
 
 	private void assertLegacyTemplateQuestionsRemainSeparated() {

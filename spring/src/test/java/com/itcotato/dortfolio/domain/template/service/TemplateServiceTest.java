@@ -96,7 +96,12 @@ class TemplateServiceTest {
 		ReflectionTestUtils.setField(archivedQuestion, "deletedAt", LocalDateTime.now());
 		Template template = Template.createCustom(user, "커스텀", null);
 		template.initializeQuestions(List.of(activeQuestion, archivedQuestion));
-		templateRepository.save(template);
+		templateRepository.saveAndFlush(template);
+
+		Template reloaded = templateRepository.findByIdAndDeletedAtIsNull(template.getId()).orElseThrow();
+		assertThat(reloaded.getQuestions())
+			.extracting(TemplateQuestion::getQuestionText)
+			.containsExactly("현재 질문");
 
 		TemplateResponse response = templateService.getTemplate(user.getId(), template.getId());
 

@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 @Getter
 @Entity
@@ -24,6 +26,7 @@ public class TemplateQuestion extends BaseEntity {
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "template_id", nullable = false)
+	@OnDelete(action = OnDeleteAction.CASCADE)
 	private Template template;
 
 	@Column(name = "builtin_code", unique = true, length = BUILTIN_CODE_MAX_LENGTH)
@@ -68,9 +71,5 @@ public class TemplateQuestion extends BaseEntity {
 
 	void assignTemplate(Template template) {
 		this.template = template;
-	}
-
-	public boolean isDeleted() {
-		return deletedAt != null;
 	}
 }

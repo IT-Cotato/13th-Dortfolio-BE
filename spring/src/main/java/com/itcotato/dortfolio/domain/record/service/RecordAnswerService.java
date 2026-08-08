@@ -129,7 +129,6 @@ public class RecordAnswerService {
 
 	private List<TemplateQuestion> questions(Template template) {
 		return template.getQuestions().stream()
-			.filter(question -> !question.isDeleted())
 			.sorted(Comparator.comparingInt(TemplateQuestion::getSortOrder))
 			.toList();
 	}
