@@ -47,6 +47,18 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
+aws:
+  s3:
+    # 기본값을 두지 않는다. 운영 버킷 이름을 기본값으로 넣으면
+    # 다른 환경에서 유효한 자격 증명이 있을 때 운영 버킷에 파일을 쓰거나 지울 수 있다
+    bucket: ${AWS_S3_BUCKET:}
+    region: ${AWS_REGION:ap-northeast-2}
+    access-key: ${AWS_ACCESS_KEY_ID:}
+    secret-key: ${AWS_SECRET_ACCESS_KEY:}
+    # 업로드 URL은 발급 직후 한 번 쓰이고, 조회 URL은 화면을 보는 동안 유효해야 한다
+    upload-url-expiration: ${AWS_S3_UPLOAD_URL_EXPIRATION:5m}
+    download-url-expiration: ${AWS_S3_DOWNLOAD_URL_EXPIRATION:30m}
+
 jwt:
   secret: ${JWT_SECRET}
   salt: ${JWT_SALT}
@@ -56,15 +68,15 @@ jwt:
 app:
   cors:
     # 쉼표로 구분. 배포 환경에서는 프론트 주소(Vercel 등)를 CORS_ALLOWED_ORIGINS로 넘긴다
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:8080}
   fastapi:
     base-url: ${FASTAPI_BASE_URL:http://localhost:8000}
     connect-timeout: ${FASTAPI_CONNECT_TIMEOUT:3s}
     read-timeout: ${FASTAPI_READ_TIMEOUT:30s}
-  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
   oauth2:
-    success-redirect-uri: ${FRONTEND_URL:http://localhost:3000}/oauth/redirect
-    failure-redirect-uri: ${FRONTEND_URL:http://localhost:3000}/login
+    success-redirect-uri: ${FRONTEND_URL:http://localhost:5173}/oauth/redirect
+    failure-redirect-uri: ${FRONTEND_URL:http://localhost:5173}/login
 
 record:
   delete-grace-period-days: ${RECORD_DELETE_GRACE_PERIOD_DAYS:30}

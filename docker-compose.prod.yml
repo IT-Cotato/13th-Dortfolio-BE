@@ -83,8 +83,12 @@ services:
       FASTAPI_BASE_URL: http://fastapi:8000
       FRONTEND_URL: ${FRONTEND_URL}
       # 프론트(Vercel 등) 주소. 없으면 로컬 개발 주소만 허용된다
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
       RECORD_ANALYSIS_ENABLED: ${RECORD_ANALYSIS_ENABLED:-true}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      AWS_REGION: ${AWS_REGION:-ap-northeast-2}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
     ports:
       # 외부 요청은 nginx(80/443)가 받는다.
       # 8080은 루프백에만 바인딩해서 서버 안에서만 접근되게 한다

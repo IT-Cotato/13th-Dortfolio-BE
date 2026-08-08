@@ -61,9 +61,9 @@ app:
     connect-timeout: ${FASTAPI_CONNECT_TIMEOUT:3s}
     read-timeout: ${FASTAPI_READ_TIMEOUT:30s}
   oauth2:
-    success-redirect-uri: http://localhost:3000/oauth/redirect
-    failure-redirect-uri: http://localhost:3000/login
-  frontend-url: http://localhost:3000
+    success-redirect-uri: http://localhost:5173/oauth/redirect
+    failure-redirect-uri: http://localhost:5173/login
+  frontend-url: http://localhost:5173
 
 logging:
   level:
