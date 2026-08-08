@@ -78,7 +78,7 @@ public class LatestInsightQueryService {
 
         List<InsightJobRecommendation> recommendations =
                 recommendationRepository
-                        .findAllByInsight_IdOrderByJobCompetencyIdSnapshotAsc(
+                        .findAllByInsight_IdOrderBySortOrderSnapshotAscJobCompetencyIdSnapshotAsc(
                                 insightId
                         );
 

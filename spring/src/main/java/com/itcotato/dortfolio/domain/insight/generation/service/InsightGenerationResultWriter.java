@@ -128,14 +128,18 @@ public class InsightGenerationResultWriter {
             Insight insight,
             InsightGenerationResult result
     ) {
-        for (JobRecommendationResult recommendationResult
-                : result.recommendations()) {
+        for (int sortOrder = 0;
+                sortOrder < result.recommendations().size();
+                sortOrder++) {
+            JobRecommendationResult recommendationResult =
+                    result.recommendations().get(sortOrder);
 
             InsightJobRecommendation recommendation =
                     InsightJobRecommendation.create(
                             insight,
                             recommendationResult.jobCompetencyId(),
                             recommendationResult.competencyName(),
+                            sortOrder,
                             recommendationResult.recordId(),
                             recommendationResult.recordTitle(),
                             recommendationResult.templateName(),

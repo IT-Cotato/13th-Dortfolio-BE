@@ -136,7 +136,7 @@ class LatestInsightQueryServiceTest {
                         INSIGHT_ID
                 )).thenReturn(List.of(template));
         when(recommendationRepository
-                .findAllByInsight_IdOrderByJobCompetencyIdSnapshotAsc(
+                .findAllByInsight_IdOrderBySortOrderSnapshotAscJobCompetencyIdSnapshotAsc(
                         INSIGHT_ID
                 )).thenReturn(List.of(recommendation));
         when(recordRepository.findAvailableRecordIds(
@@ -226,7 +226,7 @@ class LatestInsightQueryServiceTest {
                         INSIGHT_ID
                 )).thenReturn(List.of());
         when(recommendationRepository
-                .findAllByInsight_IdOrderByJobCompetencyIdSnapshotAsc(
+                .findAllByInsight_IdOrderBySortOrderSnapshotAscJobCompetencyIdSnapshotAsc(
                         INSIGHT_ID
                 )).thenReturn(List.of());
         when(insightRepository.findPendingByUserId(USER_ID))

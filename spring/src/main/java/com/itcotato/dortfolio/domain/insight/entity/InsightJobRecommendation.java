@@ -33,6 +33,9 @@ public class InsightJobRecommendation extends BaseEntity {
     @Column(name = "competency_name_snapshot", nullable = false)
     private String competencyNameSnapshot;
 
+    @Column(name = "sort_order_snapshot", nullable = false)
+    private int sortOrderSnapshot;
+
     @Column(name = "record_id_snapshot", nullable = false)
     private UUID recordIdSnapshot;
 
@@ -52,6 +55,7 @@ public class InsightJobRecommendation extends BaseEntity {
             Insight insight,
             UUID jobCompetencyIdSnapshot,
             String competencyNameSnapshot,
+            int sortOrderSnapshot,
             UUID recordIdSnapshot,
             String recordTitleSnapshot,
             String templateNameSnapshot,
@@ -61,6 +65,7 @@ public class InsightJobRecommendation extends BaseEntity {
         this.insight = insight;
         this.jobCompetencyIdSnapshot = jobCompetencyIdSnapshot;
         this.competencyNameSnapshot = competencyNameSnapshot;
+        this.sortOrderSnapshot = sortOrderSnapshot;
         this.recordIdSnapshot = recordIdSnapshot;
         this.recordTitleSnapshot = recordTitleSnapshot;
         this.templateNameSnapshot = templateNameSnapshot;
@@ -72,6 +77,7 @@ public class InsightJobRecommendation extends BaseEntity {
             Insight insight,
             UUID jobCompetencyIdSnapshot,
             String competencyNameSnapshot,
+            int sortOrderSnapshot,
             UUID recordIdSnapshot,
             String recordTitleSnapshot,
             String templateNameSnapshot,
@@ -82,6 +88,7 @@ public class InsightJobRecommendation extends BaseEntity {
                 insight,
                 jobCompetencyIdSnapshot,
                 competencyNameSnapshot,
+                sortOrderSnapshot,
                 recordIdSnapshot,
                 recordTitleSnapshot,
                 templateNameSnapshot,

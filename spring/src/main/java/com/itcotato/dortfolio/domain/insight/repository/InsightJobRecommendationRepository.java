@@ -13,7 +13,7 @@ public interface InsightJobRecommendationRepository
     );
 
     List<InsightJobRecommendation>
-    findAllByInsight_IdOrderByJobCompetencyIdSnapshotAsc(
+    findAllByInsight_IdOrderBySortOrderSnapshotAscJobCompetencyIdSnapshotAsc(
             UUID insightId
     );
 }
