@@ -105,12 +105,15 @@ class InsightEligibilityServiceTest {
         givenPrimaryJob();
         given(recordRepository.countAvailableCompletedByUserId(USER_ID))
                 .willReturn(9L);
+        given(insightRecordQueryRepository.countEligibleRecords(USER_ID))
+                .willReturn(9L);
 
         InsightEligibilityResponse result = eligibilityService.check(USER_ID);
 
         assertThat(result.reason())
                 .isEqualTo(InsightEligibilityReason.NOT_ENOUGH_COMPLETED_RECORDS);
         assertThat(result.completedRecordCount()).isEqualTo(9);
+        assertThat(result.analyzedRecordCount()).isEqualTo(9);
         assertThat(result.requiredRecordCount()).isEqualTo(10);
     }
 
@@ -139,6 +142,35 @@ class InsightEligibilityServiceTest {
 
         assertThat(result.eligible()).isTrue();
         assertThat(result.reason()).isEqualTo(InsightEligibilityReason.AVAILABLE);
+        assertThat(result.completedRecordCount()).isEqualTo(10);
+        assertThat(result.analyzedRecordCount()).isEqualTo(10);
+    }
+
+    @Test
+    void checksGenerationEligibilityAtRequestedSnapshot() {
+        givenPrimaryJob();
+        given(recordRepository.countAvailableCompletedByUserIdAt(
+                USER_ID,
+                SNAPSHOT_AT
+        )).willReturn(10L);
+        given(insightRecordQueryRepository.countEligibleRecordsAt(
+                USER_ID,
+                SNAPSHOT_AT
+        )).willReturn(10L);
+        given(insightRepository.existsByUser_IdAndStatusIn(
+                USER_ID,
+                java.util.List.of(
+                        InsightGenerationStatus.PENDING,
+                        InsightGenerationStatus.RUNNING
+                )
+        )).willReturn(false);
+        given(insightRepository.findLatestCompletedByUserId(USER_ID))
+                .willReturn(Optional.empty());
+
+        InsightEligibilityResponse result =
+                eligibilityService.check(USER_ID, SNAPSHOT_AT);
+
+        assertThat(result.eligible()).isTrue();
         assertThat(result.completedRecordCount()).isEqualTo(10);
         assertThat(result.analyzedRecordCount()).isEqualTo(10);
     }
