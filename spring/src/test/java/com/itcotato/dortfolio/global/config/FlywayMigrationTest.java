@@ -28,7 +28,7 @@ class FlywayMigrationTest {
 		assertThat(result.migrationsExecuted).isEqualTo(5);
 		assertThat(result.targetSchemaVersion).isEqualTo("5");
 		assertMatchingIndexesCreated();
-		assertMemoColorDropped();
+		assertRunningInsightStatusAllowed();
 	}
 
 	private Flyway flyway() {
@@ -66,13 +66,11 @@ class FlywayMigrationTest {
 				""", Integer.class)).isEqualTo(2);
 	}
 
-	// V4: 메모에는 색상 개념이 없어 컬럼을 제거했다
-	private void assertMemoColorDropped() {
+	private void assertRunningInsightStatusAllowed() {
 		assertThat(jdbcTemplate().queryForObject("""
-				select count(*)
-				from information_schema.columns
-				where table_name = 'memos'
-					and column_name = 'color'
-				""", Integer.class)).isZero();
+				select pg_get_constraintdef(oid)
+				from pg_constraint
+				where conname = 'insights_status_check'
+				""", String.class)).contains("RUNNING");
 	}
 }
