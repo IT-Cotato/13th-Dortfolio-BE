@@ -13,6 +13,6 @@ WHERE id IN (
     WHERE row_number > 1
 );
 
-CREATE UNIQUE INDEX uq_user_jobs_single_primary
+CREATE UNIQUE INDEX CONCURRENTLY uq_user_jobs_single_primary
     ON user_jobs (user_id)
     WHERE is_primary = true;

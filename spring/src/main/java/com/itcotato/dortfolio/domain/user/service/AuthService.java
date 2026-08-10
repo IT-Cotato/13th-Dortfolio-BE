@@ -120,6 +120,7 @@ public class AuthService {
 
         cookieUtil.deleteCookie(response, "accessToken");
         cookieUtil.deleteCookie(response, "refreshToken");
+        cookieUtil.deleteCookie(response, "XSRF-TOKEN");
     }
 
     /* 회원 탈퇴 로직 */
@@ -138,5 +139,6 @@ public class AuthService {
 
         cookieUtil.deleteCookie(response, "accessToken");
         cookieUtil.deleteCookie(response, "refreshToken");
+        cookieUtil.deleteCookie(response, "XSRF-TOKEN");
     }
 }
