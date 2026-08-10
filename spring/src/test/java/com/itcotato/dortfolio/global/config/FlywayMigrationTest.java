@@ -25,10 +25,11 @@ class FlywayMigrationTest {
 	void migratesFreshSchemaThroughLatestVersion() {
 		MigrateResult result = flyway().migrate();
 
-		assertThat(result.migrationsExecuted).isEqualTo(7);
-		assertThat(result.targetSchemaVersion).isEqualTo("7");
+		assertThat(result.migrationsExecuted).isEqualTo(8);
+		assertThat(result.targetSchemaVersion).isEqualTo("8");
 		assertMatchingIndexesCreated();
 		assertRunningInsightStatusAllowed();
+		assertUserOwnedDataCascadesOnDelete();
 	}
 
 	private Flyway flyway() {
@@ -72,5 +73,14 @@ class FlywayMigrationTest {
 				from pg_constraint
 				where conname = 'insights_status_check'
 				""", String.class)).contains("RUNNING");
+	}
+
+	private void assertUserOwnedDataCascadesOnDelete() {
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from pg_constraint
+				where confrelid = 'users'::regclass
+					and confdeltype = 'c'
+				""", Integer.class)).isEqualTo(10);
 	}
 }
