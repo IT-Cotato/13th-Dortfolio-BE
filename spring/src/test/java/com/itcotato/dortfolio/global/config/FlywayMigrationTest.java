@@ -25,11 +25,12 @@ class FlywayMigrationTest {
 	void migratesFreshSchemaThroughLatestVersion() {
 		MigrateResult result = flyway().migrate();
 
-		assertThat(result.migrationsExecuted).isEqualTo(8);
-		assertThat(result.targetSchemaVersion).isEqualTo("8");
+		assertThat(result.migrationsExecuted).isEqualTo(9);
+		assertThat(result.targetSchemaVersion).isEqualTo("9");
 		assertMatchingIndexesCreated();
 		assertRunningInsightStatusAllowed();
 		assertUserOwnedDataCascadesOnDelete();
+		assertSinglePrimaryUserJobConstraintCreated();
 	}
 
 	private Flyway flyway() {
@@ -82,5 +83,14 @@ class FlywayMigrationTest {
 				where confrelid = 'users'::regclass
 					and confdeltype = 'c'
 				""", Integer.class)).isEqualTo(10);
+	}
+
+	private void assertSinglePrimaryUserJobConstraintCreated() {
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from pg_indexes
+				where tablename = 'user_jobs'
+					and indexname = 'uq_user_jobs_single_primary'
+				""", Integer.class)).isEqualTo(1);
 	}
 }

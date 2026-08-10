@@ -47,7 +47,7 @@ public class MyPageController implements MyPageControllerDocs {
             @AuthenticationPrincipal UUID userId,
             @Valid @RequestBody ProfileImagePresignedUrlRequest request
     ) {
-        ProfileImagePresignedUrlResponse response = myPageService.createProfileImagePresignedUrl(request);
+        ProfileImagePresignedUrlResponse response = myPageService.createProfileImagePresignedUrl(userId, request);
         return ResponseEntity.ok(ApiResponse.success("Presigned URL 발급에 성공하였습니다.", response));
     }
 
