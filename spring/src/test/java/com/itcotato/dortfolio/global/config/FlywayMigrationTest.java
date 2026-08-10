@@ -27,8 +27,8 @@ class FlywayMigrationTest {
 	void migratesFreshSchemaThroughLatestVersion() {
 		MigrateResult result = flyway().migrate();
 
-		assertThat(result.migrationsExecuted).isEqualTo(10);
-		assertThat(result.targetSchemaVersion).isEqualTo("10");
+		assertThat(result.migrationsExecuted).isEqualTo(11);
+		assertThat(result.targetSchemaVersion).isEqualTo("11");
 		assertMatchingIndexesCreated();
 		assertRunningInsightStatusAllowed();
 		assertUserOwnedDataCascadesOnDelete();

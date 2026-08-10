@@ -1,5 +1,6 @@
 package com.itcotato.dortfolio.global.security.oauth;
 
+import com.itcotato.dortfolio.domain.activity.service.ActivityTypeService;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.types.UserErrorCode;
@@ -25,6 +26,7 @@ import java.util.Optional;
 public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
 
     private final UserRepository userRepository;
+    private final ActivityTypeService activityTypeService;
 
     @Override
     @Transactional
@@ -98,6 +100,10 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                     providerId
             );
             userRepository.save(user);
+
+            // 소셜 로그인으로 처음 가입한 경우에도 기본 활동 종류를 만들어준다.
+            // 이메일 가입 경로와 동작이 달라지면 가입 방식에 따라 화면이 달라진다
+            activityTypeService.createDefaultTypes(user);
         }
 
         return new CustomOAuth2User(

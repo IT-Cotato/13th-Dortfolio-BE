@@ -11,4 +11,6 @@ public interface ActivityTypeRepository extends JpaRepository<ActivityType, UUID
     List<ActivityType> findAllByUser_Id(UUID userId);
 
     Optional<ActivityType> findByIdAndUser_Id(UUID id, UUID userId);
+
+    boolean existsByUser_Id(UUID userId);
 }
