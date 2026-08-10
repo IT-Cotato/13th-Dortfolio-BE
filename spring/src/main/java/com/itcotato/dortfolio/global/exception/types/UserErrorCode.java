@@ -23,7 +23,8 @@ public enum UserErrorCode implements ErrorCode {
     INVALID_TOKEN_SIGNATURE(HttpStatus.UNAUTHORIZED, "U011", "잘못된 JWT 서명입니다."),
     EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "U012", "만료된 JWT 토큰입니다."),
     UNSUPPORTED_TOKEN(HttpStatus.UNAUTHORIZED, "U013", "지원되지 않는 JWT 토큰입니다."),
-    EMPTY_TOKEN(HttpStatus.BAD_REQUEST, "U014", "JWT 토큰이 비어있거나 잘못되었습니다.");
+    EMPTY_TOKEN(HttpStatus.BAD_REQUEST, "U014", "JWT 토큰이 비어있거나 잘못되었습니다."),
+    INVALID_PROFILE_IMAGE_KEY(HttpStatus.BAD_REQUEST, "U015", "유효하지 않은 프로필 이미지 경로입니다.");
 
 
     private final HttpStatus status;

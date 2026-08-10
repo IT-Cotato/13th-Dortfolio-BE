@@ -14,6 +14,8 @@ import com.itcotato.dortfolio.global.exception.types.UserErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.UUID;
 
@@ -32,17 +34,18 @@ public class MyPageService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
 
-        String desiredJobName = userJobRepository.findByUserIdAndIsPrimaryTrue(userId)
-                .map(userJob -> userJob.getJob().getName())
-                .orElse(null);
+        UserJob primaryJob = userJobRepository.findByUserIdAndIsPrimaryTrue(userId).orElse(null);
+        UUID desiredJobId = primaryJob == null ? null : primaryJob.getJob().getId();
+        String desiredJobName = primaryJob == null ? null : primaryJob.getJob().getName();
+        String profileImageUrl = s3Provider.generateDownloadUrl(user.getProfileImageUrl());
 
-        return MyPageResponse.of(user, desiredJobName);
+        return MyPageResponse.of(user, profileImageUrl, desiredJobId, desiredJobName);
     }
 
     /* 희망 직무 변경 로직 */
     @Transactional
     public void updateDesiredJob(UUID userId, UpdateDesiredJobRequest request) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
 
         Job job = jobRepository.findById(request.jobId())
@@ -58,8 +61,18 @@ public class MyPageService {
     }
 
     /* 프로필 이미지 업로드 Presigned URL 발급 로직 */
-    public ProfileImagePresignedUrlResponse createProfileImagePresignedUrl(ProfileImagePresignedUrlRequest request) {
-        S3Provider.PresignedUrlResponse result = s3Provider.generatePresignedUrl("profile", request.fileName());
+    public ProfileImagePresignedUrlResponse createProfileImagePresignedUrl(
+            UUID userId,
+            ProfileImagePresignedUrlRequest request
+    ) {
+        if (!userRepository.existsById(userId)) {
+            throw new CustomException(UserErrorCode.USER_NOT_FOUND);
+        }
+
+        S3Provider.PresignedUrlResponse result = s3Provider.generatePresignedUrl(
+                "profile/" + userId,
+                request.fileName()
+        );
         return new ProfileImagePresignedUrlResponse(result.presignedUrl(), result.s3Key());
     }
 
@@ -69,6 +82,39 @@ public class MyPageService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
 
+        validateProfileImageKey(userId, request.profileImageUrl());
+
+        String previousProfileImageKey = user.getProfileImageUrl();
         user.updateProfile(request.name(), request.profileImageUrl());
+
+        if (request.profileImageUrl() != null
+                && !request.profileImageUrl().equals(previousProfileImageKey)) {
+            deletePreviousImageAfterCommit(previousProfileImageKey);
+        }
+    }
+
+    private void deletePreviousImageAfterCommit(String previousProfileImageKey) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            s3Provider.deleteObject(previousProfileImageKey);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                s3Provider.deleteObject(previousProfileImageKey);
+            }
+        });
+    }
+
+    private void validateProfileImageKey(UUID userId, String profileImageKey) {
+        if (profileImageKey == null || profileImageKey.isBlank()) {
+            return;
+        }
+
+        String expectedPrefix = "profile/" + userId + "/";
+        if (!profileImageKey.startsWith(expectedPrefix)) {
+            throw new CustomException(UserErrorCode.INVALID_PROFILE_IMAGE_KEY);
+        }
     }
 }

@@ -31,7 +31,7 @@ dependencies {
 	runtimeOnly 'org.postgresql:postgresql'
 	implementation 'org.springframework.boot:spring-boot-flyway'
 	implementation 'org.flywaydb:flyway-core'
-	runtimeOnly 'org.flywaydb:flyway-database-postgresql'
+	implementation 'org.flywaydb:flyway-database-postgresql'
 	annotationProcessor 'org.projectlombok:lombok'
 	annotationProcessor 'com.querydsl:querydsl-apt:5.1.0:jakarta'
 	annotationProcessor 'jakarta.annotation:jakarta.annotation-api'
