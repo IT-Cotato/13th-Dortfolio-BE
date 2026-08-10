@@ -48,6 +48,8 @@ public class SecurityConfig {
             "/swagger-ui.html"
     };
 
+    // 비밀번호 재설정은 로그인하지 못하는 사용자가 쓰는 기능이라 인증을 요구할 수 없다.
+    // 경로는 AuthController의 매핑과 정확히 일치해야 한다
     private static final String[] PUBLIC_AUTH_PATHS = {
             "/api/auth/signup",
             "/api/auth/login",
