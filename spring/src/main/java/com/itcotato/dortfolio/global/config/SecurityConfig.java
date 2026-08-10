@@ -51,7 +51,8 @@ public class SecurityConfig {
     private static final String[] PUBLIC_AUTH_PATHS = {
             "/api/auth/signup",
             "/api/auth/login",
-            "/api/auth/password-reset/**"
+            "/api/auth/reset-request",
+            "/api/auth/reset"
     };
 
     @Bean
