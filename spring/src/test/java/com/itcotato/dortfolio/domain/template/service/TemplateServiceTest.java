@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.itcotato.dortfolio.domain.template.dto.req.TemplateCreateRequest;
 import com.itcotato.dortfolio.domain.template.dto.req.TemplateQuestionRequest;
 import com.itcotato.dortfolio.domain.template.dto.res.TemplateResponse;
-import com.itcotato.dortfolio.domain.template.config.BuiltinTemplateInitializer;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
@@ -111,7 +110,6 @@ class TemplateServiceTest {
 				.filter(TemplateResponse::isBuiltin)
 				.map(TemplateResponse::title))
 				.containsExactly("아이디어·기획", "협업·갈등", "문제해결·성과", "몰입·도전");
-		assertThat(BuiltinTemplateInitializer.DEFAULT_TEMPLATE_CODES).hasSize(4);
 	}
 
 	private static class TemplateQuestionRequestFixture {

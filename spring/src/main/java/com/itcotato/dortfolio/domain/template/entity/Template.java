@@ -25,7 +25,7 @@ import lombok.NoArgsConstructor;
 public class Template extends BaseEntity {
 
 	public static final int TITLE_MAX_LENGTH = 20;
-	public static final int DESCRIPTION_MAX_LENGTH = 50;
+	public static final int DESCRIPTION_MAX_LENGTH = 255;
 	public static final int BUILTIN_CODE_MAX_LENGTH = 50;
 
 	@ManyToOne(fetch = FetchType.LAZY)

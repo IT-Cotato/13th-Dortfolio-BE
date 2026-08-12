@@ -8,7 +8,6 @@ import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
 import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
-import com.itcotato.dortfolio.domain.template.config.BuiltinTemplateInitializer;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
@@ -19,8 +18,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.DefaultApplicationArguments;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -46,17 +43,13 @@ class ActivityServiceTest {
 	@Autowired
 	private TemplateRepository templateRepository;
 
-	@Autowired
-	private ApplicationRunner initializeBuiltinTemplates;
-
 	@BeforeEach
-	void setUp() throws Exception {
+	void setUp() {
 		recordRepository.deleteAll();
 		activityRepository.deleteAll();
 		activityTypeRepository.deleteAll();
 		templateRepository.deleteAll();
 		userRepository.deleteAll();
-		initializeBuiltinTemplates.run(new DefaultApplicationArguments());
 	}
 
 	@Test
@@ -139,9 +132,7 @@ class ActivityServiceTest {
 	}
 
 	private Record createRecord(User user, UUID activityId) {
-		Template template = templateRepository
-				.findAllByBuiltinCodeInAndDeletedAtIsNull(BuiltinTemplateInitializer.DEFAULT_TEMPLATE_CODES)
-				.get(0);
+		Template template = templateRepository.save(Template.createCustom(user, "기록 템플릿", "설명"));
 
 		return recordRepository.save(Record.builder()
 				.user(user)
