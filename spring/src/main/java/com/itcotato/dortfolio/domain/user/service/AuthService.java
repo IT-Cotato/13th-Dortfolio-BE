@@ -1,5 +1,6 @@
 package com.itcotato.dortfolio.domain.user.service;
 
+import com.itcotato.dortfolio.domain.activity.service.ActivityTypeService;
 import com.itcotato.dortfolio.domain.user.dto.LoginRequest;
 import com.itcotato.dortfolio.domain.user.dto.SignUpRequest;
 import com.itcotato.dortfolio.domain.user.dto.TokenResponse;
@@ -40,6 +41,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final RedisUtil redisUtil;
     private final CookieUtil cookieUtil;
+    private final ActivityTypeService activityTypeService;
 
     /* 회원가입 로직 */
     @Transactional
@@ -74,6 +76,9 @@ public class AuthService {
         userTermAgreementRepository.save(
                 UserTermAgreement.create(user, "MARKETING", request.isMarketingAgreed())
         );
+
+        // 활동 생성 화면에서 바로 고를 수 있도록 기본 활동 종류를 만들어준다
+        activityTypeService.createDefaultTypes(user);
     }
 
     /* 로그인 로직 */
@@ -120,6 +125,7 @@ public class AuthService {
 
         cookieUtil.deleteCookie(response, "accessToken");
         cookieUtil.deleteCookie(response, "refreshToken");
+        cookieUtil.deleteCookie(response, "XSRF-TOKEN");
     }
 
     /* 회원 탈퇴 로직 */
@@ -138,5 +144,6 @@ public class AuthService {
 
         cookieUtil.deleteCookie(response, "accessToken");
         cookieUtil.deleteCookie(response, "refreshToken");
+        cookieUtil.deleteCookie(response, "XSRF-TOKEN");
     }
 }

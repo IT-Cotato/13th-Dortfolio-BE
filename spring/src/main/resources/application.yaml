@@ -5,6 +5,8 @@ spring:
   flyway:
     enabled: ${FLYWAY_ENABLED:true}
     locations: classpath:db/migration
+    postgresql:
+      transactional-lock: false
     # ddl-auto로 이미 테이블이 만들어진 DB에서도 동작하도록 한다
     baseline-on-migrate: true
     baseline-version: 0

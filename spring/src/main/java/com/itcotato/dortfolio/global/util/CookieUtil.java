@@ -12,7 +12,7 @@ public class CookieUtil {
     public void deleteCookie(HttpServletResponse response, String name) {
         ResponseCookie cookie = ResponseCookie.from(name, "")
                 .path("/")
-                .httpOnly(true)
+                .httpOnly(!"XSRF-TOKEN".equals(name))
                 .secure(true)
                 .sameSite("None")
                 .maxAge(0)

@@ -10,6 +10,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.configuration.FluentConfiguration;
+import org.flywaydb.database.postgresql.PostgreSQLConfigurationExtension;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -46,11 +48,12 @@ class JdbcRecommendationCandidateQueryContainerTest {
         );
         dataSource.setDriverClassName(POSTGRES.getDriverClassName());
 
-        Flyway.configure()
+        FluentConfiguration flywayConfiguration = Flyway.configure()
                 .dataSource(dataSource)
-                .locations("classpath:db/migration")
-                .load()
-                .migrate();
+                .locations("classpath:db/migration");
+        flywayConfiguration.getConfigurationExtension(PostgreSQLConfigurationExtension.class)
+                .setTransactionalLock(false);
+        flywayConfiguration.load().migrate();
 
         jdbcTemplate = new JdbcTemplate(dataSource);
         transactionTemplate = new TransactionTemplate(

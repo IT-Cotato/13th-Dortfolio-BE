@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationVersion;
+import org.flywaydb.core.api.configuration.FluentConfiguration;
 import org.flywaydb.core.api.output.MigrateResult;
+import org.flywaydb.database.postgresql.PostgreSQLConfigurationExtension;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
@@ -25,20 +27,24 @@ class FlywayMigrationTest {
 	void migratesFreshSchemaThroughLatestVersion() {
 		MigrateResult result = flyway().migrate();
 
-		assertThat(result.migrationsExecuted).isEqualTo(8);
-		assertThat(result.targetSchemaVersion).isEqualTo("8");
+		assertThat(result.migrationsExecuted).isEqualTo(12);
+		assertThat(result.targetSchemaVersion).isEqualTo("12");
 		assertMatchingIndexesCreated();
 		assertRunningInsightStatusAllowed();
+		assertUserOwnedDataCascadesOnDelete();
+		assertSinglePrimaryUserJobConstraintCreated();
 		assertRecordAnswersNormalized();
 	}
 
 	private Flyway flyway() {
-		return Flyway.configure()
+		FluentConfiguration configuration = Flyway.configure()
 			.dataSource(dataSource())
 			.locations("classpath:db/migration")
 			.baselineOnMigrate(true)
-			.baselineVersion(MigrationVersion.fromVersion("0"))
-			.load();
+			.baselineVersion(MigrationVersion.fromVersion("0"));
+		configuration.getConfigurationExtension(PostgreSQLConfigurationExtension.class)
+			.setTransactionalLock(false);
+		return configuration.load();
 	}
 
 	private DriverManagerDataSource dataSource() {
@@ -95,5 +101,31 @@ class FlywayMigrationTest {
 				where table_name = 'template_questions'
 					and column_name = 'deleted_at'
 				""", Integer.class)).isZero();
+	}
+
+	private void assertUserOwnedDataCascadesOnDelete() {
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from pg_constraint
+				where confrelid = 'users'::regclass
+					and confdeltype = 'c'
+				""", Integer.class)).isEqualTo(10);
+	}
+
+	private void assertSinglePrimaryUserJobConstraintCreated() {
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from pg_index i
+				join pg_class index_class on index_class.oid = i.indexrelid
+				join pg_class table_class on table_class.oid = i.indrelid
+				join pg_attribute attribute
+					on attribute.attrelid = table_class.oid
+					and attribute.attnum = i.indkey[0]
+				where table_class.relname = 'user_jobs'
+					and index_class.relname = 'uq_user_jobs_single_primary'
+					and i.indisunique = true
+					and attribute.attname = 'user_id'
+					and pg_get_expr(i.indpred, i.indrelid) = '(is_primary = true)'
+				""", Integer.class)).isEqualTo(1);
 	}
 }
