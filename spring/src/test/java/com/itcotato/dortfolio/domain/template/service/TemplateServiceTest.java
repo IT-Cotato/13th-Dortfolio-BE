@@ -6,9 +6,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.itcotato.dortfolio.domain.template.dto.req.TemplateCreateRequest;
 import com.itcotato.dortfolio.domain.template.dto.req.TemplateQuestionRequest;
 import com.itcotato.dortfolio.domain.template.dto.res.TemplateResponse;
-import com.itcotato.dortfolio.domain.template.dto.req.TemplateUpdateRequest;
 import com.itcotato.dortfolio.domain.template.config.BuiltinTemplateInitializer;
 import com.itcotato.dortfolio.domain.template.entity.Template;
+import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
@@ -71,29 +71,6 @@ class TemplateServiceTest {
 	}
 
 	@Test
-	void updateTemplate() {
-		UUID userId = createUser().getId();
-		TemplateResponse created = templateService.createTemplate(userId, new TemplateCreateRequest(
-				"수정 전",
-				null,
-				List.of(new TemplateQuestionRequest("질문1", null, true))
-		));
-
-		TemplateResponse updated = templateService.updateTemplate(userId, created.id(), new TemplateUpdateRequest(
-				"수정 후",
-				"수정 설명",
-				List.of(
-						new TemplateQuestionRequest("질문1", null, true),
-						new TemplateQuestionRequest("질문2", "설명2", false)
-				)
-		));
-
-		assertThat(updated.title()).isEqualTo("수정 후");
-		assertThat(updated.questions()).hasSize(2);
-		assertThat(updated.questions().get(1).sortOrder()).isEqualTo(2);
-	}
-
-	@Test
 	void deleteTemplateExcludesFromList() {
 		UUID userId = createUser().getId();
 		TemplateResponse created = templateService.createTemplate(userId, new TemplateCreateRequest(
@@ -110,26 +87,16 @@ class TemplateServiceTest {
 	}
 
 	@Test
-	void builtinTemplateCannotBeUpdatedOrDeleted() {
+	void builtinTemplateCannotBeDeleted() {
 		UUID userId = createUser().getId();
 		Template builtin = Template.createBuiltin("BASIC", 1, "기본", "기본 설명");
-		builtin.addQuestion(TemplateQuestionRequestFixture.requiredQuestion("질문"));
+		builtin.initializeQuestions(List.of(TemplateQuestionRequestFixture.requiredQuestion("질문")));
 		Template saved = templateRepository.save(builtin);
 
-		TemplateUpdateRequest request = new TemplateUpdateRequest(
-				"수정",
-				null,
-				List.of(new TemplateQuestionRequest("질문", null, true))
-		);
-
-		assertThatThrownBy(() -> templateService.updateTemplate(userId, saved.getId(), request))
-				.isInstanceOf(CustomException.class)
-				.extracting("errorCode")
-				.isEqualTo(TemplateErrorCode.BUILTIN_TEMPLATE_MODIFICATION_NOT_ALLOWED);
 		assertThatThrownBy(() -> templateService.deleteTemplate(userId, saved.getId()))
 				.isInstanceOf(CustomException.class)
 				.extracting("errorCode")
-					.isEqualTo(TemplateErrorCode.BUILTIN_TEMPLATE_MODIFICATION_NOT_ALLOWED);
+					.isEqualTo(TemplateErrorCode.BUILTIN_TEMPLATE_DELETION_NOT_ALLOWED);
 	}
 
 	@Test
@@ -149,8 +116,8 @@ class TemplateServiceTest {
 
 	private static class TemplateQuestionRequestFixture {
 
-		private static com.itcotato.dortfolio.domain.template.entity.TemplateQuestion requiredQuestion(String text) {
-			return com.itcotato.dortfolio.domain.template.entity.TemplateQuestion.create(text, null, true, 1);
+		private static TemplateQuestion requiredQuestion(String text) {
+			return TemplateQuestion.create(text, null, true, 1);
 		}
 	}
 

@@ -32,9 +32,20 @@ public class RecordValidator {
 	public Template getReadableActiveTemplateOrThrow(UUID userId, UUID templateId) {
 		Template template = templateRepository.findByIdAndDeletedAtIsNull(templateId)
 			.orElseThrow(() -> new CustomException(TemplateErrorCode.TEMPLATE_NOT_FOUND));
+		validateReadable(template, userId);
+		return template;
+	}
 
+	public Template getReadableTemplateOrThrow(UUID userId, UUID templateId) {
+		Template template = templateRepository.findById(templateId)
+			.orElseThrow(() -> new CustomException(TemplateErrorCode.TEMPLATE_NOT_FOUND));
+		validateReadable(template, userId);
+		return template;
+	}
+
+	private void validateReadable(Template template, UUID userId) {
 		if (template.isBuiltin() || userId.equals(template.getUserId())) {
-			return template;
+			return;
 		}
 
 		throw new CustomException(TemplateErrorCode.TEMPLATE_FORBIDDEN);

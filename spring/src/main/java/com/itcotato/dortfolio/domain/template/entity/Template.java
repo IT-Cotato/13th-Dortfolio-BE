@@ -14,10 +14,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -54,7 +50,7 @@ public class Template extends BaseEntity {
 	@Column
 	private LocalDateTime deletedAt;
 
-	@OneToMany(mappedBy = "template", cascade = CascadeType.ALL, orphanRemoval = true)
+	@OneToMany(mappedBy = "template", cascade = CascadeType.ALL)
 	private final List<TemplateQuestion> questions = new ArrayList<>();
 
 	private Template(User user, String builtinCode, Integer builtinVersion, String title, String description, boolean isBuiltin) {
@@ -74,56 +70,20 @@ public class Template extends BaseEntity {
 		return new Template(null, builtinCode, builtinVersion, title, description, true);
 	}
 
-	public void update(String title, String description) {
-		this.title = title;
-		this.description = description;
+	public List<TemplateQuestion> getQuestions() {
+		return List.copyOf(questions);
 	}
 
-	public void updateBuiltin(int builtinVersion, String title, String description) {
-		this.builtinVersion = builtinVersion;
-		this.title = title;
-		this.description = description;
-		this.deletedAt = null;
-	}
-
-	public void replaceQuestions(List<TemplateQuestion> newQuestions) {
-		questions.clear();
+	public void initializeQuestions(List<TemplateQuestion> newQuestions) {
+		if (!questions.isEmpty()) {
+			throw new IllegalStateException("템플릿 질문은 생성 후 변경할 수 없습니다.");
+		}
 		newQuestions.stream()
 			.sorted(Comparator.comparingInt(TemplateQuestion::getSortOrder))
 			.forEach(this::addQuestion);
 	}
 
-	public void upsertBuiltinQuestions(List<TemplateQuestion> builtinQuestions) {
-		Map<String, TemplateQuestion> existingQuestions = questions.stream()
-			.filter(question -> question.getBuiltinCode() != null)
-			.collect(Collectors.toMap(TemplateQuestion::getBuiltinCode, Function.identity()));
-		Set<String> activeBuiltinCodes = builtinQuestions.stream()
-			.map(TemplateQuestion::getBuiltinCode)
-			.collect(Collectors.toSet());
-
-		builtinQuestions.stream()
-			.sorted(Comparator.comparingInt(TemplateQuestion::getSortOrder))
-			.forEach(question -> {
-				TemplateQuestion existingQuestion = existingQuestions.get(question.getBuiltinCode());
-				if (existingQuestion == null) {
-					addQuestion(question);
-					return;
-				}
-				existingQuestion.updateBuiltin(
-					question.getQuestionText(),
-					question.getDescription(),
-					question.isRequired(),
-					question.getSortOrder()
-				);
-			});
-
-		questions.stream()
-			.filter(question -> question.getBuiltinCode() != null)
-			.filter(question -> !activeBuiltinCodes.contains(question.getBuiltinCode()))
-			.forEach(TemplateQuestion::delete);
-	}
-
-	public void addQuestion(TemplateQuestion question) {
+	private void addQuestion(TemplateQuestion question) {
 		question.assignTemplate(this);
 		questions.add(question);
 	}
@@ -139,6 +99,4 @@ public class Template extends BaseEntity {
 	public java.util.UUID getUserId() {
 		return user == null ? null : user.getId();
 	}
-
-    public void restore() { this.deletedAt = null; }
 }

@@ -1,6 +1,7 @@
 package com.itcotato.dortfolio.domain.template.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
@@ -31,22 +32,15 @@ class BuiltinTemplateInitializerTest {
 	}
 
 	@Test
-	void initializeBuiltinTemplatesUpsertsByBuiltinCode() throws Exception {
+	void initializeBuiltinTemplatesDoesNotModifyExistingTemplate() throws Exception {
 		Template oldTemplate = Template.createBuiltin("IDEA_PLANNING", 0, "이전 제목", "이전 설명");
-		oldTemplate.addQuestion(TemplateQuestion.createBuiltin(
-			"IDEA_PLANNING_BACKGROUND",
-			"이전 질문",
-			null,
-			true,
-			1
-		));
-		oldTemplate.addQuestion(TemplateQuestion.createBuiltin(
-			"IDEA_PLANNING_REMOVED",
-			"삭제된 질문",
-			null,
-			false,
-			2
-		));
+		oldTemplate.initializeQuestions(List.of(TemplateQuestion.createBuiltin(
+				"IDEA_PLANNING_BACKGROUND",
+				"이전 질문",
+				null,
+				true,
+				1
+		)));
 		templateRepository.save(oldTemplate);
 
 		initializeBuiltinTemplates.run(new DefaultApplicationArguments());
@@ -67,21 +61,16 @@ class BuiltinTemplateInitializerTest {
 			.orElseThrow()
 			.getId();
 
-		assertThat(template.getTitle()).isEqualTo("아이디어·기획");
-		assertThat(template.getDescription()).isEqualTo("아이디어와 기획 과정을 정리하는 템플릿");
-		assertThat(template.getBuiltinVersion()).isEqualTo(1);
-		assertThat(template.getQuestions()).filteredOn(question -> !question.isDeleted()).hasSize(3);
-		assertThat(template.getQuestions())
-			.filteredOn(question -> "IDEA_PLANNING_REMOVED".equals(question.getBuiltinCode()))
-			.singleElement()
-			.extracting(TemplateQuestion::isDeleted)
-			.isEqualTo(true);
+		assertThat(template.getTitle()).isEqualTo("이전 제목");
+		assertThat(template.getDescription()).isEqualTo("이전 설명");
+		assertThat(template.getBuiltinVersion()).isZero();
+		assertThat(template.getQuestions()).hasSize(1);
 		assertThat(firstQuestionId).isEqualTo(reloadedQuestionId);
 		assertThat(templateRepository.findAll().stream().filter(Template::isBuiltin)).hasSize(4);
 		assertThat(templateRepository.findAll().stream()
 			.filter(Template::isBuiltin)
-			.map(Template::getTitle))
-				.containsExactlyInAnyOrder("아이디어·기획", "협업·갈등", "문제해결·성과", "몰입·도전");
+			.map(Template::getBuiltinCode))
+				.containsExactlyInAnyOrderElementsOf(BuiltinTemplateInitializer.DEFAULT_TEMPLATE_CODES);
 	}
 
 	@Test
@@ -102,6 +91,15 @@ class BuiltinTemplateInitializerTest {
 			.filter(template -> List.of("PROJECT_EXPERIENCE", "PROBLEM_SOLVING", "COLLABORATION", "RETROSPECTIVE")
 				.contains(template.getBuiltinCode())))
 			.allMatch(Template::isDeleted);
+	}
+
+	@Test
+	void templateQuestionsCannotBeModifiedThroughGetter() throws Exception {
+		initializeBuiltinTemplates.run(new DefaultApplicationArguments());
+		Template template = templateRepository.findByBuiltinCode("IDEA_PLANNING").orElseThrow();
+
+		assertThatThrownBy(() -> template.getQuestions().clear())
+			.isInstanceOf(UnsupportedOperationException.class);
 	}
 
 }

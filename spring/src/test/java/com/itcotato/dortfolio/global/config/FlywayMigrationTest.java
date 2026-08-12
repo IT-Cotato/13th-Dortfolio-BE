@@ -27,12 +27,13 @@ class FlywayMigrationTest {
 	void migratesFreshSchemaThroughLatestVersion() {
 		MigrateResult result = flyway().migrate();
 
-		assertThat(result.migrationsExecuted).isEqualTo(11);
-		assertThat(result.targetSchemaVersion).isEqualTo("11");
+		assertThat(result.migrationsExecuted).isEqualTo(12);
+		assertThat(result.targetSchemaVersion).isEqualTo("12");
 		assertMatchingIndexesCreated();
 		assertRunningInsightStatusAllowed();
 		assertUserOwnedDataCascadesOnDelete();
 		assertSinglePrimaryUserJobConstraintCreated();
+		assertRecordAnswersNormalized();
 	}
 
 	private Flyway flyway() {
@@ -78,6 +79,28 @@ class FlywayMigrationTest {
 				from pg_constraint
 				where conname = 'insights_status_check'
 				""", String.class)).contains("RUNNING");
+	}
+
+	private void assertRecordAnswersNormalized() {
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from information_schema.columns
+				where table_name = 'record_answers'
+					and column_name in ('question_description', 'question_text', 'required', 'sort_order')
+				""", Integer.class)).isZero();
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from information_schema.table_constraints
+				where table_name = 'record_answers'
+					and constraint_name = 'fk_record_answers_template_question'
+					and constraint_type = 'FOREIGN KEY'
+				""", Integer.class)).isEqualTo(1);
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from information_schema.columns
+				where table_name = 'template_questions'
+					and column_name = 'deleted_at'
+				""", Integer.class)).isZero();
 	}
 
 	private void assertUserOwnedDataCascadesOnDelete() {

@@ -33,7 +33,7 @@ class JdbcRecommendationCandidateQueryTest {
                 .contains("record.status = 'COMPLETED'")
                 .contains("record.deleted_at is null")
                 .contains("activity.deleted_at is null")
-                .contains("template.deleted_at is null")
+                .doesNotContain("template.deleted_at is null")
                 .contains("record.completed_at <= ?")
                 .contains("analysis.ai_analysis_status = 'COMPLETED'")
                 .contains("analysis.analyzed_record_updated_at")

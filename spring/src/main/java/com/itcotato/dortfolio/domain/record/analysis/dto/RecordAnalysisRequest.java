@@ -65,7 +65,7 @@ public record RecordAnalysisRequest(
 		String answerText
 	) {
 		public static AnswerPayload from(RecordAnswer answer) {
-			return new AnswerPayload(answer.getQuestionText(), answer.getAnswerText());
+			return new AnswerPayload(answer.getTemplateQuestion().getQuestionText(), answer.getAnswerText());
 		}
 	}
 

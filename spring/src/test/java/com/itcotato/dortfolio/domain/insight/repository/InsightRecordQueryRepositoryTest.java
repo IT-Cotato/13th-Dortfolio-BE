@@ -147,7 +147,7 @@ class InsightRecordQueryRepositoryTest {
 
         assertThat(result)
                 .extracting(analysis -> analysis.getRecord().getId())
-                .containsExactly(eligible.getId());
+                .containsExactlyInAnyOrder(eligible.getId(), deletedTemplateRecord.getId());
     }
 
     @Test

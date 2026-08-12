@@ -1,5 +1,6 @@
 package com.itcotato.dortfolio.domain.record.entity;
 
+import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
 import com.itcotato.dortfolio.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -31,20 +32,9 @@ public class RecordAnswer extends BaseEntity {
 	@JoinColumn(name = "record_id", nullable = false)
 	private Record record;
 
-	@Column(name = "template_question_id", nullable = false)
-	private UUID templateQuestionId;
-
-	@Column(nullable = false, length = 30)
-	private String questionText;
-
-	@Column(length = 100)
-	private String questionDescription;
-
-	@Column(nullable = false)
-	private boolean required;
-
-	@Column(nullable = false)
-	private int sortOrder;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "template_question_id", nullable = false)
+	private TemplateQuestion templateQuestion;
 
 	@JdbcTypeCode(SqlTypes.LONGVARCHAR)
 	@Column(nullable = false)
@@ -53,20 +43,16 @@ public class RecordAnswer extends BaseEntity {
 	@Builder
 	private RecordAnswer(
 		Record record,
-		UUID templateQuestionId,
-		String questionText,
-		String questionDescription,
-		boolean required,
-		int sortOrder,
+		TemplateQuestion templateQuestion,
 		String answerText
 	) {
 		this.record = record;
-		this.templateQuestionId = templateQuestionId;
-		this.questionText = questionText;
-		this.questionDescription = questionDescription;
-		this.required = required;
-		this.sortOrder = sortOrder;
+		this.templateQuestion = templateQuestion;
 		this.answerText = answerText;
+	}
+
+	public UUID getTemplateQuestionId() {
+		return templateQuestion.getId();
 	}
 
 	public void updateAnswer(String answerText) {

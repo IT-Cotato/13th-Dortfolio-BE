@@ -1,7 +1,6 @@
 package com.itcotato.dortfolio.domain.template.controller.docs;
 
 import com.itcotato.dortfolio.domain.template.dto.req.TemplateCreateRequest;
-import com.itcotato.dortfolio.domain.template.dto.req.TemplateUpdateRequest;
 import com.itcotato.dortfolio.domain.template.dto.res.TemplateResponse;
 import com.itcotato.dortfolio.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,14 +34,10 @@ public interface TemplateControllerDocs {
 		@Valid @RequestBody TemplateCreateRequest request
 	);
 
-	@Operation(summary = "커스텀 템플릿 수정", description = "사용자가 생성한 커스텀 템플릿의 제목, 설명, 질문 목록을 수정합니다.")
-	ResponseEntity<ApiResponse<TemplateResponse>> updateTemplate(
-		@Parameter(hidden = true) @AuthenticationPrincipal UUID userId,
-		@Parameter(description = "템플릿 ID") @PathVariable UUID templateId,
-		@Valid @RequestBody TemplateUpdateRequest request
-	);
-
-	@Operation(summary = "커스텀 템플릿 삭제", description = "사용자가 생성한 커스텀 템플릿을 삭제합니다.")
+	@Operation(
+			summary = "커스텀 템플릿 삭제",
+			description = "사용자가 생성한 커스텀 템플릿을 목록과 새 기록 작성 대상에서 제외합니다. 기존 기록은 유지됩니다."
+	)
 	ResponseEntity<ApiResponse<Void>> deleteTemplate(
 		@Parameter(hidden = true) @AuthenticationPrincipal UUID userId,
 		@Parameter(description = "템플릿 ID") @PathVariable UUID templateId

@@ -27,7 +27,6 @@ public class SearchQueryRepository {
 			r.user.id = :userId
 				and r.deletedAt is null
 				and r.activity.deletedAt is null
-				and r.template.deletedAt is null
 			""";
 
 	private final EntityManager entityManager;
@@ -88,8 +87,9 @@ public class SearchQueryRepository {
 
 		return entityManager.createQuery("""
 						select a from RecordAnswer a
+						join fetch a.templateQuestion question
 						where a.record.id in :recordIds
-						order by a.sortOrder asc
+						order by question.sortOrder asc
 						""", RecordAnswer.class)
 				.setParameter("recordIds", recordIds)
 				.getResultList();

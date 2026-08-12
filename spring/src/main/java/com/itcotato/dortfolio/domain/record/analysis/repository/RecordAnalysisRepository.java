@@ -22,7 +22,6 @@ public interface RecordAnalysisRepository
                   com.itcotato.dortfolio.domain.record.entity.RecordStatus.COMPLETED
               and record.deletedAt is null
               and record.activity.deletedAt is null
-              and record.template.deletedAt is null
             """)
     List<UUID> findRetryableRecordIds();
 

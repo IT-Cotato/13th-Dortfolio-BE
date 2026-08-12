@@ -28,7 +28,7 @@ public class RecordAnswerService {
 
 	public void createAnswers(Record record, Template template, List<RecordAnswerRequest> answerRequests) {
 		Map<UUID, String> answerTextByQuestionId = toAnswerTextMap(answerRequests);
-		List<RecordAnswer> answers = activeQuestions(template).stream()
+		List<RecordAnswer> answers = questions(template).stream()
 			.map(question -> toRecordAnswer(record, question, answerTextByQuestionId.get(question.getId())))
 			.toList();
 
@@ -37,13 +37,13 @@ public class RecordAnswerService {
 
 	public void replaceAnswers(Record record, List<RecordAnswerRequest> answerRequests) {
 		Map<UUID, String> answerTextByQuestionId = toAnswerTextMap(answerRequests);
-		recordAnswerRepository.findAllByRecord_IdOrderBySortOrderAsc(record.getId())
+		recordAnswerRepository.findAllByRecord_IdOrderByTemplateQuestion_SortOrderAsc(record.getId())
 			.forEach(answer -> answer.updateAnswer(answerTextByQuestionId.getOrDefault(answer.getTemplateQuestionId(), "")));
 	}
 
 	public List<RecordAnswerResponse> getAnswerResponses(Record record) {
 		List<RecordAnswer> recordAnswers =
-			recordAnswerRepository.findAllByRecord_IdOrderBySortOrderAsc(record.getId());
+			recordAnswerRepository.findAllByRecord_IdOrderByTemplateQuestion_SortOrderAsc(record.getId());
 
 		return recordAnswers.stream()
 			.map(RecordAnswerResponse::from)
@@ -60,7 +60,7 @@ public class RecordAnswerService {
 			throw new CustomException(RecordErrorCode.DUPLICATE_RECORD_ANSWER_SELECTION);
 		}
 
-		Set<UUID> questionIds = activeQuestions(template).stream()
+		Set<UUID> questionIds = questions(template).stream()
 			.map(TemplateQuestion::getId)
 			.collect(Collectors.toSet());
 
@@ -82,12 +82,12 @@ public class RecordAnswerService {
 			throw new CustomException(RecordErrorCode.DUPLICATE_RECORD_ANSWER_SELECTION);
 		}
 
-		Set<UUID> snapshotQuestionIds = recordAnswerRepository.findAllByRecord_IdOrderBySortOrderAsc(record.getId()).stream()
+		Set<UUID> recordQuestionIds = recordAnswerRepository.findAllByRecord_IdOrderByTemplateQuestion_SortOrderAsc(record.getId()).stream()
 			.map(RecordAnswer::getTemplateQuestionId)
 			.collect(Collectors.toSet());
 
 		requestedQuestionIds.stream()
-			.filter(questionId -> !snapshotQuestionIds.contains(questionId))
+			.filter(questionId -> !recordQuestionIds.contains(questionId))
 			.findAny()
 			.ifPresent(questionId -> {
 				throw new CustomException(RecordErrorCode.RECORD_QUESTION_NOT_FOUND);
@@ -96,10 +96,10 @@ public class RecordAnswerService {
 
 	public void validateRequiredAnswers(UUID recordId) {
 		List<RecordAnswer> answers =
-			recordAnswerRepository.findAllByRecord_IdOrderBySortOrderAsc(recordId);
+			recordAnswerRepository.findAllByRecord_IdOrderByTemplateQuestion_SortOrderAsc(recordId);
 
 		answers.stream()
-			.filter(RecordAnswer::isRequired)
+			.filter(answer -> answer.getTemplateQuestion().isRequired())
 			.filter(answer -> !hasText(answer.getAnswerText()))
 			.findAny()
 			.ifPresent(answer -> {
@@ -114,11 +114,7 @@ public class RecordAnswerService {
 	private RecordAnswer toRecordAnswer(Record record, TemplateQuestion question, String answerText) {
 		return RecordAnswer.builder()
 			.record(record)
-			.templateQuestionId(question.getId())
-			.questionText(question.getQuestionText())
-			.questionDescription(question.getDescription())
-			.required(question.isRequired())
-			.sortOrder(question.getSortOrder())
+			.templateQuestion(question)
 			.answerText(normalizeAnswerText(answerText))
 			.build();
 	}
@@ -131,9 +127,8 @@ public class RecordAnswerService {
 			));
 	}
 
-	private List<TemplateQuestion> activeQuestions(Template template) {
+	private List<TemplateQuestion> questions(Template template) {
 		return template.getQuestions().stream()
-			.filter(question -> !question.isDeleted())
 			.sorted(Comparator.comparingInt(TemplateQuestion::getSortOrder))
 			.toList();
 	}
