@@ -1,3 +1,6 @@
+-- 잠금을 5초 안에 얻지 못하면 마이그레이션을 실패시켜 배포를 중단한다.
+SET LOCAL lock_timeout = '5s';
+
 ALTER TABLE templates
     ALTER COLUMN description TYPE varchar(255);
 
