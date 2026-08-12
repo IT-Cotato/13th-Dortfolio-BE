@@ -12,9 +12,6 @@ import org.springframework.data.repository.query.Param;
 public interface TemplateRepository extends JpaRepository<Template, UUID> {
 
 	@EntityGraph(attributePaths = "questions")
-	Optional<Template> findByBuiltinCode(String builtinCode);
-
-	@EntityGraph(attributePaths = "questions")
 	@Query("""
 		select t
 		from Template t
@@ -34,7 +31,4 @@ public interface TemplateRepository extends JpaRepository<Template, UUID> {
 
 	@EntityGraph(attributePaths = "questions")
 	Optional<Template> findByIdAndDeletedAtIsNull(UUID id);
-
-	@EntityGraph(attributePaths = "questions")
-	List<Template> findAllByBuiltinCodeInAndDeletedAtIsNull(List<String> builtinCodes);
 }

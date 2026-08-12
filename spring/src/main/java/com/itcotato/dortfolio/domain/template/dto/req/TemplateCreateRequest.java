@@ -12,7 +12,7 @@ public record TemplateCreateRequest(
 	@Size(max = Template.TITLE_MAX_LENGTH, message = "템플릿 제목은 최대 20자까지 입력할 수 있습니다.")
 	String title,
 
-	@Size(max = Template.DESCRIPTION_MAX_LENGTH, message = "템플릿 설명은 최대 50자까지 입력할 수 있습니다.")
+	@Size(max = Template.DESCRIPTION_MAX_LENGTH, message = "템플릿 설명은 최대 255자까지 입력할 수 있습니다.")
 	String description,
 
 	@NotEmpty(message = "템플릿 항목은 1개 이상이어야 합니다.")
