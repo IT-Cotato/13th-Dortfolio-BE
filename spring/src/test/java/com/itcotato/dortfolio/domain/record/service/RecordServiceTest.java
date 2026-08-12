@@ -399,13 +399,14 @@ class RecordServiceTest {
 	void permanentlyDeleteRecordRemovesRecordAndChildren() {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
-		Template template = createTemplate(user, "문제 해결", false);
+		Template template = createTemplate(user, "문제 해결", true);
+		TemplateQuestion question = template.getQuestions().get(0);
 		Memo memo = createMemo(user, activity);
 		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
 				activity.getId(),
 				template.getId(),
 				"첫 기록",
-				List.of(),
+				List.of(new RecordAnswerRequest(question.getId(), "답변")),
 				List.of(new RecordMemoRequest(memo.getId(), false)),
 				RecordStatus.DRAFT
 		));

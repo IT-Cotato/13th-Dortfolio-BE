@@ -70,6 +70,10 @@ public class Template extends BaseEntity {
 		return new Template(null, builtinCode, builtinVersion, title, description, true);
 	}
 
+	public List<TemplateQuestion> getQuestions() {
+		return List.copyOf(questions);
+	}
+
 	public void initializeQuestions(List<TemplateQuestion> newQuestions) {
 		if (!questions.isEmpty()) {
 			throw new IllegalStateException("템플릿 질문은 생성 후 변경할 수 없습니다.");

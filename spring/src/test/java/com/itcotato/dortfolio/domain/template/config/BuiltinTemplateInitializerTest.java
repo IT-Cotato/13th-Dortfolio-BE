@@ -1,6 +1,7 @@
 package com.itcotato.dortfolio.domain.template.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
@@ -90,6 +91,15 @@ class BuiltinTemplateInitializerTest {
 			.filter(template -> List.of("PROJECT_EXPERIENCE", "PROBLEM_SOLVING", "COLLABORATION", "RETROSPECTIVE")
 				.contains(template.getBuiltinCode())))
 			.allMatch(Template::isDeleted);
+	}
+
+	@Test
+	void templateQuestionsCannotBeModifiedThroughGetter() throws Exception {
+		initializeBuiltinTemplates.run(new DefaultApplicationArguments());
+		Template template = templateRepository.findByBuiltinCode("IDEA_PLANNING").orElseThrow();
+
+		assertThatThrownBy(() -> template.getQuestions().clear())
+			.isInstanceOf(UnsupportedOperationException.class);
 	}
 
 }

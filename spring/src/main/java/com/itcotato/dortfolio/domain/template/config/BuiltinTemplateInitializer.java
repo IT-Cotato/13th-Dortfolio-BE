@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
@@ -35,14 +36,23 @@ public class BuiltinTemplateInitializer {
 	ApplicationRunner initializeBuiltinTemplates() {
 		// TODO: Flyway 도입 후 기본 템플릿 seed를 DB migration으로 이관하고 이 initializer를 제거한다.
 		return args -> {
-			transactionTemplate.executeWithoutResult(status -> {
-				defaultTemplates().stream()
-					.filter(defaultTemplate -> templateRepository.findByBuiltinCode(defaultTemplate.code()).isEmpty())
-					.map(DefaultTemplate::toEntity)
-					.forEach(templateRepository::save);
-				retireOldBuiltinTemplates();
-			});
+			defaultTemplates().forEach(this::initializeIfAbsent);
+			transactionTemplate.executeWithoutResult(status -> retireOldBuiltinTemplates());
 		};
+	}
+
+	private void initializeIfAbsent(DefaultTemplate defaultTemplate) {
+		try {
+			transactionTemplate.executeWithoutResult(status -> {
+				if (templateRepository.findByBuiltinCode(defaultTemplate.code()).isEmpty()) {
+					templateRepository.saveAndFlush(defaultTemplate.toEntity());
+				}
+			});
+		} catch (DataIntegrityViolationException exception) {
+			if (templateRepository.findByBuiltinCode(defaultTemplate.code()).isEmpty()) {
+				throw exception;
+			}
+		}
 	}
 
 	private void retireOldBuiltinTemplates() {
