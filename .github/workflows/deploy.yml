@@ -62,9 +62,9 @@ jobs:
         with:
           context: ./spring
           push: true
-          tags: |
-            ${{ steps.meta.outputs.spring-image }}
-            ${{ steps.meta.outputs.repo }}/spring:latest
+          # 배포는 커밋 태그만 사용한다.
+          # latest는 참조하는 곳이 없는데 푸시 요청만 두 배로 늘려, GHCR 속도 제한에 걸리기 쉬워진다
+          tags: ${{ steps.meta.outputs.spring-image }}
           cache-from: type=gha,scope=spring
           cache-to: type=gha,mode=max,scope=spring
 
@@ -73,9 +73,7 @@ jobs:
         with:
           context: ./fastapi
           push: true
-          tags: |
-            ${{ steps.meta.outputs.fastapi-image }}
-            ${{ steps.meta.outputs.repo }}/fastapi:latest
+          tags: ${{ steps.meta.outputs.fastapi-image }}
           cache-from: type=gha,scope=fastapi
           cache-to: type=gha,mode=max,scope=fastapi
 

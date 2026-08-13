@@ -244,7 +244,7 @@ class MemoServiceTest {
 	}
 
 	@Test
-	@DisplayName("메모를 1개 이상 한 번에 삭제할 수 있고 복구되지 않는다")
+	@DisplayName("메모를 1개 이상 한 번에 삭제하면 목록에서 사라진다")
 	void deleteMultipleMemos() {
 		UUID userId = createUser().getId();
 		UUID first = memoService.createMemo(userId, new MemoCreateRequest(null, null, "1", null));
@@ -252,8 +252,82 @@ class MemoServiceTest {
 
 		memoService.deleteMemos(userId, List.of(first, second));
 
-		assertThat(memoRepository.findAll()).isEmpty();
 		assertThat(memoService.getMemos(userId, null)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("삭제한 메모를 실행취소로 되살릴 수 있다")
+	void restoreDeletedMemos() {
+		UUID userId = createUser().getId();
+		UUID first = memoService.createMemo(userId, new MemoCreateRequest(null, null, "1", null));
+		UUID second = memoService.createMemo(userId, new MemoCreateRequest(null, null, "2", null));
+		memoService.deleteMemos(userId, List.of(first, second));
+
+		memoService.restoreMemos(userId, List.of(first, second));
+
+		assertThat(memoService.getMemos(userId, null)).hasSize(2);
+	}
+
+	@Test
+	@DisplayName("삭제한 메모의 이미지는 유예 기간 동안 남아 있다")
+	void keepsImagesDuringGracePeriod() {
+		UUID userId = createUser().getId();
+		UUID memoId = memoService.createMemo(userId,
+				new MemoCreateRequest(null, null, "내용", List.of(imageRequest(userId, "a.png"))));
+
+		memoService.deleteMemos(userId, List.of(memoId));
+
+		// 복구했을 때 이미지가 함께 돌아와야 하므로 유예 중에는 지우지 않는다
+		assertThat(memoImageRepository.findAll()).hasSize(1);
+
+		memoService.restoreMemos(userId, List.of(memoId));
+		assertThat(memoService.getMemo(userId, memoId).images()).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("유예 기간이 지난 메모는 이미지와 함께 실제로 삭제된다")
+	void deletesMemosPastGracePeriod() {
+		UUID userId = createUser().getId();
+		UUID memoId = memoService.createMemo(userId,
+				new MemoCreateRequest(null, null, "내용", List.of(imageRequest(userId, "a.png"))));
+		memoService.deleteMemos(userId, List.of(memoId));
+
+		expireGracePeriod(memoId);
+
+		assertThat(memoService.deleteMemosPastGracePeriod()).isEqualTo(1);
+		assertThat(memoRepository.findAll()).isEmpty();
+		assertThat(memoImageRepository.findAll()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("사용자가 지운 메모는 만료되어도 유예 기간이 끝나기 전에는 삭제되지 않는다")
+	void keepsUserDeletedMemoUntilGracePeriodEnds() {
+		UUID userId = createUser().getId();
+		UUID memoId = memoService.createMemo(userId,
+				new MemoCreateRequest(null, null, "내용", List.of(imageRequest(userId, "a.png"))));
+		memoService.deleteMemos(userId, List.of(memoId));
+
+		// 만료가 임박한 메모를 지운 직후 자동 만료 작업이 도는 상황
+		expireMemo(memoId);
+
+		assertThat(memoService.deleteExpiredMemos()).isZero();
+		assertThat(memoRepository.findById(memoId)).isPresent();
+		assertThat(memoImageRepository.findAll()).hasSize(1);
+
+		// 유예 안이므로 실행취소가 여전히 가능해야 한다
+		memoService.restoreMemos(userId, List.of(memoId));
+		assertThat(memoService.getMemos(userId, null)).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("유예 기간이 남은 메모는 삭제 대상이 아니다")
+	void keepsMemosWithinGracePeriod() {
+		UUID userId = createUser().getId();
+		UUID memoId = memoService.createMemo(userId, new MemoCreateRequest(null, null, "내용", null));
+		memoService.deleteMemos(userId, List.of(memoId));
+
+		assertThat(memoService.deleteMemosPastGracePeriod()).isZero();
+		assertThat(memoRepository.findById(memoId)).isPresent();
 	}
 
 	@Test
@@ -268,19 +342,7 @@ class MemoServiceTest {
 				.extracting("errorCode")
 				.isEqualTo(MemoErrorCode.MEMO_NOT_FOUND);
 
-		assertThat(memoRepository.findAll()).hasSize(1);
-	}
-
-	@Test
-	@DisplayName("메모 삭제 시 연결된 이미지도 함께 삭제된다")
-	void deleteMemoAlsoDeletesImages() {
-		UUID userId = createUser().getId();
-		UUID memoId = memoService.createMemo(userId,
-				new MemoCreateRequest(null, null, "내용", List.of(imageRequest(userId, "a.png"))));
-
-		memoService.deleteMemos(userId, List.of(memoId));
-
-		assertThat(memoImageRepository.findAll()).isEmpty();
+		assertThat(memoService.getMemos(userId, null)).hasSize(1);
 	}
 
 	@Test
@@ -299,7 +361,7 @@ class MemoServiceTest {
 				.extracting("errorCode")
 				.isEqualTo(MemoErrorCode.MEMO_LINKED_TO_RECORD);
 
-		assertThat(memoRepository.findAll()).hasSize(1);
+		assertThat(memoService.getMemos(user.getId(), null)).hasSize(1);
 	}
 
 	@Test
@@ -320,7 +382,8 @@ class MemoServiceTest {
 				.extracting("errorCode")
 				.isEqualTo(MemoErrorCode.MEMO_LINKED_TO_RECORD);
 
-		assertThat(memoRepository.findAll()).hasSize(2);
+		// 소프트 삭제라 findAll로는 구분되지 않으므로 목록 조회로 확인한다
+		assertThat(memoService.getMemos(user.getId(), null)).hasSize(2);
 	}
 
 	@Test
@@ -447,6 +510,16 @@ class MemoServiceTest {
 	private void expireMemo(UUID memoId) {
 		transactionTemplate.executeWithoutResult(status ->
 				entityManager.createQuery("update Memo m set m.expiresAt = :expiredAt where m.id = :id")
+						.setParameter("expiredAt", LocalDateTime.now().minusDays(1))
+						.setParameter("id", memoId)
+						.executeUpdate());
+	}
+
+	// 유예 기간 만료도 같은 이유로 벌크 업데이트로 재현한다
+	private void expireGracePeriod(UUID memoId) {
+		transactionTemplate.executeWithoutResult(status ->
+				entityManager.createQuery(
+								"update Memo m set m.deletePendingUntil = :expiredAt where m.id = :id")
 						.setParameter("expiredAt", LocalDateTime.now().minusDays(1))
 						.setParameter("id", memoId)
 						.executeUpdate());

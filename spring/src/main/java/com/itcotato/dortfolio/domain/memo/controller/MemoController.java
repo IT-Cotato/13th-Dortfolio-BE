@@ -98,6 +98,17 @@ public class MemoController implements MemoControllerDocs {
         return ResponseEntity.ok(ApiResponse.success("메모를 삭제했습니다."));
     }
 
+    /* 삭제 실행취소 (3.2.3.1.1) */
+    @Override
+    @PatchMapping("/restore")
+    public ResponseEntity<ApiResponse<Void>> restoreMemos(
+            @AuthenticationPrincipal UUID userId,
+            @RequestParam List<UUID> memoIds
+    ) {
+        memoService.restoreMemos(userId, memoIds);
+        return ResponseEntity.ok(ApiResponse.success("메모를 복구했습니다."));
+    }
+
     /* 활동 사진 업로드 Presigned URL 발급 API (3.1.3) */
     @Override
     @PostMapping("/images/presigned-url")

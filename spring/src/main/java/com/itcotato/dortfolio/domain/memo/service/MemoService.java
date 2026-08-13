@@ -43,6 +43,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class MemoService {
 
     private static final int DEFAULT_SORT_ORDER = 0;
+
+    // 실행취소 스낵바가 사라지면 사용자는 곧바로 복구를 포기하므로 유예는 짧아도 된다.
+    // 요청이 끊겨 되돌리지 못한 삭제를 정리하기 위한 안전망이다 (활동 삭제와 동일한 정책)
+    private static final int DELETE_GRACE_PERIOD_DAYS = 1;
+
     private static final String IMAGE_PREFIX = "memo";
     private static final Set<String> ALLOWED_IMAGE_EXTENSIONS = Set.of("jpg", "jpeg", "png");
 
@@ -114,9 +119,35 @@ public class MemoService {
         getMemoOrThrow(memoId, userId).markImportant(important);
     }
 
-    // 기능명세서 3.2.3.1.1 / 3.3.3: 단건이든 다건(1~n개)이든 동일하게 처리, 복구 불가 -> 하드 삭제
+    /**
+     * 메모 삭제 (기능명세서 3.2.3.1.1 / 3.3.3). 단건이든 다건(1~n개)이든 동일하게 처리한다.
+     *
+     * 스낵바에서 실행취소할 수 있어야 하므로 바로 지우지 않고 감추기만 한다.
+     * 유예 기간이 지나면 스케줄러가 이미지와 함께 실제로 삭제한다.
+     */
     @Transactional
     public void deleteMemos(UUID userId, List<UUID> memoIds) {
+        List<Memo> memos = findOwnedMemosOrThrow(userId, memoIds);
+
+        // 기록에 연결된 메모는 기록 작성의 근거로 쓰였으므로 삭제를 막는다 (하나라도 있으면 전체 실패)
+        if (!memoRepository.findIdsLinkedToRecords(memoIds).isEmpty()) {
+            throw new CustomException(MemoErrorCode.MEMO_LINKED_TO_RECORD);
+        }
+
+        memos.forEach(memo -> memo.markDeleted(DELETE_GRACE_PERIOD_DAYS));
+    }
+
+    /**
+     * 메모 삭제 실행취소 (기능명세서 3.2.3.1.1).
+     *
+     * 유예 기간이 지나 이미 사라진 메모는 되살릴 수 없어 조회 단계에서 걸러진다.
+     */
+    @Transactional
+    public void restoreMemos(UUID userId, List<UUID> memoIds) {
+        findOwnedMemosOrThrow(userId, memoIds).forEach(Memo::restore);
+    }
+
+    private List<Memo> findOwnedMemosOrThrow(UUID userId, List<UUID> memoIds) {
         if (memoIds == null || memoIds.isEmpty()) {
             throw new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE);
         }
@@ -124,23 +155,20 @@ public class MemoService {
         Set<UUID> requestedIds = new HashSet<>(memoIds);
         List<Memo> memos = memoRepository.findAllByIdInAndUser_Id(memoIds, userId);
 
-        // 요청한 메모 중 하나라도 없거나 내 소유가 아니면 전체 삭제를 막는다
+        // 요청한 메모 중 하나라도 없거나 내 소유가 아니면 전체를 실패시킨다.
+        // 일부만 처리되면 사용자는 어느 것이 반영됐는지 알 수 없다
         if (memos.size() != requestedIds.size()) {
             throw new CustomException(MemoErrorCode.MEMO_NOT_FOUND);
         }
 
-        // 기록에 연결된 메모는 기록 작성의 근거로 쓰였으므로 삭제를 막는다 (하나라도 있으면 전체 실패)
-        if (!memoRepository.findIdsLinkedToRecords(memoIds).isEmpty()) {
-            throw new CustomException(MemoErrorCode.MEMO_LINKED_TO_RECORD);
-        }
-
-        deleteMemosWithImages(memos);
+        return memos;
     }
 
     /* 기능명세서 3. 메모하기: 생성 30일 후 자동 삭제 (스케줄러에서 호출) */
     @Transactional
     public int deleteExpiredMemos() {
-        List<Memo> expiredMemos = memoRepository.findAllByExpiresAtBefore(LocalDateTime.now());
+        List<Memo> expiredMemos =
+                memoRepository.findAllByExpiresAtBeforeAndDeletePendingUntilIsNull(LocalDateTime.now());
 
         if (expiredMemos.isEmpty()) {
             return 0;
@@ -151,6 +179,31 @@ public class MemoService {
                 memoRepository.findIdsLinkedToRecords(expiredMemos.stream().map(Memo::getId).toList()));
 
         List<Memo> deletableMemos = expiredMemos.stream()
+                .filter(memo -> !linkedMemoIds.contains(memo.getId()))
+                .toList();
+
+        deleteMemosWithImages(deletableMemos);
+        return deletableMemos.size();
+    }
+
+    /**
+     * 실행취소 유예가 끝난 메모를 실제로 삭제한다 (스케줄러에서 호출).
+     *
+     * 삭제 시점에 기록 연결을 이미 막았지만, 그 사이 기록에 연결됐을 수 있어 한 번 더 확인한다.
+     * 연결된 메모를 지우면 record_memos의 FK 제약에 걸린다.
+     */
+    @Transactional
+    public int deleteMemosPastGracePeriod() {
+        List<Memo> pendingMemos = memoRepository.findAllByDeletePendingUntilBefore(LocalDateTime.now());
+
+        if (pendingMemos.isEmpty()) {
+            return 0;
+        }
+
+        Set<UUID> linkedMemoIds = new HashSet<>(
+                memoRepository.findIdsLinkedToRecords(pendingMemos.stream().map(Memo::getId).toList()));
+
+        List<Memo> deletableMemos = pendingMemos.stream()
                 .filter(memo -> !linkedMemoIds.contains(memo.getId()))
                 .toList();
 

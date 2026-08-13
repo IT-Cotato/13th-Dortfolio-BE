@@ -22,8 +22,13 @@ public interface MemoRepository extends JpaRepository<Memo, UUID> {
 
 	Optional<Memo> findByIdAndUser_Id(UUID id, UUID userId);
 
-	// 기능명세서 3. 메모하기: 생성일로부터 30일 지나면 자동 삭제
-	List<Memo> findAllByExpiresAtBefore(LocalDateTime dateTime);
+	// 기능명세서 3. 메모하기: 생성일로부터 30일 지나면 자동 삭제.
+	// 사용자가 이미 지운 메모는 제외한다. 만료가 임박한 메모를 삭제한 직후 이 작업이 돌면
+	// 유예 기간을 건너뛰고 지워져 실행취소가 불가능해진다
+	List<Memo> findAllByExpiresAtBeforeAndDeletePendingUntilIsNull(LocalDateTime dateTime);
+
+	// 실행취소 유예가 끝난 메모. 스케줄러가 실제로 지운다
+	List<Memo> findAllByDeletePendingUntilBefore(LocalDateTime dateTime);
 
 	// 기록에 연결된 메모는 삭제할 수 없다(record_memos.memo_id가 필수 FK).
 	// RecordMemoRepository를 주입하면 memo -> record 서비스 의존이 생겨 조회 쿼리로만 확인한다.

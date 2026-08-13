@@ -88,12 +88,20 @@ public class Memo extends BaseEntity {
 		this.isImportant = important;
 	}
 
-	// [사용되지 않는 메서드] 메모 삭제 API는 하드 삭제라 호출하지 않는다.
-	// RecordServiceTest가 아직 호출 중이라 제거하지 못한 상태.
-	// TODO: Record 도메인 정리와 함께 제거 예정 (PR #28 리뷰 합의)
+	// 기능명세서 3.2.3.1.1: 삭제 후 스낵바에서 실행취소할 수 있어야 하므로 바로 지우지 않는다.
+	// 유예 기간이 지나면 스케줄러가 실제로 삭제한다
 	public void markDeleted(int gracePeriodDays) {
-		this.deletedAt = LocalDateTime.now();
-		this.deletePendingUntil = LocalDateTime.now().plusDays(gracePeriodDays);
+		if (isDeleted()) {
+			return;
+		}
+		LocalDateTime now = LocalDateTime.now();
+		this.deletedAt = now;
+		this.deletePendingUntil = now.plusDays(gracePeriodDays);
+	}
+
+	public void restore() {
+		this.deletedAt = null;
+		this.deletePendingUntil = null;
 	}
 
 	public void increaseUseCount() {
