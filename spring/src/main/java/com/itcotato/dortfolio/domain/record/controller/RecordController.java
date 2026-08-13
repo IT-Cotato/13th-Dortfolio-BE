@@ -10,12 +10,14 @@ import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
 import com.itcotato.dortfolio.domain.record.service.RecordService;
 import com.itcotato.dortfolio.global.response.ApiResponse;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -60,8 +62,8 @@ public class RecordController implements RecordControllerDocs {
 		return ResponseEntity.ok(ApiResponse.success("기록을 수정했습니다.", recordService.updateRecord(userId, recordId, request)));
 	}
 
-	@GetMapping("/records")
-	public ResponseEntity<ApiResponse<RecordPageResponse>> getRecords(
+	@GetMapping(value = "/records", params = {"!startDate", "!endDate"})
+	public ResponseEntity<ApiResponse<RecordPageResponse>> getRecordPage(
 		@AuthenticationPrincipal UUID userId,
 		@RequestParam(required = false) UUID activityId,
 		@RequestParam(required = false) UUID templateId,
@@ -72,6 +74,43 @@ public class RecordController implements RecordControllerDocs {
 		return ResponseEntity.ok(ApiResponse.success(
 			"기록 목록을 조회했습니다.",
 			recordService.getRecordPage(userId, activityId, templateId, status, page, size)
+		));
+	}
+
+	@GetMapping(value = "/records", params = {"startDate", "endDate"})
+	public ResponseEntity<ApiResponse<List<RecordSummaryResponse>>> getRecordsByDateRange(
+		@AuthenticationPrincipal UUID userId,
+		@RequestParam(required = false) UUID activityId,
+		@RequestParam(required = false) UUID templateId,
+		@RequestParam(required = false) RecordStatus status,
+		@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+		@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+	) {
+		return ResponseEntity.ok(ApiResponse.success(
+			"기록 목록을 조회했습니다.",
+			recordService.getRecords(userId, activityId, templateId, status, startDate, endDate)
+		));
+	}
+
+	@GetMapping(value = "/records", params = {"startDate", "!endDate"})
+	public ResponseEntity<ApiResponse<List<RecordSummaryResponse>>> getRecordsWithoutEndDate(
+		@AuthenticationPrincipal UUID userId,
+		@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate
+	) {
+		return ResponseEntity.ok(ApiResponse.success(
+			"기록 목록을 조회했습니다.",
+			recordService.getRecords(userId, null, null, null, startDate, null)
+		));
+	}
+
+	@GetMapping(value = "/records", params = {"!startDate", "endDate"})
+	public ResponseEntity<ApiResponse<List<RecordSummaryResponse>>> getRecordsWithoutStartDate(
+		@AuthenticationPrincipal UUID userId,
+		@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+	) {
+		return ResponseEntity.ok(ApiResponse.success(
+			"기록 목록을 조회했습니다.",
+			recordService.getRecords(userId, null, null, null, null, endDate)
 		));
 	}
 

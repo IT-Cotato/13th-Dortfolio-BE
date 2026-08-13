@@ -23,6 +23,7 @@ import com.itcotato.dortfolio.domain.record.dto.res.RecordSummaryResponse;
 import com.itcotato.dortfolio.domain.record.entity.CompetencyTag;
 import com.itcotato.dortfolio.domain.record.entity.RecordCompetencyTag;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
+import com.itcotato.dortfolio.domain.record.exception.RecordQueryErrorCode;
 import com.itcotato.dortfolio.domain.record.repository.CompetencyTagRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordAnswerRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagRepository;
@@ -652,6 +653,73 @@ class RecordServiceTest {
 	}
 
 	@Test
+	void getRecordsFiltersByInclusiveCreatedDateRangeWithExistingFilters() {
+		User user = createUser();
+		Activity firstActivity = createActivity(user, "첫 활동");
+		Activity secondActivity = createActivity(user, "두 번째 활동");
+		Template template = createTemplate(user, "문제 해결", false);
+		RecordResponse beforeRange = createRecord(user, firstActivity, template, "기간 전 기록", RecordStatus.DRAFT);
+		RecordResponse startBoundary = createRecord(user, firstActivity, template, "시작일 기록", RecordStatus.DRAFT);
+		RecordResponse endBoundary = createRecord(user, firstActivity, template, "종료일 기록", RecordStatus.COMPLETED);
+		RecordResponse otherActivity = createRecord(user, secondActivity, template, "다른 활동 기록", RecordStatus.DRAFT);
+		RecordResponse afterRange = createRecord(user, firstActivity, template, "기간 후 기록", RecordStatus.DRAFT);
+
+		setRecordTimestamps(beforeRange.id(), LocalDateTime.of(2026, 7, 31, 23, 59), LocalDateTime.of(2026, 7, 31, 23, 59));
+		setRecordTimestamps(startBoundary.id(), LocalDateTime.of(2026, 8, 1, 0, 0), LocalDateTime.of(2026, 8, 1, 0, 0));
+		setRecordTimestamps(endBoundary.id(), LocalDateTime.of(2026, 8, 31, 23, 59, 59), LocalDateTime.of(2026, 8, 31, 23, 59, 59));
+		setRecordTimestamps(otherActivity.id(), LocalDateTime.of(2026, 8, 15, 12, 0), LocalDateTime.of(2026, 8, 15, 12, 0));
+		setRecordTimestamps(afterRange.id(), LocalDateTime.of(2026, 9, 1, 0, 0), LocalDateTime.of(2026, 9, 1, 0, 0));
+
+		List<RecordSummaryResponse> dateRangeResult = recordService.getRecords(
+			user.getId(),
+			null,
+			null,
+			null,
+			LocalDate.of(2026, 8, 1),
+			LocalDate.of(2026, 8, 31)
+		);
+		List<RecordSummaryResponse> filteredResult = recordService.getRecords(
+			user.getId(),
+			firstActivity.getId(),
+			null,
+			RecordStatus.DRAFT,
+			LocalDate.of(2026, 8, 1),
+			LocalDate.of(2026, 8, 31)
+		);
+
+		assertThat(dateRangeResult)
+			.extracting(RecordSummaryResponse::id)
+			.containsExactlyInAnyOrder(startBoundary.id(), endBoundary.id(), otherActivity.id());
+		assertThat(filteredResult)
+			.extracting(RecordSummaryResponse::id)
+			.containsExactly(startBoundary.id());
+	}
+
+	@Test
+	void getRecordsRejectsInvalidDateRange() {
+		User user = createUser();
+
+		assertThatThrownBy(() -> recordService.getRecords(
+			user.getId(), null, null, null, LocalDate.of(2026, 8, 31), LocalDate.of(2026, 8, 1)
+		))
+			.isInstanceOf(CustomException.class)
+			.extracting("errorCode")
+			.isEqualTo(RecordQueryErrorCode.INVALID_DATE_RANGE);
+	}
+
+	@Test
+	void getRecordsRejectsDateRangeWithMissingBoundary() {
+		User user = createUser();
+
+		assertThatThrownBy(() -> recordService.getRecords(
+			user.getId(), null, null, null, LocalDate.of(2026, 8, 1), null
+		))
+			.isInstanceOf(CustomException.class)
+			.extracting("errorCode")
+			.isEqualTo(RecordQueryErrorCode.INVALID_DATE_RANGE);
+	}
+
+	@Test
 	void getRecordPageReturnsSevenRecordsPerPageByDefault() {
 		User user = createUser();
 		Activity activity = createActivity(user, "도트폴리오");
@@ -757,6 +825,23 @@ class RecordServiceTest {
 		Template template = Template.createCustom(user, title, "설명");
 		template.initializeQuestions(List.of(TemplateQuestion.create("질문", "설명", required, 1)));
 		return templateRepository.save(template);
+	}
+
+	private RecordResponse createRecord(
+		User user,
+		Activity activity,
+		Template template,
+		String title,
+		RecordStatus status
+	) {
+		return recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(),
+			template.getId(),
+			title,
+			List.of(),
+			List.of(),
+			status
+		));
 	}
 
 	private Memo createMemo(User user, Activity activity) {
