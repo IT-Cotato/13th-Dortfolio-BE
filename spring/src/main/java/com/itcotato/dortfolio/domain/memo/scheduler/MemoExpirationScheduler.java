@@ -23,4 +23,19 @@ public class MemoExpirationScheduler {
             log.info("만료된 메모 {}건 자동 삭제 완료", deletedCount);
         }
     }
+
+    /**
+     * 사용자가 삭제한 메모를 실제로 지운다 (기능명세서 3.2.3.1.1).
+     *
+     * 삭제 직후에는 실행취소할 수 있어야 해서 감추기만 하고, 유예가 지난 뒤 여기서 정리한다.
+     * 삭제한 데이터가 오래 남지 않도록 만료 정리보다 자주 돌린다.
+     */
+    @Scheduled(cron = "0 0 * * * *")
+    public void deleteMemosPastGracePeriod() {
+        int deletedCount = memoService.deleteMemosPastGracePeriod();
+
+        if (deletedCount > 0) {
+            log.info("유예 기간이 지난 메모 {}건 삭제 완료", deletedCount);
+        }
+    }
 }

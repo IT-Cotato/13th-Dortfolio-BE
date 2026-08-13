@@ -53,7 +53,8 @@ public interface MemoControllerDocs {
     ResponseEntity<ApiResponse<Void>> markImportant(UUID userId, UUID memoId, boolean important);
 
     @Operation(summary = "메모 삭제 (단건/다건)",
-            description = "메모 1개 이상을 한 번에 삭제합니다. 삭제 후에는 복구할 수 없으며, 연결된 이미지도 함께 삭제됩니다. "
+            description = "메모 1개 이상을 한 번에 삭제합니다. 목록에서 즉시 사라지지만 유예 기간(1일) 안에는 복구할 수 있습니다. "
+                    + "유예가 지나면 연결된 이미지와 함께 실제로 삭제됩니다. "
                     + "기록에 연결된 메모는 삭제할 수 없고, 삭제 대상 중 하나라도 해당되면 전체 삭제가 실패합니다.")
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "삭제 성공"),
@@ -61,6 +62,14 @@ public interface MemoControllerDocs {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "M001: 존재하지 않는 메모가 포함된 경우")
     })
     ResponseEntity<ApiResponse<Void>> deleteMemos(UUID userId, List<UUID> memoIds);
+
+    @Operation(summary = "메모 삭제 실행취소 (단건/다건)",
+            description = "삭제한 메모를 되살립니다. 유예 기간이 지나 이미 삭제된 메모는 복구할 수 없습니다.")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "복구 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "M001: 존재하지 않는 메모가 포함된 경우")
+    })
+    ResponseEntity<ApiResponse<Void>> restoreMemos(UUID userId, List<UUID> memoIds);
 
     @Operation(summary = "활동 사진 업로드 Presigned URL 발급",
             description = "활동 사진 업로드용 Presigned URL을 발급합니다. JPG, PNG 확장자만 허용합니다. "
