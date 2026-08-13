@@ -11,10 +11,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -41,14 +43,36 @@ public interface RecordControllerDocs {
 		@Valid @RequestBody RecordUpdateRequest request
 	);
 
-	@Operation(summary = "기록 목록 조회", description = "활동, 템플릿, 기록 상태로 필터링한 기록 목록을 페이지 단위로 조회합니다. 기본값: 7개")
-	ResponseEntity<ApiResponse<RecordPageResponse>> getRecords(
+	@Operation(
+		operationId = "getRecords",
+		summary = "기록 목록 조회",
+		description = "startDate와 endDate를 함께 지정하면 생성일 기준 기간의 전체 기록을 페이지네이션 없이 조회합니다. "
+			+ "날짜를 지정하지 않으면 페이지 단위로 조회하며, 활동, 템플릿, 기록 상태 필터를 함께 사용할 수 있습니다."
+	)
+	ResponseEntity<ApiResponse<RecordPageResponse>> getRecordPage(
 		@Parameter(hidden = true) @AuthenticationPrincipal UUID userId,
 		@Parameter(description = "활동 ID") @RequestParam(required = false) UUID activityId,
 		@Parameter(description = "템플릿 ID") @RequestParam(required = false) UUID templateId,
 		@Parameter(description = "기록 상태") @RequestParam(required = false) RecordStatus status,
 		@Parameter(description = "페이지 번호, 0부터 시작") @RequestParam(defaultValue = "0") int page,
 		@Parameter(description = "페이지 크기. 기본값: 7개") @RequestParam(required = false) Integer size
+	);
+
+	@Operation(
+		operationId = "getRecords",
+		summary = "기록 목록 조회",
+		description = "startDate와 endDate를 함께 지정하면 생성일 기준 기간의 전체 기록을 페이지네이션 없이 조회합니다. "
+			+ "날짜를 지정하지 않으면 페이지 단위로 조회하며, 활동, 템플릿, 기록 상태 필터를 함께 사용할 수 있습니다."
+	)
+	ResponseEntity<ApiResponse<List<RecordSummaryResponse>>> getRecordsByDateRange(
+		@Parameter(hidden = true) @AuthenticationPrincipal UUID userId,
+		@Parameter(description = "활동 ID") @RequestParam(required = false) UUID activityId,
+		@Parameter(description = "템플릿 ID") @RequestParam(required = false) UUID templateId,
+		@Parameter(description = "기록 상태") @RequestParam(required = false) RecordStatus status,
+		@Parameter(description = "조회 시작일 (포함)", example = "2026-08-01", required = false)
+		@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+		@Parameter(description = "조회 종료일 (포함)", example = "2026-08-31", required = false)
+		@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
 	);
 
 	@Operation(summary = "최근 작성 기록 조회", description = "최근 작성한 기록을 최대 5개까지 최신 작성순으로 조회합니다.")

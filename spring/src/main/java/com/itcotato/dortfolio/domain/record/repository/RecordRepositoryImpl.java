@@ -9,6 +9,8 @@ import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -47,7 +49,9 @@ public class RecordRepositoryImpl implements RecordRepositoryCustom {
 				record.activity.deletedAt.isNull(),
 				activityIdEq(condition.activityId()),
 				templateIdEq(condition.templateId()),
-				statusEq(condition.status())
+				statusEq(condition.status()),
+				createdAtGoe(condition.startDate()),
+				createdAtLoe(condition.endDate())
 			)
 			.fetchOne();
 		return count == null ? 0 : count;
@@ -80,7 +84,9 @@ public class RecordRepositoryImpl implements RecordRepositoryCustom {
 				record.activity.deletedAt.isNull(),
 				activityIdEq(condition.activityId()),
 				templateIdEq(condition.templateId()),
-				statusEq(condition.status())
+				statusEq(condition.status()),
+				createdAtGoe(condition.startDate()),
+				createdAtLoe(condition.endDate())
 			);
 	}
 
@@ -94,5 +100,13 @@ public class RecordRepositoryImpl implements RecordRepositoryCustom {
 
 	private BooleanExpression statusEq(RecordStatus status) {
 		return status == null ? null : record.status.eq(status);
+	}
+
+	private BooleanExpression createdAtGoe(LocalDate startDate) {
+		return startDate == null ? null : record.createdAt.goe(startDate.atStartOfDay());
+	}
+
+	private BooleanExpression createdAtLoe(LocalDate endDate) {
+		return endDate == null ? null : record.createdAt.loe(endDate.atTime(LocalTime.MAX));
 	}
 }

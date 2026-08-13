@@ -15,12 +15,14 @@ import com.itcotato.dortfolio.domain.record.dto.res.RecordResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordSummaryResponse;
 import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
+import com.itcotato.dortfolio.domain.record.exception.RecordQueryErrorCode;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.RecordErrorCode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -86,9 +88,23 @@ public class RecordService {
 
     @Transactional(readOnly = true)
     public List<RecordSummaryResponse> getRecords(UUID userId, UUID activityId, UUID templateId, RecordStatus status) {
-        validateSearchFilters(userId, activityId, templateId);
+        return getRecords(userId, activityId, templateId, status, null, null);
+    }
 
-        return recordRepository.searchRecords(userId, RecordSearchCondition.of(activityId, templateId, status)).stream()
+    @Transactional(readOnly = true)
+    public List<RecordSummaryResponse> getRecords(
+            UUID userId,
+            UUID activityId,
+            UUID templateId,
+            RecordStatus status,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        validateSearchFilters(userId, activityId, templateId);
+        validateDateRange(startDate, endDate);
+
+        RecordSearchCondition condition = RecordSearchCondition.of(activityId, templateId, status, startDate, endDate);
+        return recordRepository.searchRecords(userId, condition).stream()
                 .map(RecordSummaryResponse::from)
                 .toList();
     }
@@ -197,6 +213,13 @@ public class RecordService {
     private void validatePageRequest(int page, int size) {
         if (page < 0 || size <= 0 || size > recordProperties.maxPageSize()) {
             throw new CustomException(RecordErrorCode.RECORD_INVALID_PAGE_REQUEST);
+        }
+    }
+
+    private void validateDateRange(LocalDate startDate, LocalDate endDate) {
+        if ((startDate == null) != (endDate == null)
+                || (startDate != null && startDate.isAfter(endDate))) {
+            throw new CustomException(RecordQueryErrorCode.INVALID_DATE_RANGE);
         }
     }
 
