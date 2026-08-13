@@ -9,6 +9,7 @@ import com.itcotato.dortfolio.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -24,11 +25,16 @@ public interface MemoControllerDocs {
     })
     ResponseEntity<ApiResponse<UUID>> createMemo(UUID userId, MemoCreateRequest request);
 
-    @Operation(summary = "메모 목록 조회", description = "내 메모 목록을 최신순으로 조회합니다. activityId를 지정하면 해당 활동 태그로 필터링하고, 지정하지 않으면 전체를 조회합니다.")
+    @Operation(summary = "메모 목록 조회",
+            description = "내 메모 목록을 최신순으로 조회합니다. "
+                    + "activityId를 지정하면 해당 활동 태그로 필터링합니다. "
+                    + "startDate/endDate(yyyy-MM-dd)로 생성일 기간을 좁힐 수 있으며, 두 날짜 모두 결과에 포함됩니다. "
+                    + "각 조건은 생략하거나 조합할 수 있습니다.")
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공")
     })
-    ResponseEntity<ApiResponse<List<MemoResponse>>> getMemos(UUID userId, UUID activityId);
+    ResponseEntity<ApiResponse<List<MemoResponse>>> getMemos(
+            UUID userId, UUID activityId, LocalDate startDate, LocalDate endDate);
 
     @Operation(summary = "메모 상세 조회")
     @ApiResponses(value = {

@@ -15,12 +15,15 @@ public interface MemoRepository extends JpaRepository<Memo, UUID> {
 
 	List<Memo> findAllByIdInAndUser_Id(List<UUID> ids, UUID userId);
 
-	List<Memo> findAllByUser_IdAndDeletedAtIsNullOrderByCreatedAtDesc(UUID userId);
-
-	// 기능명세서 3.4: 활동 태그별 필터링 조회
-	List<Memo> findAllByUser_IdAndActivity_IdAndDeletedAtIsNullOrderByCreatedAtDesc(UUID userId, UUID activityId);
-
 	Optional<Memo> findByIdAndUser_Id(UUID id, UUID userId);
+
+	// 기능명세서 3.4: 기간(생성일) 내 메모 조회
+	List<Memo> findAllByUser_IdAndDeletedAtIsNullAndCreatedAtBetweenOrderByCreatedAtDesc(
+			UUID userId, LocalDateTime from, LocalDateTime to);
+
+	// 기능명세서 3.4: 활동 태그별 필터링 + 기간 조회
+	List<Memo> findAllByUser_IdAndActivity_IdAndDeletedAtIsNullAndCreatedAtBetweenOrderByCreatedAtDesc(
+			UUID userId, UUID activityId, LocalDateTime from, LocalDateTime to);
 
 	// 기능명세서 3. 메모하기: 생성일로부터 30일 지나면 자동 삭제.
 	// 사용자가 이미 지운 메모는 제외한다. 만료가 임박한 메모를 삭제한 직후 이 작업이 돌면

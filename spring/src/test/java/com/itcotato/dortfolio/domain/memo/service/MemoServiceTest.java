@@ -29,6 +29,7 @@ import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.ActivityErrorCode;
+import com.itcotato.dortfolio.global.exception.types.GlobalErrorCode;
 import com.itcotato.dortfolio.global.exception.types.MemoErrorCode;
 
 import jakarta.persistence.EntityManager;
@@ -237,8 +238,8 @@ class MemoServiceTest {
 		memoService.createMemo(user.getId(), new MemoCreateRequest(activity.getId(), null, "태그 있음", null));
 		memoService.createMemo(user.getId(), new MemoCreateRequest(null, null, "태그 없음", null));
 
-		assertThat(memoService.getMemos(user.getId(), null)).hasSize(2);
-		assertThat(memoService.getMemos(user.getId(), activity.getId()))
+		assertThat(memoService.getMemos(user.getId(), null, null, null)).hasSize(2);
+		assertThat(memoService.getMemos(user.getId(), activity.getId(), null, null))
 				.extracting(MemoResponse::content)
 				.containsExactly("태그 있음");
 	}
@@ -252,7 +253,7 @@ class MemoServiceTest {
 
 		memoService.deleteMemos(userId, List.of(first, second));
 
-		assertThat(memoService.getMemos(userId, null)).isEmpty();
+		assertThat(memoService.getMemos(userId, null, null, null)).isEmpty();
 	}
 
 	@Test
@@ -265,7 +266,7 @@ class MemoServiceTest {
 
 		memoService.restoreMemos(userId, List.of(first, second));
 
-		assertThat(memoService.getMemos(userId, null)).hasSize(2);
+		assertThat(memoService.getMemos(userId, null, null, null)).hasSize(2);
 	}
 
 	@Test
@@ -316,7 +317,7 @@ class MemoServiceTest {
 
 		// 유예 안이므로 실행취소가 여전히 가능해야 한다
 		memoService.restoreMemos(userId, List.of(memoId));
-		assertThat(memoService.getMemos(userId, null)).hasSize(1);
+		assertThat(memoService.getMemos(userId, null, null, null)).hasSize(1);
 	}
 
 	@Test
@@ -342,7 +343,7 @@ class MemoServiceTest {
 				.extracting("errorCode")
 				.isEqualTo(MemoErrorCode.MEMO_NOT_FOUND);
 
-		assertThat(memoService.getMemos(userId, null)).hasSize(1);
+		assertThat(memoService.getMemos(userId, null, null, null)).hasSize(1);
 	}
 
 	@Test
@@ -361,7 +362,7 @@ class MemoServiceTest {
 				.extracting("errorCode")
 				.isEqualTo(MemoErrorCode.MEMO_LINKED_TO_RECORD);
 
-		assertThat(memoService.getMemos(user.getId(), null)).hasSize(1);
+		assertThat(memoService.getMemos(user.getId(), null, null, null)).hasSize(1);
 	}
 
 	@Test
@@ -383,7 +384,7 @@ class MemoServiceTest {
 				.isEqualTo(MemoErrorCode.MEMO_LINKED_TO_RECORD);
 
 		// 소프트 삭제라 findAll로는 구분되지 않으므로 목록 조회로 확인한다
-		assertThat(memoService.getMemos(user.getId(), null)).hasSize(2);
+		assertThat(memoService.getMemos(user.getId(), null, null, null)).hasSize(2);
 	}
 
 	@Test
@@ -504,6 +505,71 @@ class MemoServiceTest {
 				.sortOrder(1)
 				.isCollapsed(false)
 				.build());
+	}
+
+	@Test
+	@DisplayName("기간을 지정하면 그 안에 만든 메모만 조회된다 (시작일·종료일 포함)")
+	void filtersMemosByDateRange() {
+		UUID userId = createUser().getId();
+		UUID older = memoService.createMemo(userId, new MemoCreateRequest(null, null, "이전 달", null));
+		UUID onStart = memoService.createMemo(userId, new MemoCreateRequest(null, null, "시작일", null));
+		UUID onEnd = memoService.createMemo(userId, new MemoCreateRequest(null, null, "종료일", null));
+
+		LocalDate start = LocalDate.now().minusDays(5);
+		LocalDate end = LocalDate.now().minusDays(1);
+		setCreatedAt(older, start.minusDays(1).atTime(23, 59));
+		setCreatedAt(onStart, start.atStartOfDay());
+		setCreatedAt(onEnd, end.atTime(23, 59));
+
+		assertThat(memoService.getMemos(userId, null, start, end))
+				.extracting(MemoResponse::content)
+				.containsExactlyInAnyOrder("시작일", "종료일");
+	}
+
+	@Test
+	@DisplayName("시작일만 지정하면 그 이후 메모를 모두 조회한다")
+	void filtersMemosByStartDateOnly() {
+		UUID userId = createUser().getId();
+		UUID older = memoService.createMemo(userId, new MemoCreateRequest(null, null, "예전", null));
+		memoService.createMemo(userId, new MemoCreateRequest(null, null, "오늘", null));
+		setCreatedAt(older, LocalDate.now().minusDays(10).atStartOfDay());
+
+		assertThat(memoService.getMemos(userId, null, LocalDate.now().minusDays(1), null))
+				.extracting(MemoResponse::content)
+				.containsExactly("오늘");
+	}
+
+	@Test
+	@DisplayName("기간과 활동 태그를 함께 지정할 수 있다")
+	void filtersMemosByDateRangeAndActivity() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		memoService.createMemo(user.getId(),
+				new MemoCreateRequest(activity.getId(), null, "태그 있음", null));
+		memoService.createMemo(user.getId(), new MemoCreateRequest(null, null, "태그 없음", null));
+
+		assertThat(memoService.getMemos(user.getId(), activity.getId(), LocalDate.now(), LocalDate.now()))
+				.extracting(MemoResponse::content)
+				.containsExactly("태그 있음");
+	}
+
+	@Test
+	@DisplayName("시작일이 종료일보다 뒤면 요청이 거부된다")
+	void rejectsReversedDateRange() {
+		UUID userId = createUser().getId();
+		LocalDate start = LocalDate.now();
+		LocalDate end = start.minusDays(1);
+
+		assertThatThrownBy(() -> memoService.getMemos(userId, null, start, end))
+				.isInstanceOf(CustomException.class)
+				.extracting("errorCode")
+				.isEqualTo(GlobalErrorCode.INVALID_INPUT_VALUE);
+	}
+
+	// createdAt은 감사(Auditing)가 채우고 updatable=false라 JPQL로는 바꿀 수 없다.
+	// 과거에 만든 메모 상황은 SQL로 직접 재현한다
+	private void setCreatedAt(UUID memoId, LocalDateTime createdAt) {
+		jdbcTemplate.update("update memos set created_at = ? where id = ?", createdAt, memoId);
 	}
 
 	// expiresAt은 생성 시점에만 세팅되므로 만료 상황은 벌크 업데이트로 재현한다

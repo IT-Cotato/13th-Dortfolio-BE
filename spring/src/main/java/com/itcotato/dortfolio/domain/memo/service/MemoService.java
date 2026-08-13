@@ -20,7 +20,9 @@ import com.itcotato.dortfolio.global.exception.types.ActivityErrorCode;
 import com.itcotato.dortfolio.global.exception.types.GlobalErrorCode;
 import com.itcotato.dortfolio.global.exception.types.MemoErrorCode;
 import com.itcotato.dortfolio.global.exception.types.UserErrorCode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -43,6 +45,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class MemoService {
 
     private static final int DEFAULT_SORT_ORDER = 0;
+
+    // 기간을 지정하지 않았을 때 쓰는 경계값. 메모는 30일 뒤 사라지므로 이 범위면 항상 충분하다
+    private static final LocalDateTime MIN_CREATED_AT = LocalDateTime.of(2000, 1, 1, 0, 0);
+    private static final LocalDateTime MAX_CREATED_AT = LocalDateTime.of(9999, 12, 31, 23, 59);
 
     // 실행취소 스낵바가 사라지면 사용자는 곧바로 복구를 포기하므로 유예는 짧아도 된다.
     // 요청이 끊겨 되돌리지 못한 삭제를 정리하기 위한 안전망이다 (활동 삭제와 동일한 정책)
@@ -75,11 +81,28 @@ public class MemoService {
         return memo.getId();
     }
 
-    // 기능명세서 3.4: activityId가 null이면 전체보기, 있으면 해당 활동 태그로 필터링
-    public List<MemoResponse> getMemos(UUID userId, UUID activityId) {
+    /**
+     * 메모 목록 조회 (기능명세서 3.4).
+     *
+     * activityId를 지정하면 해당 활동 태그로 필터링한다.
+     * startDate/endDate는 홈 화면 캘린더처럼 특정 기간만 필요한 경우를 위한 것으로,
+     * 둘 다 생략하면 전체를 조회한다. 각각 따로 지정할 수도 있다.
+     */
+    public List<MemoResponse> getMemos(UUID userId, UUID activityId, LocalDate startDate, LocalDate endDate) {
+        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+            throw new CustomException(GlobalErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        // endDate 당일에 만든 메모까지 포함해야 하므로 종료 시각을 그날 끝으로 잡는다.
+        // 기간을 지정하지 않으면 전체가 나오도록 넉넉한 값을 쓴다
+        LocalDateTime from = (startDate == null) ? MIN_CREATED_AT : startDate.atStartOfDay();
+        LocalDateTime to = (endDate == null) ? MAX_CREATED_AT : endDate.atTime(LocalTime.MAX);
+
         List<Memo> memos = (activityId == null)
-                ? memoRepository.findAllByUser_IdAndDeletedAtIsNullOrderByCreatedAtDesc(userId)
-                : memoRepository.findAllByUser_IdAndActivity_IdAndDeletedAtIsNullOrderByCreatedAtDesc(userId, activityId);
+                ? memoRepository.findAllByUser_IdAndDeletedAtIsNullAndCreatedAtBetweenOrderByCreatedAtDesc(
+                        userId, from, to)
+                : memoRepository.findAllByUser_IdAndActivity_IdAndDeletedAtIsNullAndCreatedAtBetweenOrderByCreatedAtDesc(
+                        userId, activityId, from, to);
 
         if (memos.isEmpty()) {
             return List.of();

@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import java.time.LocalDate;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -49,10 +51,13 @@ public class MemoController implements MemoControllerDocs {
     @GetMapping
     public ResponseEntity<ApiResponse<List<MemoResponse>>> getMemos(
             @AuthenticationPrincipal UUID userId,
-            @RequestParam(required = false) UUID activityId
+            @RequestParam(required = false) UUID activityId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
     ) {
-        return ResponseEntity.ok(
-                ApiResponse.success("메모 목록을 조회했습니다.", memoService.getMemos(userId, activityId)));
+        return ResponseEntity.ok(ApiResponse.success(
+                "메모 목록을 조회했습니다.",
+                memoService.getMemos(userId, activityId, startDate, endDate)));
     }
 
     @Override
