@@ -1,5 +1,6 @@
 package com.itcotato.dortfolio.domain.record.dto.res;
 
+import com.itcotato.dortfolio.domain.activity.entity.Activity;
 import com.itcotato.dortfolio.domain.record.entity.RecordMemo;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -16,9 +17,12 @@ public record RecordMemoResponse(
 	LocalDateTime expiresAt
 ) {
 	public static RecordMemoResponse from(RecordMemo recordMemo) {
+		// 활동 태그는 선택 입력이라(기능명세서 3.1.5) 없는 메모가 있다
+		Activity activity = recordMemo.getMemo().getActivity();
+
 		return new RecordMemoResponse(
 			recordMemo.getMemo().getId(),
-			recordMemo.getMemo().getActivity().getId(),
+			activity == null ? null : activity.getId(),
 			recordMemo.getMemo().getTitle(),
 			recordMemo.getMemo().getContent(),
 			recordMemo.getMemo().isImportant(),

@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.UUID;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -296,6 +297,34 @@ class RecordServiceTest {
 				.isInstanceOf(CustomException.class)
 				.extracting("errorCode")
 				.isEqualTo(RecordErrorCode.RECORD_MEMO_ACTIVITY_MISMATCH);
+	}
+
+	@Test
+	@DisplayName("활동 태그가 없는 메모는 어떤 활동의 기록에도 연결할 수 있다")
+	void canAttachMemoWithoutActivityToAnyRecord() {
+		User user = createUser();
+		Activity activity = createActivity(user, "활동");
+		Template template = createTemplate(user, "문제 해결", false);
+		Memo memoWithoutActivity = createMemoWithoutActivity(user);
+
+		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
+				activity.getId(),
+				template.getId(),
+				"첫 기록",
+				List.of(),
+				List.of(),
+				RecordStatus.DRAFT
+		));
+
+		recordService.updateRecord(user.getId(), draft.id(), new RecordUpdateRequest(
+				"첫 기록",
+				List.of(),
+				List.of(new RecordMemoRequest(memoWithoutActivity.getId(), false)),
+				RecordStatus.DRAFT
+		));
+
+		assertThat(recordMemoRepository.findAllByRecord_IdOrderBySortOrderAsc(draft.id()))
+				.hasSize(1);
 	}
 
 	@Test
@@ -846,6 +875,11 @@ class RecordServiceTest {
 
 	private Memo createMemo(User user, Activity activity) {
 		return memoRepository.save(Memo.create(user, activity, "메모", "내용", 1));
+	}
+
+	// 활동 태그는 선택 입력이라 지정하지 않은 메모도 있다 (기능명세서 3.1.5)
+	private Memo createMemoWithoutActivity(User user) {
+		return memoRepository.save(Memo.create(user, null, "메모", "내용", 1));
 	}
 
 	private void expireDeletePendingWindow(com.itcotato.dortfolio.domain.record.entity.Record record) {

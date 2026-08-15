@@ -128,7 +128,9 @@ public class RecordMemoService {
 					throw new CustomException(RecordErrorCode.RECORD_MEMO_NOT_FOUND);
 				}
 
-				if (!memo.getActivity().getId().equals(activityId)) {
+				// 활동 태그는 선택 입력이라(기능명세서 3.1.5) 없는 메모가 있다.
+				// 어느 활동에도 속하지 않으므로 다른 활동의 메모로 볼 수 없고, 기록 작성 시 고른 활동에 그대로 연결한다
+				if (memo.getActivity() != null && !memo.getActivity().getId().equals(activityId)) {
 					throw new CustomException(RecordErrorCode.RECORD_MEMO_ACTIVITY_MISMATCH);
 				}
 
