@@ -1,33 +1,72 @@
 package com.itcotato.dortfolio.domain.job.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.itcotato.dortfolio.domain.job.dto.JobCategoryResponse;
 import com.itcotato.dortfolio.domain.job.dto.JobListResponse;
 import com.itcotato.dortfolio.domain.job.dto.JobSummaryResponse;
 import com.itcotato.dortfolio.domain.job.service.JobQueryService;
+import com.itcotato.dortfolio.global.config.SecurityConfig;
+import com.itcotato.dortfolio.global.security.handler.CustomAuthenticationEntryPoint;
+import com.itcotato.dortfolio.global.security.jwt.JwtTokenProvider;
+import com.itcotato.dortfolio.global.security.oauth.CustomOAuth2UserService;
+import com.itcotato.dortfolio.global.security.oauth.HttpCookieOAuth2AuthorizationRequestRepository;
+import com.itcotato.dortfolio.global.security.oauth.OAuth2FailureHandler;
+import com.itcotato.dortfolio.global.security.oauth.OAuth2SuccessHandler;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
 
-@ExtendWith(MockitoExtension.class)
+@WebMvcTest(
+        controllers = JobController.class,
+        properties = "app.cors.allowed-origins=http://localhost"
+)
+@Import({SecurityConfig.class, CustomAuthenticationEntryPoint.class})
 class JobControllerTest {
 
-    @Mock
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoBean
     private JobQueryService jobQueryService;
 
-    @InjectMocks
-    private JobController jobController;
+    @MockitoBean
+    private JwtTokenProvider jwtTokenProvider;
+
+    @MockitoBean
+    private CustomOAuth2UserService customOAuth2UserService;
+
+    @MockitoBean
+    private OAuth2SuccessHandler oAuth2SuccessHandler;
+
+    @MockitoBean
+    private OAuth2FailureHandler oAuth2FailureHandler;
+
+    @MockitoBean
+    private HttpCookieOAuth2AuthorizationRequestRepository authorizationRequestRepository;
+
+    @MockitoBean
+    private JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
     @Test
-    void returnsGroupedJobCatalog() {
+    void rejectsAnonymousRequest() throws Exception {
+        mockMvc.perform(get("/api/jobs"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void returnsGroupedJobCatalogForAuthenticatedUser() throws Exception {
         UUID jobId = UUID.randomUUID();
         JobListResponse expected = new JobListResponse(List.of(
                 new JobCategoryResponse(
@@ -42,14 +81,14 @@ class JobControllerTest {
         ));
         when(jobQueryService.getJobs()).thenReturn(expected);
 
-        var response = jobController.getJobs();
+        mockMvc.perform(get("/api/jobs").with(user("user")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("직무 목록 조회에 성공하였습니다."))
+                .andExpect(jsonPath("$.data.categories[0].code").value("IT_DEVELOPMENT"))
+                .andExpect(jsonPath("$.data.categories[0].jobs[0].id").value(jobId.toString()))
+                .andExpect(jsonPath("$.data.categories[0].jobs[0].code").value("JOB_013"));
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().isSuccess()).isTrue();
-        assertThat(response.getBody().getMessage())
-                .isEqualTo("직무 목록 조회에 성공하였습니다.");
-        assertThat(response.getBody().getData()).isEqualTo(expected);
         verify(jobQueryService).getJobs();
     }
 }

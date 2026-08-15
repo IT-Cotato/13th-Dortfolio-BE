@@ -38,6 +38,7 @@ class FlywayMigrationTest {
 		assertRecordAnswersNormalized();
 		assertTemplateDescriptionsExtended();
 		assertBuiltinTemplatesSeeded();
+		assertJobCatalogSeeded();
 	}
 
 	@Test

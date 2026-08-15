@@ -51,4 +51,19 @@ class JobQueryServiceTest {
                 .containsExactly("JOB_012", "JOB_013");
         assertThat(response.categories().get(1).jobs()).isEmpty();
     }
+
+    @Test
+    void ignoresJobsWithUnsupportedCategoryCode() {
+        when(jobRepository.findAllByOrderByCodeAsc()).thenReturn(List.of(
+                Job.create("JOB_001", "PLANNING_MANAGEMENT", "경영·사업기획", null),
+                Job.create("JOB_999", "UNSUPPORTED", "미지원 직무", null)
+        ));
+
+        var response = jobQueryService.getJobs();
+
+        assertThat(response.categories())
+                .flatExtracting(category -> category.jobs())
+                .extracting(job -> job.code())
+                .containsExactly("JOB_001");
+    }
 }

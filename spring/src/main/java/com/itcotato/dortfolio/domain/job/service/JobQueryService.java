@@ -7,6 +7,7 @@ import com.itcotato.dortfolio.domain.job.entity.Job;
 import com.itcotato.dortfolio.domain.job.entity.JobCategory;
 import com.itcotato.dortfolio.domain.job.repository.JobRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class JobQueryService {
@@ -25,9 +27,23 @@ public class JobQueryService {
     public JobListResponse getJobs() {
         List<Job> jobs = jobRepository.findAllByOrderByCodeAsc();
 
+        Map<String, JobCategory> categoriesByCode = Arrays.stream(JobCategory.values())
+                .collect(Collectors.toMap(Enum::name, category -> category));
+
         Map<JobCategory, List<Job>> groupedJobs = jobs.stream()
+                .filter(job -> {
+                    boolean supported = categoriesByCode.containsKey(job.getCategoryCode());
+                    if (!supported) {
+                        log.warn(
+                                "지원하지 않는 직무 대분류 코드입니다. jobCode={}, categoryCode={}",
+                                job.getCode(),
+                                job.getCategoryCode()
+                        );
+                    }
+                    return supported;
+                })
                 .collect(Collectors.groupingBy(
-                        job -> JobCategory.valueOf(job.getCategoryCode())
+                        job -> categoriesByCode.get(job.getCategoryCode())
                 ));
 
         List<JobCategoryResponse> categories =

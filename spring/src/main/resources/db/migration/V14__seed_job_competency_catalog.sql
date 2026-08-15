@@ -308,6 +308,24 @@ BEGIN
     END IF;
 
     IF EXISTS (
+        SELECT job_name
+        FROM job_competency_seed
+        GROUP BY job_name
+        HAVING COUNT(DISTINCT job_code) <> 1
+    ) THEN
+        RAISE EXCEPTION 'Seed에 동일 직무 이름이 서로 다른 코드로 존재합니다.';
+    END IF;
+
+    IF EXISTS (
+        SELECT competency_name
+        FROM job_competency_seed
+        GROUP BY competency_name
+        HAVING COUNT(DISTINCT competency_code) <> 1
+    ) THEN
+        RAISE EXCEPTION 'Seed에 동일 역량 이름이 서로 다른 코드로 존재합니다.';
+    END IF;
+
+    IF EXISTS (
         SELECT job_code
         FROM job_competency_seed
         GROUP BY job_code
@@ -423,6 +441,28 @@ BEGIN
     END IF;
 
     IF EXISTS (
+        SELECT 1
+        FROM (SELECT DISTINCT job_code FROM job_competency_seed) seed
+        WHERE NOT EXISTS (
+            SELECT 1 FROM jobs job WHERE job.code = seed.job_code
+        )
+    ) THEN
+        RAISE EXCEPTION 'Seed 직무 코드 중 적재되지 않은 항목이 있습니다.';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM (SELECT DISTINCT competency_code FROM job_competency_seed) seed
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM competency_tags tag
+            WHERE tag.code = seed.competency_code
+        )
+    ) THEN
+        RAISE EXCEPTION 'Seed 역량 코드 중 적재되지 않은 항목이 있습니다.';
+    END IF;
+
+    IF EXISTS (
         SELECT code FROM jobs GROUP BY code HAVING COUNT(*) > 1
     ) THEN
         RAISE EXCEPTION '중복 직무 코드가 있습니다.';
@@ -479,6 +519,19 @@ ALTER TABLE jobs ALTER COLUMN category_code SET NOT NULL;
 ALTER TABLE competency_tags ALTER COLUMN code SET NOT NULL;
 
 ALTER TABLE jobs ADD CONSTRAINT uk_jobs_code UNIQUE (code);
+ALTER TABLE jobs ADD CONSTRAINT ck_jobs_category_code
+    CHECK (category_code IN (
+        'PLANNING_MANAGEMENT',
+        'MARKETING_ADVERTISING',
+        'IT_DEVELOPMENT',
+        'DESIGN',
+        'SALES_CS',
+        'PRODUCTION_MANUFACTURING',
+        'RESEARCH_RND',
+        'FINANCE',
+        'MEDIA_CONTENT',
+        'LOGISTICS_DISTRIBUTION'
+    ));
 ALTER TABLE competency_tags ADD CONSTRAINT uk_competency_tags_code UNIQUE (code);
 ALTER TABLE job_competencies
     ADD CONSTRAINT uk_job_competency_sort_order
