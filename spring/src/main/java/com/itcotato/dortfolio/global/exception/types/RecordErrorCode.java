@@ -1,6 +1,7 @@
 package com.itcotato.dortfolio.global.exception.types;
 
 import com.itcotato.dortfolio.global.exception.ErrorCode;
+import com.sun.net.httpserver.HttpsServer;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

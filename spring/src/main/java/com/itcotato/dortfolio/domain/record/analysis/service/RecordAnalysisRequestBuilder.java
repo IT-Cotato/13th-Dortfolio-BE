@@ -18,13 +18,25 @@ public class RecordAnalysisRequestBuilder {
 
 	private final RecordAnswerRepository recordAnswerRepository;
 	private final RecordMemoRepository recordMemoRepository;
-	private final CompetencyTagRepository competencyTagRepository;
+    private final RecordAnalysisCompetencyCandidateProvider competencyCandidateProvider;
 
-	public RecordAnalysisRequest build(Record record) {
-		List<RecordAnswer> answers = recordAnswerRepository.findAllByRecord_IdOrderByTemplateQuestion_SortOrderAsc(record.getId());
-		List<RecordMemo> memos = recordMemoRepository.findAllByRecord_IdOrderBySortOrderAsc(record.getId());
-		List<CompetencyTag> competencyTagCandidates = competencyTagRepository.findAll();
+    public RecordAnalysisRequest build(Record record) {
+        List<RecordAnswer> answers =
+                recordAnswerRepository
+                        .findAllByRecord_IdOrderByTemplateQuestion_SortOrderAsc(record.getId());
 
-		return RecordAnalysisRequest.of(record, answers, memos, competencyTagCandidates);
-	}
+        List<RecordMemo> memos =
+                recordMemoRepository
+                        .findAllByRecord_IdOrderBySortOrderAsc(record.getId());
+
+        List<CompetencyTag> competencyTagCandidates =
+                competencyCandidateProvider.getRequiredCandidates(record.getUser().getId());
+
+        return RecordAnalysisRequest.of(
+                record,
+                answers,
+                memos,
+                competencyTagCandidates
+        );
+    }
 }

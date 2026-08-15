@@ -6,6 +6,10 @@ import com.itcotato.dortfolio.domain.activity.entity.Activity;
 import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
+import com.itcotato.dortfolio.domain.job.entity.Job;
+import com.itcotato.dortfolio.domain.job.entity.JobCompetency;
+import com.itcotato.dortfolio.domain.job.repository.JobCompetencyRepository;
+import com.itcotato.dortfolio.domain.job.repository.JobRepository;
 import com.itcotato.dortfolio.domain.record.analysis.dto.AnalyzedCompetencyTagResponse;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisResponse;
@@ -29,10 +33,13 @@ import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
+import com.itcotato.dortfolio.domain.user.entity.UserJob;
+import com.itcotato.dortfolio.domain.user.repository.UserJobRepository;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -95,6 +102,17 @@ class RecordAnalysisServiceTest {
 	@Autowired
 	private UserRepository userRepository;
 
+	@Autowired
+	private UserJobRepository userJobRepository;
+
+	@Autowired
+	private JobRepository jobRepository;
+
+	@Autowired
+	private JobCompetencyRepository jobCompetencyRepository;
+
+	private List<CompetencyTag> competencyCandidates;
+
 	@BeforeEach
 	void setUp() {
 		stubRecordAnalysisClient.reset();
@@ -102,6 +120,8 @@ class RecordAnalysisServiceTest {
 		recordAnalysisRepository.deleteAll();
 		recordEmbeddingRepository.deleteAll();
 		recordCompetencyTagRepository.deleteAll();
+		userJobRepository.deleteAll();
+		jobCompetencyRepository.deleteAll();
 		competencyTagRepository.deleteAll();
 		recordMemoRepository.deleteAll();
 		recordAnswerRepository.deleteAll();
@@ -110,6 +130,14 @@ class RecordAnalysisServiceTest {
 		activityRepository.deleteAll();
 		activityTypeRepository.deleteAll();
 		userRepository.deleteAll();
+		jobRepository.deleteAll();
+		competencyCandidates = null;
+	}
+
+	@AfterEach
+	void tearDownJobFixtures() {
+		userJobRepository.deleteAll();
+		jobCompetencyRepository.deleteAll();
 	}
 
 	@Test
@@ -117,7 +145,7 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, true);
-		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("TEST_COMP", "문제 해결", "문제를 해결하는 역량"));
+		CompetencyTag competencyTag = competencyCandidates.get(0);
 		TemplateQuestion question = template.getQuestions().get(0);
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
@@ -247,7 +275,7 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("TEST_COMP", "문제 해결", "문제를 해결하는 역량"));
+		CompetencyTag competencyTag = competencyCandidates.get(0);
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
 			template.getId(),
@@ -288,7 +316,7 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("TEST_COMP", "협업", "함께 일하는 역량"));
+		CompetencyTag competencyTag = competencyCandidates.get(0);
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
 			template.getId(),
@@ -353,7 +381,7 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("TEST_COMP", "문제 해결", "문제를 해결하는 역량"));
+		CompetencyTag competencyTag = competencyCandidates.get(0);
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
 			template.getId(),
@@ -460,12 +488,79 @@ class RecordAnalysisServiceTest {
 			});
 	}
 
+	@Test
+	void analyzePassesOnlyPrimaryJobCompetenciesInSortOrder() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template template = createTemplate(user, false);
+		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(), template.getId(), "후보 순서 기록", List.of(), List.of(), RecordStatus.COMPLETED
+		));
+		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
+			"요약", List.of("근거"), List.of(), "test-embedding", new float[] {0.1f}
+		);
+
+		recordAnalysisService.analyze(record.id());
+
+		assertThat(stubRecordAnalysisClient.lastRequest.competencyTagCandidates())
+			.extracting(RecordAnalysisRequest.CompetencyTagCandidatePayload::id)
+			.containsExactlyElementsOf(competencyCandidates.stream().map(CompetencyTag::getId).toList());
+	}
+
+	@Test
+	void analyzeRejectsCompetencyOutsidePrimaryJobCandidates() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template template = createTemplate(user, false);
+		CompetencyTag outsideCandidate = competencyTagRepository.save(
+			CompetencyTag.create("OUTSIDE_COMP", "후보 외 역량", "주 희망 직무에 속하지 않는 역량")
+		);
+		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(), template.getId(), "후보 검증 기록", List.of(), List.of(), RecordStatus.COMPLETED
+		));
+		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
+			"요약",
+			List.of("근거"),
+			List.of(new AnalyzedCompetencyTagResponse(outsideCandidate.getId(), 0.8f)),
+			"test-embedding",
+			new float[] {0.1f}
+		);
+
+		recordAnalysisService.analyze(record.id());
+
+		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow())
+			.satisfies(recordAnalysis -> {
+				assertThat(recordAnalysis.getAiAnalysisStatus()).isEqualTo(AiAnalysisStatus.FAILED);
+				assertThat(recordAnalysis.getFailureReason())
+					.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE.getCode());
+			});
+		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(record.id())).isEmpty();
+	}
+
 	private User createUser() {
-		return userRepository.save(User.of(
+		User user = userRepository.save(User.of(
 			UUID.randomUUID() + "@test.com",
 			"encoded-password",
 			"테스터"
 		));
+		Job job = jobRepository.save(Job.create(
+			"TEST_JOB_" + UUID.randomUUID().toString().substring(0, 8),
+			"IT_DEVELOPMENT",
+			"테스트 직무",
+			"기록 분석 테스트용 직무"
+		));
+		userJobRepository.save(UserJob.create(user, job, true));
+		competencyCandidates = java.util.stream.IntStream.rangeClosed(1, 5)
+			.mapToObj(index -> competencyTagRepository.save(CompetencyTag.create(
+				"TEST_COMP_" + index + "_" + UUID.randomUUID().toString().substring(0, 8),
+				"테스트 역량 " + index,
+				"테스트 역량 설명 " + index
+			)))
+			.toList();
+		jobCompetencyRepository.saveAll(java.util.stream.IntStream.range(0, competencyCandidates.size())
+			.mapToObj(index -> JobCompetency.create(job, competencyCandidates.get(index), index + 1))
+			.toList());
+		return user;
 	}
 
 	private Activity createActivity(User user) {
@@ -508,9 +603,11 @@ class RecordAnalysisServiceTest {
 		private RecordAnalysisResponse response;
 		private RuntimeException failure;
 		private Runnable beforeReturn;
+		private RecordAnalysisRequest lastRequest;
 
 		@Override
 		public RecordAnalysisResponse analyze(RecordAnalysisRequest request) {
+			this.lastRequest = request;
 			if (failure != null) {
 				throw failure;
 			}
@@ -524,6 +621,7 @@ class RecordAnalysisServiceTest {
 			this.response = null;
 			this.failure = null;
 			this.beforeReturn = null;
+			this.lastRequest = null;
 		}
 	}
 

@@ -3,6 +3,7 @@ package com.itcotato.dortfolio.domain.record.service;
 import com.itcotato.dortfolio.domain.activity.entity.Activity;
 import com.itcotato.dortfolio.domain.record.analysis.event.RecordAnalysisJobPublisher;
 import com.itcotato.dortfolio.domain.record.analysis.service.RecordAnalysisCleaner;
+import com.itcotato.dortfolio.domain.record.analysis.service.RecordAnalysisCompetencyCandidateProvider;
 import com.itcotato.dortfolio.domain.record.analysis.service.RecordAnalysisLockManager;
 import com.itcotato.dortfolio.domain.record.config.RecordProperties;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
@@ -43,6 +44,7 @@ public class RecordService {
     private final RecordAnalysisJobPublisher recordAnalysisJobPublisher;
     private final RecordAnalysisCleaner recordAnalysisCleaner;
     private final RecordAnalysisLockManager recordAnalysisLockManager;
+    private final RecordAnalysisCompetencyCandidateProvider competencyCandidateProvider;
 
     @Transactional
     public RecordResponse createRecord(UUID userId, RecordCreateRequest request) {
@@ -195,6 +197,8 @@ public class RecordService {
         }
 
         recordAnswerService.validateRequiredAnswers(record.getId());
+
+        competencyCandidateProvider.validateCandidates(record.getUser().getId());
 
         record.complete();
         recordAnalysisJobPublisher.publish(record.getId());
