@@ -4,6 +4,8 @@ import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
 import com.itcotato.dortfolio.domain.job.embedding.dto.EmbeddingRequest;
 import com.itcotato.dortfolio.domain.job.embedding.dto.EmbeddingResponse;
 import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingBatchResult;
+import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingCoverage;
+import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingFailure;
 import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingGenerationStatus;
 import com.itcotato.dortfolio.domain.job.entity.JobCompetency;
 import com.itcotato.dortfolio.domain.job.entity.JobCompetencyEmbedding;
@@ -11,6 +13,7 @@ import com.itcotato.dortfolio.domain.job.repository.JobCompetencyEmbeddingReposi
 import com.itcotato.dortfolio.domain.job.repository.JobCompetencyRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.JobErrorCode;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -130,6 +133,45 @@ public class JobCompetencyEmbeddingService {
         );
 
         return result;
+    }
+
+    public JobCompetencyEmbeddingCoverage inspectCoverage() {
+        String targetModel = insightProperties.embeddingModel();
+
+        long totalCount = jobCompetencyRepository.count();
+        long embeddedCount =
+                embeddingRepository.countByEmbeddingModel(targetModel);
+
+        List<UUID> missingIds =
+                jobCompetencyRepository.findMissingEmbeddingIdsByModel(
+                        targetModel
+                );
+
+        return new JobCompetencyEmbeddingCoverage(
+                targetModel,
+                totalCount,
+                embeddedCount,
+                missingIds
+        );
+    }
+
+    public JobCompetencyEmbeddingCoverage verifyComplete() {
+        JobCompetencyEmbeddingCoverage coverage = inspectCoverage();
+
+        if (!coverage.isComplete()) {
+            log.error(
+                    "Job competency embedding coverage incomplete. "
+                            + "model={}, total={}, embedded={}, missing={}, "
+                            + "missingIds={}",
+                    coverage.embeddingModel(),
+                    coverage.totalCount(),
+                    coverage.embeddedCount(),
+                    coverage.missingCount(),
+                    coverage.missingJobCompetencyIds()
+            );
+        }
+
+        return coverage;
     }
 
     private String toFailureReason(Exception exception) {

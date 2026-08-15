@@ -4,7 +4,7 @@ import java.util.List;
 
 public record JobCompetencyEmbeddingBatchResult(
         long totalCount,
-        long generateCount,
+        long generatedCount,
         long skippedCount,
         long failedCount,
         List<JobCompetencyEmbeddingFailure> failures
