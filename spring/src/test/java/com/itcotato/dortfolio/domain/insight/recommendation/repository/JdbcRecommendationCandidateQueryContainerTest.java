@@ -134,13 +134,20 @@ class JdbcRecommendationCandidateQueryContainerTest {
         UUID tagId = UUID.randomUUID();
         UUID competencyId = UUID.randomUUID();
         jdbcTemplate.update("""
-                insert into jobs (id, created_at, updated_at, name)
-                values (?, now(), now(), '백엔드 개발자')
+                insert into jobs (
+                    id, created_at, updated_at,
+                    code, category_code, name
+                ) values (
+                    ?, now(), now(),
+                    'TEST_JOB_001', 'IT_DEVELOPMENT', '백엔드 개발자'
+                )
                 """, jobId);
         jdbcTemplate.update("""
                 insert into competency_tags (
-                    id, created_at, updated_at, name
-                ) values (?, now(), now(), '문제 해결')
+                    id, created_at, updated_at, code, name
+                ) values (
+                    ?, now(), now(), 'TEST_COMP_001', '문제 해결'
+                )
                 """, tagId);
         jdbcTemplate.update("""
                 insert into job_competencies (
