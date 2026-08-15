@@ -18,9 +18,17 @@ import lombok.NoArgsConstructor;
 @Table(
 	name = "job_competencies",
 	uniqueConstraints = {
-		@UniqueConstraint(name = "uk_job_competency", columnNames = {"job_id", "competency_tag_id"})
-	}
-)
+		@UniqueConstraint(
+                name = "uk_job_competency",
+                columnNames = {"job_id", "competency_tag_id"}
+        ),
+            @UniqueConstraint(
+                    name = "uk_job_competency_sort_order",
+                    columnNames = {"job_id", "sort_order"}
+            )
+	    }
+    )
+
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class JobCompetency extends BaseEntity {
 

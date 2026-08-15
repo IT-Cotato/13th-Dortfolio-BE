@@ -29,8 +29,8 @@ class FlywayMigrationTest {
 	void migratesFreshSchemaThroughLatestVersion() {
 		MigrateResult result = flyway().migrate();
 
-		assertThat(result.migrationsExecuted).isEqualTo(13);
-		assertThat(result.targetSchemaVersion).isEqualTo("13");
+        assertThat(result.migrationsExecuted).isEqualTo(14);
+        assertThat(result.targetSchemaVersion).isEqualTo("14");
 		assertMatchingIndexesCreated();
 		assertRunningInsightStatusAllowed();
 		assertUserOwnedDataCascadesOnDelete();
@@ -260,6 +260,34 @@ class FlywayMigrationTest {
 		}, code);
 		assertThat(questions).containsExactlyElementsOf(expectedQuestions);
 	}
+
+    private void assertJobCatalogSeeded() {
+        assertThat(jdbcTemplate().queryForObject(
+                "select count(*) from jobs",
+                Integer.class
+        )).isEqualTo(53);
+
+        assertThat(jdbcTemplate().queryForObject(
+                "select count(*) from competency_tags",
+                Integer.class
+        )).isEqualTo(237);
+
+        assertThat(jdbcTemplate().queryForObject(
+                "select count(*) from job_competencies",
+                Integer.class
+        )).isEqualTo(265);
+
+        assertThat(jdbcTemplate().queryForObject("""
+        select count(*)
+        from (
+            select job_id
+            from job_competencies
+            group by job_id
+            having count(*) <> 5
+        ) invalid_jobs
+        """, Integer.class
+        )).isZero();
+    }
 
 	private record SeedQuestion(String questionText, String description, int sortOrder) {
 	}

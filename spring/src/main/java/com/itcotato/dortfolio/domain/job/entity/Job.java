@@ -14,18 +14,36 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Job extends BaseEntity {
 
+    @Column(nullable = false, unique = true, length = 20)
+    private String code;
+
+    @Column(nullable = false, length = 50)
+    private String categoryCode;
+
 	@Column(nullable = false)
 	private String name;
 
 	@Column
 	private String description;
 
-	private Job(String name, String description) {
+	private Job(
+            String code,
+            String categoryCode,
+            String name,
+            String description
+    ) {
+        this.code = code;
+        this.categoryCode = this.categoryCode;
 		this.name = name;
 		this.description = description;
 	}
 
-	public static Job create(String name, String description) {
-		return new Job(name, description);
+	public static Job create(
+            String code,
+            String categoryCode,
+            String name,
+            String description
+    ) {
+		return new Job(code, categoryCode, name, description);
 	}
 }

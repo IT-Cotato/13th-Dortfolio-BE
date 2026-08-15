@@ -14,18 +14,30 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CompetencyTag extends BaseEntity {
 
+    @Column(nullable = false, unique = true, length = 20)
+    private String code;
+
 	@Column(nullable = false)
 	private String name;
 
 	@Column
 	private String description;
 
-	private CompetencyTag(String name, String description) {
+	private CompetencyTag(
+            String code,
+            String name,
+            String description
+    ) {
+        this.code = code;
 		this.name = name;
 		this.description = description;
 	}
 
-	public static CompetencyTag create(String name, String description) {
-		return new CompetencyTag(name, description);
+	public static CompetencyTag create(
+            String code,
+            String name,
+            String description
+    ) {
+		return new CompetencyTag(code, name, description);
 	}
 }
