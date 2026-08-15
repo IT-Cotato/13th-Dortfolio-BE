@@ -288,6 +288,87 @@ docker exec dortfolio-postgres pg_dump -U dortfolio dortfolio > backup_$(date +%
 
 ---
 
+## 6. 직무 역량 임베딩 배치 실행
+
+직무·핵심 역량 기준 데이터가 추가된 뒤에만 운영자가 명시적으로 실행합니다.
+일반 서버 시작에서는 `JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED`의 기본값이 `false`이므로
+임베딩을 자동 생성하지 않습니다.
+
+지원하는 명령은 다음 두 가지입니다.
+
+| 명령 | 동작 |
+|---|---|
+| `GENERATE_MISSING` | 현재 `INSIGHT_EMBEDDING_MODEL`을 기준으로 누락된 임베딩만 생성한 뒤 전체 완료 상태를 검증합니다. |
+| `VERIFY` | 외부 AI API를 호출하지 않고 전체 개수, 생성 개수, 누락 개수와 누락 ID를 검증합니다. |
+
+### 로컬 실행
+
+PostgreSQL과 FastAPI가 실행 중인 상태에서 PowerShell로 실행합니다.
+`SPRING_MAIN_WEB_APPLICATION_TYPE=none`을 지정해 배치 프로세스가 웹 서버로 기동하지 않게 합니다.
+
+누락 임베딩 생성:
+
+```powershell
+cd spring
+$env:JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED = "true"
+$env:JOB_COMPETENCY_EMBEDDING_BATCH_COMMAND = "GENERATE_MISSING"
+$env:SPRING_MAIN_WEB_APPLICATION_TYPE = "none"
+.\gradlew.bat bootRun
+```
+
+생성 없이 완료 상태만 검증:
+
+```powershell
+cd spring
+$env:JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED = "true"
+$env:JOB_COMPETENCY_EMBEDDING_BATCH_COMMAND = "VERIFY"
+$env:SPRING_MAIN_WEB_APPLICATION_TYPE = "none"
+.\gradlew.bat bootRun
+```
+
+실행 후 현재 PowerShell 세션에 설정이 남지 않도록 정리합니다.
+
+```powershell
+Remove-Item Env:JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED -ErrorAction SilentlyContinue
+Remove-Item Env:JOB_COMPETENCY_EMBEDDING_BATCH_COMMAND -ErrorAction SilentlyContinue
+Remove-Item Env:SPRING_MAIN_WEB_APPLICATION_TYPE -ErrorAction SilentlyContinue
+```
+
+### 운영 Docker Compose 실행
+
+운영 DB와 FastAPI 컨테이너가 실행 중인지 먼저 확인합니다.
+
+```bash
+docker compose -f docker-compose.prod.yml ps postgres fastapi
+```
+
+누락 임베딩 생성:
+
+```bash
+docker compose -f docker-compose.prod.yml run --rm \
+  -e JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED=true \
+  -e JOB_COMPETENCY_EMBEDDING_BATCH_COMMAND=GENERATE_MISSING \
+  -e SPRING_MAIN_WEB_APPLICATION_TYPE=none \
+  spring
+```
+
+생성 없이 완료 상태만 검증:
+
+```bash
+docker compose -f docker-compose.prod.yml run --rm \
+  -e JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED=true \
+  -e JOB_COMPETENCY_EMBEDDING_BATCH_COMMAND=VERIFY \
+  -e SPRING_MAIN_WEB_APPLICATION_TYPE=none \
+  spring
+```
+
+생성 결과에는 전체 대상, 신규 생성, 기존 데이터 건너뜀, 실패 건수가 기록됩니다.
+항목별 실패가 발생하면 해당 `jobCompetencyId`와 원인이 로그에 남고, 나머지 항목은 계속 처리됩니다.
+실패 또는 누락이 하나라도 남으면 명령이 실패하므로 원인을 해결한 뒤 같은 명령을 다시 실행합니다.
+이미 생성된 현재 모델의 임베딩은 건너뛰므로 재실행해도 중복 저장되지 않습니다.
+
+---
+
 ## 아직 안 된 것 / 논의 필요
 
 - **인증서 갱신 확인** — certbot 컨테이너가 12시간마다 갱신을 시도하지만, 실제 갱신은 만료 30일 전에야 일어납니다.

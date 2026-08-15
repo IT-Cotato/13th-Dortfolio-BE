@@ -8,6 +8,8 @@ import java.util.UUID;
 
 public interface JobCompetencyEmbeddingRepository extends JpaRepository<JobCompetencyEmbedding, UUID> {
 
+    long countByEmbeddingModel(String embeddingModel);
+
     boolean existsByJobCompetency_IdAndEmbeddingModel(
             UUID jobCompetencyId,
             String embeddingModel

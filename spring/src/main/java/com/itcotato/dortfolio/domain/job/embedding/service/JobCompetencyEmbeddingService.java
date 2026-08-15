@@ -3,12 +3,17 @@ package com.itcotato.dortfolio.domain.job.embedding.service;
 import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
 import com.itcotato.dortfolio.domain.job.embedding.dto.EmbeddingRequest;
 import com.itcotato.dortfolio.domain.job.embedding.dto.EmbeddingResponse;
+import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingBatchResult;
+import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingCoverage;
+import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingFailure;
+import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingGenerationStatus;
 import com.itcotato.dortfolio.domain.job.entity.JobCompetency;
 import com.itcotato.dortfolio.domain.job.entity.JobCompetencyEmbedding;
 import com.itcotato.dortfolio.domain.job.repository.JobCompetencyEmbeddingRepository;
 import com.itcotato.dortfolio.domain.job.repository.JobCompetencyRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.JobErrorCode;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +34,7 @@ public class JobCompetencyEmbeddingService {
     private final JobCompetencyEmbeddingWriter embeddingWriter;
     private final InsightProperties insightProperties;
 
-    public void generate(UUID jobCompetencyId) {
+    public JobCompetencyEmbeddingGenerationStatus generate(UUID jobCompetencyId) {
         String targetModel = insightProperties.embeddingModel();
 
         // 외부 API 호출 전에 DB에 해당 모델의 임베딩이 존재하는지 확인
@@ -37,7 +42,7 @@ public class JobCompetencyEmbeddingService {
                 jobCompetencyId,
                 targetModel
         )) {
-            return;
+            return JobCompetencyEmbeddingGenerationStatus.SKIPPED;
         }
 
         JobCompetency jobCompetency =
@@ -57,21 +62,128 @@ public class JobCompetencyEmbeddingService {
         // 응답 검증 (targetModel과 일치하는지도 검증)
         validate(response, targetModel);
 
-        embeddingWriter.saveIfAbsent(
+        boolean inserted = embeddingWriter.saveIfAbsent(
                 jobCompetencyId,
                 response.embeddingModel(),
                 response.embedding()
         );
+
+        return inserted
+                ? JobCompetencyEmbeddingGenerationStatus.GENERATED
+                : JobCompetencyEmbeddingGenerationStatus.SKIPPED;
     }
 
-    public void generateAllMissing() {
-        List<JobCompetency> jobCompetencies =
-                jobCompetencyRepository
-                        .findAllByOrderByJob_IdAscSortOrderAsc();
+    public JobCompetencyEmbeddingBatchResult generateAllMissing() {
+        String targetModel = insightProperties.embeddingModel();
 
-        for (JobCompetency jobCompetency : jobCompetencies) {
-            generate(jobCompetency.getId());
+        long totalCount = jobCompetencyRepository.count();
+        List<UUID> missingIds =
+                jobCompetencyRepository.findMissingEmbeddingIdsByModel(targetModel);
+
+        long generatedCount = 0;
+        long skippedCount = totalCount - missingIds.size();
+        List<JobCompetencyEmbeddingFailure> failures = new ArrayList<>();
+
+        for (UUID jobCompetencyId : missingIds) {
+            try {
+                JobCompetencyEmbeddingGenerationStatus status =
+                        generate(jobCompetencyId);
+
+                if (status
+                        == JobCompetencyEmbeddingGenerationStatus.GENERATED) {
+                    generatedCount++;
+                } else {
+                    skippedCount++;
+                }
+            } catch (Exception exception) {
+                String reason = toFailureReason(exception);
+
+                failures.add(new JobCompetencyEmbeddingFailure(
+                        jobCompetencyId,
+                        reason
+                ));
+
+                log.error(
+                        "Job competency embedding generation failed. "
+                                + "jobCompetencyId={}, reason={}",
+                        jobCompetencyId,
+                        reason,
+                        exception
+                );
+            }
         }
+
+        JobCompetencyEmbeddingBatchResult result =
+                new JobCompetencyEmbeddingBatchResult(
+                        totalCount,
+                        generatedCount,
+                        skippedCount,
+                        failures.size(),
+                        failures
+                );
+
+        log.info(
+                "Job competency embedding batch completed. "
+                        + "model={}, total={}, generated={}, skipped={}, failed={}",
+                targetModel,
+                result.totalCount(),
+                result.generatedCount(),
+                result.skippedCount(),
+                result.failedCount()
+        );
+
+        return result;
+    }
+
+    public JobCompetencyEmbeddingCoverage inspectCoverage() {
+        String targetModel = insightProperties.embeddingModel();
+
+        long totalCount = jobCompetencyRepository.count();
+        long embeddedCount =
+                embeddingRepository.countByEmbeddingModel(targetModel);
+
+        List<UUID> missingIds =
+                jobCompetencyRepository.findMissingEmbeddingIdsByModel(
+                        targetModel
+                );
+
+        return new JobCompetencyEmbeddingCoverage(
+                targetModel,
+                totalCount,
+                embeddedCount,
+                missingIds
+        );
+    }
+
+    public JobCompetencyEmbeddingCoverage verifyComplete() {
+        JobCompetencyEmbeddingCoverage coverage = inspectCoverage();
+
+        if (!coverage.isComplete()) {
+            log.error(
+                    "Job competency embedding coverage incomplete. "
+                            + "model={}, total={}, embedded={}, missing={}, "
+                            + "missingIds={}",
+                    coverage.embeddingModel(),
+                    coverage.totalCount(),
+                    coverage.embeddedCount(),
+                    coverage.missingCount(),
+                    coverage.missingJobCompetencyIds()
+            );
+        }
+
+        return coverage;
+    }
+
+    private String toFailureReason(Exception exception) {
+        if (exception instanceof CustomException customException) {
+            return customException.getErrorCode().getCode()
+                    + " "
+                    + customException.getErrorCode().getMessage();
+        }
+
+        return exception.getMessage() == null
+                ? exception.getClass().getSimpleName()
+                : exception.getMessage();
     }
 
     private EmbeddingResponse requestEmbedding(
