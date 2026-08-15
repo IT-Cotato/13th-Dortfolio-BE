@@ -29,7 +29,7 @@ public interface MyPageControllerDocs {
             ProfileImagePresignedUrlRequest request
     );
 
-    @Operation(summary = "회원 프로필 정보(이름, 프로필 사진) 수정", description = "로그인한 회원의 이름(닉네임) 또는 프로필 이미지 S3 Key를 수정합니다. 이미지 삭제 시 빈 문자열을 전달합니다.")
+    @Operation(summary = "회원 프로필 정보(이름, 이메일, 프로필 사진) 수정", description = "로그인한 회원의 이름(닉네임), 이메일 또는 프로필 이미지 S3 Key를 수정합니다. 이미지 삭제 시 빈 문자열을 전달합니다.")
     ResponseEntity<ApiResponse<Void>> updateProfile(
             @Parameter(hidden = true) UUID userId,
             UpdateUserProfileRequest request

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class MyPageServiceTest {
@@ -110,13 +112,13 @@ class MyPageServiceTest {
 
         assertThatThrownBy(() -> myPageService.updateProfile(
                 USER_ID,
-                new UpdateUserProfileRequest(null, "profile/" + UUID.randomUUID() + "/image.png")
+                new UpdateUserProfileRequest(null, null, "profile/" + UUID.randomUUID() + "/image.png")
         ))
                 .isInstanceOf(CustomException.class)
                 .satisfies(exception -> assertThat(((CustomException) exception).getErrorCode())
                         .isEqualTo(UserErrorCode.INVALID_PROFILE_IMAGE_KEY));
 
-        verify(user, never()).updateProfile(any(), anyString());
+        verify(user, never()).updateProfile(any(), any(), anyString());
     }
 
     @Test
@@ -127,9 +129,83 @@ class MyPageServiceTest {
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
         when(user.getProfileImageUrl()).thenReturn(previousKey);
 
-        myPageService.updateProfile(USER_ID, new UpdateUserProfileRequest(null, nextKey));
+        myPageService.updateProfile(USER_ID, new UpdateUserProfileRequest(null, null, nextKey));
 
-        verify(user).updateProfile(null, nextKey);
+        verify(user).updateProfile(null, null, nextKey);
         verify(s3Provider).deleteObject(previousKey);
+    }
+
+    @Test
+    void updatesEmailWhenEmailIsAvailable() {
+        User user = mock(User.class);
+        String currentEmail = "old@example.com";
+        String newEmail = "new@example.com";
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(user.getEmail()).thenReturn(currentEmail);
+        when(userRepository.existsByEmail(newEmail)).thenReturn(false);
+
+        myPageService.updateProfile(
+                USER_ID,
+                new UpdateUserProfileRequest(null, newEmail, null)
+        );
+
+        verify(userRepository).existsByEmail(newEmail);
+        verify(user).updateProfile(null, newEmail, null);
+        verify(userRepository).saveAndFlush(user);
+    }
+
+    @Test
+    void rejectsDuplicatedEmail() {
+        User user = mock(User.class);
+        String duplicatedEmail = "duplicated@example.com";
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(user.getEmail()).thenReturn("old@example.com");
+        when(userRepository.existsByEmail(duplicatedEmail)).thenReturn(true);
+
+        assertThatThrownBy(() -> myPageService.updateProfile(
+                USER_ID,
+                new UpdateUserProfileRequest(null, duplicatedEmail, null)
+        ))
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> assertThat(((CustomException) exception).getErrorCode())
+                        .isEqualTo(UserErrorCode.EMAIL_ALREADY_EXISTS));
+
+        verify(user, never()).updateProfile(any(), any(), any());
+        verify(userRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void skipsDuplicationCheckWhenEmailIsUnchanged() {
+        User user = mock(User.class);
+        String currentEmail = "user@example.com";
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(user.getEmail()).thenReturn(currentEmail);
+
+        myPageService.updateProfile(
+                USER_ID,
+                new UpdateUserProfileRequest("새 이름", currentEmail, null)
+        );
+
+        verify(userRepository, never()).existsByEmail(anyString());
+        verify(user).updateProfile("새 이름", currentEmail, null);
+    }
+
+    @Test
+    void convertsDatabaseEmailConflictToUserError() {
+        User user = mock(User.class);
+        String newEmail = "new@example.com";
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(user.getEmail()).thenReturn("old@example.com");
+        when(userRepository.existsByEmail(newEmail)).thenReturn(false);
+        doThrow(new DataIntegrityViolationException("duplicate email"))
+                .when(userRepository).saveAndFlush(user);
+
+        assertThatThrownBy(() -> myPageService.updateProfile(
+                USER_ID,
+                new UpdateUserProfileRequest(null, newEmail, null)
+        ))
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> assertThat(((CustomException) exception).getErrorCode())
+                        .isEqualTo(UserErrorCode.EMAIL_ALREADY_EXISTS));
     }
 }
