@@ -80,9 +80,12 @@ public class User extends BaseEntity {
     }
 
     // 프로필 정보 수정 메서드
-    public void updateProfile(String nickname, String profileImageUrl) {
+    public void updateProfile(String nickname, String email, String profileImageUrl) {
         if (nickname != null && !nickname.isBlank()) {
             this.nickname = nickname;
+        }
+        if (email != null && !email.isBlank()) {
+            this.email = email;
         }
         if (profileImageUrl != null) {
             this.profileImageUrl = profileImageUrl;

@@ -12,6 +12,7 @@ import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.JobErrorCode;
 import com.itcotato.dortfolio.global.exception.types.UserErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -82,10 +83,29 @@ public class MyPageService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
 
+        boolean emailChanged = request.email() != null
+                && !request.email().equals(user.getEmail());
+
+        if (emailChanged && userRepository.existsByEmail(request.email())) {
+            throw new CustomException(UserErrorCode.EMAIL_ALREADY_EXISTS);
+        }
+
         validateProfileImageKey(userId, request.profileImageUrl());
 
         String previousProfileImageKey = user.getProfileImageUrl();
-        user.updateProfile(request.name(), request.profileImageUrl());
+
+        user.updateProfile(
+                request.name(),
+                request.email(),
+                request.profileImageUrl()
+        );
+
+        // 동시 요청에 대한 DB 중복 오류 처리
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            throw new CustomException(UserErrorCode.EMAIL_ALREADY_EXISTS);
+        }
 
         if (request.profileImageUrl() != null
                 && !request.profileImageUrl().equals(previousProfileImageKey)) {

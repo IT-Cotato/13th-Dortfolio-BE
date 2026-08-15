@@ -51,7 +51,7 @@ public class MyPageController implements MyPageControllerDocs {
         return ResponseEntity.ok(ApiResponse.success("Presigned URL 발급에 성공하였습니다.", response));
     }
 
-    /* 회원 프로필 정보(이름, 프로필 사진) 수정 API */
+    /* 회원 프로필 정보(이름, 이메일, 프로필 사진) 수정 API */
     @Override
     @PatchMapping
     public ResponseEntity<ApiResponse<Void>> updateProfile(
