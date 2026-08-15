@@ -259,10 +259,10 @@ class InsightRecordQueryRepositoryTest {
         User user = createUser();
         Record record = createAnalyzedRecord(user, "강점 기록", true, true);
         CompetencyTag second = competencyTagRepository.save(
-                CompetencyTag.create("협업", "협업 역량")
+                CompetencyTag.create("TEST_COMP_1", "협업", "협업 역량")
         );
         CompetencyTag first = competencyTagRepository.save(
-                CompetencyTag.create("문제 해결", "문제 해결 역량")
+                CompetencyTag.create("TEST_COMP_2", "문제 해결", "문제 해결 역량")
         );
         recordCompetencyTagRepository.saveAll(List.of(
                 RecordCompetencyTag.create(record, second, 0.8f),

@@ -409,7 +409,7 @@ class RecordServiceTest {
 		com.itcotato.dortfolio.domain.record.entity.Record record = recordRepository.findById(completed.id()).orElseThrow();
 		recordAnalysisRepository.save(RecordAnalysis.pending(record));
 		insertRecordEmbedding(record.getId());
-		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("문제 해결", "문제를 해결한 역량"));
+		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("TEST_COMP", "문제 해결", "문제를 해결한 역량"));
 		recordCompetencyTagRepository.save(RecordCompetencyTag.create(record, competencyTag, 0.9f));
 
 		recordService.deleteRecord(user.getId(), completed.id());
@@ -444,7 +444,7 @@ class RecordServiceTest {
 		com.itcotato.dortfolio.domain.record.entity.Record record = recordRepository.findById(draft.id()).orElseThrow();
 		recordAnalysisRepository.save(RecordAnalysis.pending(record));
 		insertRecordEmbedding(record.getId());
-		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("문제 해결", "문제를 해결한 역량"));
+		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("TEST_COMP", "문제 해결", "문제를 해결한 역량"));
 		recordCompetencyTagRepository.save(RecordCompetencyTag.create(record, competencyTag, 0.9f));
 
 		recordService.permanentlyDeleteRecord(user.getId(), draft.id());

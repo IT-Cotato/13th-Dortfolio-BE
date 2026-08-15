@@ -132,8 +132,8 @@ class JobCompetencyEmbeddingServiceTest {
 
     private JobCompetency competency() {
         return JobCompetency.create(
-                Job.create("백엔드 개발자", null),
-                CompetencyTag.create("문제 해결", "문제의 원인을 파악합니다."),
+                Job.create("TEST_JOB", "IT_DEVELOPMENT", "백엔드 개발자", null),
+                CompetencyTag.create("TEST_COMP", "문제 해결", "문제의 원인을 파악합니다."),
                 1
         );
     }

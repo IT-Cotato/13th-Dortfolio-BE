@@ -33,7 +33,7 @@ public class Job extends BaseEntity {
             String description
     ) {
         this.code = code;
-        this.categoryCode = this.categoryCode;
+        this.categoryCode = categoryCode;
 		this.name = name;
 		this.description = description;
 	}
