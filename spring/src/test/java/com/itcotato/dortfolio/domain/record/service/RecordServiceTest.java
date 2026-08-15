@@ -8,9 +8,14 @@ import com.itcotato.dortfolio.domain.activity.entity.Activity;
 import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
+import com.itcotato.dortfolio.domain.job.entity.Job;
+import com.itcotato.dortfolio.domain.job.entity.JobCompetency;
+import com.itcotato.dortfolio.domain.job.repository.JobCompetencyRepository;
+import com.itcotato.dortfolio.domain.job.repository.JobRepository;
 import com.itcotato.dortfolio.domain.memo.entity.Memo;
 import com.itcotato.dortfolio.domain.memo.repository.MemoRepository;
 import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysis;
+import com.itcotato.dortfolio.domain.record.analysis.exception.RecordAnalysisErrorCode;
 import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordAnswerRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
@@ -34,6 +39,8 @@ import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
+import com.itcotato.dortfolio.domain.user.entity.UserJob;
+import com.itcotato.dortfolio.domain.user.repository.UserJobRepository;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.RecordErrorCode;
@@ -43,6 +50,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -96,6 +104,15 @@ class RecordServiceTest {
 	private UserRepository userRepository;
 
 	@Autowired
+	private UserJobRepository userJobRepository;
+
+	@Autowired
+	private JobRepository jobRepository;
+
+	@Autowired
+	private JobCompetencyRepository jobCompetencyRepository;
+
+	@Autowired
 	private JdbcTemplate jdbcTemplate;
 
 	@Autowired
@@ -106,6 +123,8 @@ class RecordServiceTest {
 		recordAnalysisRepository.deleteAll();
 		jdbcTemplate.update("delete from record_embeddings");
 		recordCompetencyTagRepository.deleteAll();
+		userJobRepository.deleteAll();
+		jobCompetencyRepository.deleteAll();
 		competencyTagRepository.deleteAll();
 		recordMemoRepository.deleteAll();
 		recordAnswerRepository.deleteAll();
@@ -115,6 +134,13 @@ class RecordServiceTest {
 		activityRepository.deleteAll();
 		activityTypeRepository.deleteAll();
 		userRepository.deleteAll();
+		jobRepository.deleteAll();
+	}
+
+	@AfterEach
+	void tearDownJobFixtures() {
+		userJobRepository.deleteAll();
+		jobCompetencyRepository.deleteAll();
 	}
 
 	@Test
@@ -199,6 +225,41 @@ class RecordServiceTest {
 				.isInstanceOf(CustomException.class)
 				.extracting("errorCode")
 					.isEqualTo(RecordErrorCode.RECORD_REQUIRED_ANSWER_MISSING);
+	}
+
+	@Test
+	void createCompleteRecordRejectsUserWithoutPrimaryJob() {
+		User user = createUserWithoutPrimaryJob();
+		Activity activity = createActivity(user, "도트폴리오");
+		Template template = createTemplate(user, "문제 해결", false);
+
+		assertThatThrownBy(() -> recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(), template.getId(), "완료 기록", List.of(), List.of(), RecordStatus.COMPLETED
+		)))
+			.isInstanceOf(CustomException.class)
+			.extracting("errorCode")
+			.isEqualTo(RecordAnalysisErrorCode.RECORD_ANALYSIS_PRIMARY_JOB_REQUIRED);
+		assertThat(recordRepository.findAll()).isEmpty();
+	}
+
+	@Test
+	void updateRecordKeepsDraftWhenPrimaryJobCompetenciesAreIncomplete() {
+		User user = createUserWithoutPrimaryJob();
+		createPrimaryJobWithCompetencies(user, 4);
+		Activity activity = createActivity(user, "도트폴리오");
+		Template template = createTemplate(user, "문제 해결", false);
+		RecordResponse draft = recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(), template.getId(), "작성 중 기록", List.of(), List.of(), RecordStatus.DRAFT
+		));
+
+		assertThatThrownBy(() -> recordService.updateRecord(user.getId(), draft.id(), new RecordUpdateRequest(
+			"완료 시도 기록", List.of(), List.of(), RecordStatus.COMPLETED
+		)))
+			.isInstanceOf(CustomException.class)
+			.extracting("errorCode")
+			.isEqualTo(RecordAnalysisErrorCode.RECORD_ANALYSIS_JOB_COMPETENCIES_INVALID);
+		assertThat(recordService.getRecord(user.getId(), draft.id()).status()).isEqualTo(RecordStatus.DRAFT.name());
+		assertThat(recordService.getRecord(user.getId(), draft.id()).title()).isEqualTo("작성 중 기록");
 	}
 
 	@Test
@@ -830,11 +891,35 @@ class RecordServiceTest {
 	}
 
 	private User createUser() {
+		User user = createUserWithoutPrimaryJob();
+		createPrimaryJobWithCompetencies(user, 5);
+		return user;
+	}
+
+	private User createUserWithoutPrimaryJob() {
 		return userRepository.save(User.of(
 				UUID.randomUUID() + "@test.com",
 				"encoded-password",
 				"테스터"
 		));
+	}
+
+	private void createPrimaryJobWithCompetencies(User user, int competencyCount) {
+		Job job = jobRepository.save(Job.create(
+			"TEST_JOB_" + UUID.randomUUID().toString().substring(0, 8),
+			"IT_DEVELOPMENT",
+			"테스트 직무",
+			"기록 서비스 테스트용 직무"
+		));
+		userJobRepository.save(UserJob.create(user, job, true));
+		for (int index = 1; index <= competencyCount; index++) {
+			CompetencyTag tag = competencyTagRepository.save(CompetencyTag.create(
+				"TEST_COMP_" + index + "_" + UUID.randomUUID().toString().substring(0, 8),
+				"테스트 역량 " + index,
+				"테스트 역량 설명 " + index
+			));
+			jobCompetencyRepository.save(JobCompetency.create(job, tag, index));
+		}
 	}
 
 	private Activity createActivity(User user, String title) {
