@@ -15,8 +15,8 @@ class JobCompetencyEmbeddingTextBuilderTest {
     @Test
     void buildsStableEmbeddingSourceText() {
         JobCompetency competency = JobCompetency.create(
-                Job.create("백엔드 개발자", null),
-                CompetencyTag.create("문제 해결", "복잡한 문제의 원인을 파악합니다."),
+                Job.create("TEST_JOB", "IT_DEVELOPMENT", "백엔드 개발자", null),
+                CompetencyTag.create("TEST_COMP", "문제 해결", "복잡한 문제의 원인을 파악합니다."),
                 1
         );
 
@@ -29,8 +29,8 @@ class JobCompetencyEmbeddingTextBuilderTest {
     @Test
     void replacesNullDescriptionWithEmptyText() {
         JobCompetency competency = JobCompetency.create(
-                Job.create("백엔드 개발자", null),
-                CompetencyTag.create("협업", null),
+                Job.create("TEST_JOB", "IT_DEVELOPMENT", "백엔드 개발자", null),
+                CompetencyTag.create("TEST_COMP", "협업", null),
                 1
         );
 

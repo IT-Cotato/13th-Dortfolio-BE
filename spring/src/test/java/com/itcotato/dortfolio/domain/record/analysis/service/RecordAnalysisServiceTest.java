@@ -117,7 +117,7 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, true);
-		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("문제 해결", "문제를 해결하는 역량"));
+		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("TEST_COMP", "문제 해결", "문제를 해결하는 역량"));
 		TemplateQuestion question = template.getQuestions().get(0);
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
@@ -247,7 +247,7 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("문제 해결", "문제를 해결하는 역량"));
+		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("TEST_COMP", "문제 해결", "문제를 해결하는 역량"));
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
 			template.getId(),
@@ -288,7 +288,7 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("협업", "함께 일하는 역량"));
+		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("TEST_COMP", "협업", "함께 일하는 역량"));
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
 			template.getId(),
@@ -353,7 +353,7 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("문제 해결", "문제를 해결하는 역량"));
+		CompetencyTag competencyTag = competencyTagRepository.save(CompetencyTag.create("TEST_COMP", "문제 해결", "문제를 해결하는 역량"));
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
 			template.getId(),
