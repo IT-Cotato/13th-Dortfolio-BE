@@ -290,9 +290,13 @@ docker exec dortfolio-postgres pg_dump -U dortfolio dortfolio > backup_$(date +%
 
 ## 6. 직무 역량 임베딩 배치 실행
 
-직무·핵심 역량 기준 데이터가 추가된 뒤에만 운영자가 명시적으로 실행합니다.
+`develop` 배포 워크플로는 Spring과 FastAPI의 기동을 확인한 뒤
+`GENERATE_MISSING` 배치를 자동 실행합니다. 따라서 새 직무·핵심 역량 기준 데이터가
+추가되어도 현재 모델의 누락 임베딩이 배포 과정에서 생성됩니다.
+
 일반 서버 시작에서는 `JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED`의 기본값이 `false`이므로
-임베딩을 자동 생성하지 않습니다.
+임베딩을 자동 생성하지 않습니다. 자동 배포 외 환경이나 장애 복구 상황에서는 아래 명령으로
+배치를 직접 실행할 수 있습니다.
 
 지원하는 명령은 다음 두 가지입니다.
 
