@@ -52,8 +52,7 @@ class AuthServiceTest {
         User user = org.mockito.Mockito.mock(User.class);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        when(jwtTokenProvider.validateRefreshToken("refresh-token")).thenReturn(true);
-        when(jwtTokenProvider.getUserId("refresh-token")).thenReturn(userId);
+        when(jwtTokenProvider.getRefreshTokenUserId("refresh-token")).thenReturn(userId);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(user.getEmail()).thenReturn("user@example.com");
         when(user.getRole()).thenReturn(Role.USER);
@@ -73,8 +72,7 @@ class AuthServiceTest {
         User user = org.mockito.Mockito.mock(User.class);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        when(jwtTokenProvider.validateRefreshToken("request-token")).thenReturn(true);
-        when(jwtTokenProvider.getUserId("request-token")).thenReturn(userId);
+        when(jwtTokenProvider.getRefreshTokenUserId("request-token")).thenReturn(userId);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(redisUtil.getData("RT:" + userId)).thenReturn("saved-token");
 
@@ -93,8 +91,7 @@ class AuthServiceTest {
         User user = org.mockito.Mockito.mock(User.class);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        when(jwtTokenProvider.validateRefreshToken("refresh-token")).thenReturn(true);
-        when(jwtTokenProvider.getUserId("refresh-token")).thenReturn(userId);
+        when(jwtTokenProvider.getRefreshTokenUserId("refresh-token")).thenReturn(userId);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(redisUtil.getData("RT:" + userId)).thenReturn(null);
 
@@ -112,5 +109,20 @@ class AuthServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting(exception -> ((CustomException) exception).getErrorCode())
                 .isEqualTo(UserErrorCode.REFRESH_TOKEN_NOT_FOUND);
+    }
+
+    @Test
+    void clearsCookiesWhenRefreshTokenParsingFails() {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        when(jwtTokenProvider.getRefreshTokenUserId("invalid-token"))
+                .thenThrow(new CustomException(UserErrorCode.INVALID_REFRESH_TOKEN));
+
+        assertThatThrownBy(() -> authService.refresh("invalid-token", response))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(UserErrorCode.INVALID_REFRESH_TOKEN);
+
+        verify(cookieUtil).deleteCookie(response, "refreshToken");
+        verify(cookieUtil).deleteCookie(response, "XSRF-TOKEN");
     }
 }

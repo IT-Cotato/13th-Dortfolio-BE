@@ -4,6 +4,7 @@ import com.itcotato.dortfolio.domain.user.dto.*;
 import com.itcotato.dortfolio.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,7 +36,14 @@ public interface AuthControllerDocs {
 
     @Operation(
             summary = "Access Token 재발급 API",
-            description = "HttpOnly 쿠키의 Refresh Token을 검증하고 새로운 Access Token을 발급합니다."
+            description = "HttpOnly 쿠키의 Refresh Token을 검증하고 새로운 Access Token을 발급합니다. "
+                    + "XSRF-TOKEN 쿠키 값을 X-XSRF-TOKEN 요청 헤더로 전달해야 합니다.",
+            parameters = @Parameter(
+                    name = "X-XSRF-TOKEN",
+                    description = "XSRF-TOKEN 쿠키의 값",
+                    required = true,
+                    in = ParameterIn.HEADER
+            )
     )
     ApiResponse<TokenResponse> refresh(
             @Parameter(hidden = true)
