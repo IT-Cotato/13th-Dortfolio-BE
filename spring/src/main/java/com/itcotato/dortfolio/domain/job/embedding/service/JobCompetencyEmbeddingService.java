@@ -13,6 +13,7 @@ import com.itcotato.dortfolio.domain.job.repository.JobCompetencyEmbeddingReposi
 import com.itcotato.dortfolio.domain.job.repository.JobCompetencyRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.JobErrorCode;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -33,6 +34,7 @@ public class JobCompetencyEmbeddingService {
     private final EmbeddingClient embeddingClient;
     private final JobCompetencyEmbeddingWriter embeddingWriter;
     private final InsightProperties insightProperties;
+    private final JobCompetencyEmbeddingRequestProperties requestProperties;
 
     public JobCompetencyEmbeddingGenerationStatus generate(UUID jobCompetencyId) {
         String targetModel = insightProperties.embeddingModel();
@@ -84,8 +86,14 @@ public class JobCompetencyEmbeddingService {
         long skippedCount = totalCount - missingIds.size();
         List<JobCompetencyEmbeddingFailure> failures = new ArrayList<>();
 
-        for (UUID jobCompetencyId : missingIds) {
+        for (int index = 0; index < missingIds.size(); index++) {
+            UUID jobCompetencyId = missingIds.get(index);
+
             try {
+                if (index > 0) {
+                    pause(requestProperties.interval());
+                }
+
                 JobCompetencyEmbeddingGenerationStatus status =
                         generate(jobCompetencyId);
 
@@ -190,18 +198,54 @@ public class JobCompetencyEmbeddingService {
             UUID jobCompetencyId,
             String sourceText
     ) {
-        try {
-            return embeddingClient.embed(
-                    new EmbeddingRequest(sourceText)
-            );
-        } catch (RestClientException exception) {
-            log.warn(
-                    "Job competency embedding request failed. "
-                            + "jobCompetencyId={}",
-                    jobCompetencyId,
-                    exception
-            );
+        EmbeddingRequest request = new EmbeddingRequest(sourceText);
 
+        for (int attempt = 1; attempt <= requestProperties.maxAttempts(); attempt++) {
+            try {
+                return embeddingClient.embed(request);
+            } catch (RestClientException exception) {
+                if (attempt == requestProperties.maxAttempts()) {
+                    log.warn(
+                            "Job competency embedding request failed after retries. "
+                                    + "jobCompetencyId={}, attempts={}",
+                            jobCompetencyId,
+                            attempt,
+                            exception
+                    );
+
+                    throw new CustomException(
+                            JobErrorCode.JOB_COMPETENCY_EMBEDDING_AI_SERVICE_FAILED
+                    );
+                }
+
+                Duration backoff = requestProperties.initialBackoff()
+                        .multipliedBy(1L << Math.min(attempt - 1, 10));
+
+                log.warn(
+                        "Job competency embedding request failed; retrying. "
+                                + "jobCompetencyId={}, attempt={}, maxAttempts={}, "
+                                + "backoff={}",
+                        jobCompetencyId,
+                        attempt,
+                        requestProperties.maxAttempts(),
+                        backoff
+                );
+                pause(backoff);
+            }
+        }
+
+        throw new IllegalStateException("Embedding retry loop completed unexpectedly");
+    }
+
+    private void pause(Duration duration) {
+        if (duration.isZero()) {
+            return;
+        }
+
+        try {
+            Thread.sleep(duration.toMillis());
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
             throw new CustomException(
                     JobErrorCode.JOB_COMPETENCY_EMBEDDING_AI_SERVICE_FAILED
             );

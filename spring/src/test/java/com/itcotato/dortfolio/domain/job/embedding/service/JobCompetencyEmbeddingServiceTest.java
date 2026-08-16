@@ -22,6 +22,7 @@ import com.itcotato.dortfolio.domain.job.repository.JobCompetencyRepository;
 import com.itcotato.dortfolio.domain.record.entity.CompetencyTag;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.JobErrorCode;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -57,7 +58,12 @@ class JobCompetencyEmbeddingServiceTest {
                 new JobCompetencyEmbeddingTextBuilder(),
                 embeddingClient,
                 embeddingWriter,
-                insightProperties
+                insightProperties,
+                new JobCompetencyEmbeddingRequestProperties(
+                        Duration.ZERO,
+                        3,
+                        Duration.ZERO
+                )
         );
     }
 
@@ -148,6 +154,32 @@ class JobCompetencyEmbeddingServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting(error -> ((CustomException) error).getErrorCode())
                 .isEqualTo(JobErrorCode.JOB_COMPETENCY_EMBEDDING_AI_SERVICE_FAILED);
+        verify(embeddingClient, times(3)).embed(any());
+    }
+
+    @Test
+    void retriesTransientAiClientFailure() {
+        when(insightProperties.embeddingModel()).thenReturn("gemini-embedding-2");
+
+        UUID competencyId = UUID.randomUUID();
+        float[] vector = embedding();
+        when(jobCompetencyRepository.findWithDetailsById(competencyId))
+                .thenReturn(Optional.of(competency()));
+        when(embeddingClient.embed(any()))
+                .thenThrow(new RestClientException("temporary failure"))
+                .thenReturn(new EmbeddingResponse("gemini-embedding-2", vector));
+        when(embeddingWriter.saveIfAbsent(
+                competencyId,
+                "gemini-embedding-2",
+                vector
+        )).thenReturn(true);
+
+        JobCompetencyEmbeddingGenerationStatus result =
+                service.generate(competencyId);
+
+        assertThat(result)
+                .isEqualTo(JobCompetencyEmbeddingGenerationStatus.GENERATED);
+        verify(embeddingClient, times(2)).embed(any());
     }
 
     @Test
