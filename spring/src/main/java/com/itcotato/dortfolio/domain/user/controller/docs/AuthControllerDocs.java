@@ -4,11 +4,14 @@ import com.itcotato.dortfolio.domain.user.dto.*;
 import com.itcotato.dortfolio.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.CookieValue;
 
 import java.util.UUID;
 
@@ -20,9 +23,31 @@ public interface AuthControllerDocs {
             @Valid @RequestBody SignUpRequest request
     );
 
-    @Operation(summary = "자체 로그인 API", description = "이메일과 비밀번호로 로그인하여 자체 JWT 토큰(AccessToken, RefreshToken)을 발급받습니다.")
+    @Operation(
+            summary = "자체 로그인 API",
+            description = "이메일과 비밀번호로 로그인합니다. Access Token은 응답 본문으로 반환하고, "
+                    + "Refresh Token은 HttpOnly 쿠키로 발급합니다. rememberMe는 브라우저 종료 후 로그인 유지 여부를 나타냅니다."
+    )
     ApiResponse<TokenResponse> login(
             @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse response
+    );
+
+    @Operation(
+            summary = "Access Token 재발급 API",
+            description = "HttpOnly 쿠키의 Refresh Token을 검증하고 새로운 Access Token을 발급합니다. "
+                    + "XSRF-TOKEN 쿠키 값을 X-XSRF-TOKEN 요청 헤더로 전달해야 합니다.",
+            parameters = @Parameter(
+                    name = "X-XSRF-TOKEN",
+                    description = "XSRF-TOKEN 쿠키의 값",
+                    required = true,
+                    in = ParameterIn.HEADER
+            )
+    )
+    ApiResponse<TokenResponse> refresh(
+            @Parameter(hidden = true)
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
             HttpServletResponse response
     );
 

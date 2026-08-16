@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.UnsupportedJwtException;
@@ -29,6 +30,10 @@ import java.util.stream.Collectors;
 @Slf4j
 @Component
 public class JwtTokenProvider {
+
+    private static final String TOKEN_TYPE_CLAIM = "tokenType";
+    private static final String ACCESS_TOKEN_TYPE = "ACCESS";
+    private static final String REFRESH_TOKEN_TYPE = "REFRESH";
 
     private final Key key;
     private final long accessExpirationTime;
@@ -58,18 +63,21 @@ public class JwtTokenProvider {
                 .setSubject(authentication.getName())
                 .claim("userId", userId.toString())
                 .claim("auth", authorities)
+                .claim(TOKEN_TYPE_CLAIM, ACCESS_TOKEN_TYPE)
                 .setExpiration(accessTokenExpiresIn)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
     /* Refresh Token 생성 */
-    public String generateRefreshToken(Authentication authentication) {
+    public String generateRefreshToken(Authentication authentication, UUID userId) {
         long now = (new Date()).getTime();
         Date refreshTokenExpiresIn = new Date(now + refreshExpirationTime);
 
         return Jwts.builder()
                 .setSubject(authentication.getName())
+                .claim("userId", userId.toString())
+                .claim(TOKEN_TYPE_CLAIM, REFRESH_TOKEN_TYPE)
                 .setExpiration(refreshTokenExpiresIn)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
@@ -106,8 +114,8 @@ public class JwtTokenProvider {
     /* 토큰 유효성 및 만료 기간 검증 */
     public boolean validateToken(String token) {
         try {
-            Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
-            return true;
+            Claims claims = parseValidClaims(token);
+            return ACCESS_TOKEN_TYPE.equals(claims.get(TOKEN_TYPE_CLAIM, String.class));
         } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
             log.info("JWT 검증 실패: {}", UserErrorCode.INVALID_TOKEN_SIGNATURE.getMessage());
         } catch (ExpiredJwtException e) {
@@ -118,6 +126,33 @@ public class JwtTokenProvider {
             log.info("JWT 검증 실패: {}", UserErrorCode.EMPTY_TOKEN.getMessage());
         }
         return false;
+    }
+
+    public UUID getRefreshTokenUserId(String token) {
+        try {
+            Claims claims = parseValidClaims(token);
+            if (!REFRESH_TOKEN_TYPE.equals(claims.get(TOKEN_TYPE_CLAIM, String.class))) {
+                throw new IllegalArgumentException("Refresh Token이 아닙니다.");
+            }
+
+            String userId = claims.get("userId", String.class);
+            if (userId == null || userId.isBlank()) {
+                throw new IllegalArgumentException("userId 클레임이 없습니다.");
+            }
+
+            return UUID.fromString(userId);
+        } catch (JwtException | IllegalArgumentException e) {
+            log.info("Refresh Token 검증 실패: {}", e.getMessage());
+            throw new CustomException(UserErrorCode.INVALID_REFRESH_TOKEN);
+        }
+    }
+
+    private Claims parseValidClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 
     private Claims parseClaims(String accessToken) {
