@@ -20,7 +20,11 @@ public interface AuthControllerDocs {
             @Valid @RequestBody SignUpRequest request
     );
 
-    @Operation(summary = "자체 로그인 API", description = "이메일과 비밀번호로 로그인하여 자체 JWT 토큰(AccessToken, RefreshToken)을 발급받습니다.")
+    @Operation(
+            summary = "자체 로그인 API",
+            description = "이메일과 비밀번호로 로그인합니다. Access Token은 응답 본문으로 반환하고, "
+                    + "Refresh Token은 HttpOnly 쿠키로 발급합니다. rememberMe는 브라우저 종료 후 로그인 유지 여부를 나타냅니다."
+    )
     ApiResponse<TokenResponse> login(
             @Valid @RequestBody LoginRequest request,
             HttpServletResponse response

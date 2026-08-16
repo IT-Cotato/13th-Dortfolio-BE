@@ -113,7 +113,7 @@ public class AuthService {
 
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString());
 
-        return TokenResponse.of(accessToken, refreshToken);
+        return TokenResponse.of(accessToken);
     }
 
     /* 로그아웃 로직 */
