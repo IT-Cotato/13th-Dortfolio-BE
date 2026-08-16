@@ -46,6 +46,19 @@ public class AuthController implements AuthControllerDocs {
         );
     }
 
+    /* Access Token 재발급 API */
+    @Override
+    @PostMapping("/refresh")
+    public ApiResponse<TokenResponse> refresh(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
+            HttpServletResponse response
+    ) {
+        return ApiResponse.success(
+                "Access Token이 성공적으로 재발급되었습니다.",
+                authService.refresh(refreshToken, response)
+        );
+    }
+
     /* 로그아웃 API */
     @Override
     @PostMapping("/logout")

@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.CookieValue;
 
 import java.util.UUID;
 
@@ -27,6 +28,16 @@ public interface AuthControllerDocs {
     )
     ApiResponse<TokenResponse> login(
             @Valid @RequestBody LoginRequest request,
+            HttpServletResponse response
+    );
+
+    @Operation(
+            summary = "Access Token 재발급 API",
+            description = "HttpOnly 쿠키의 Refresh Token을 검증하고 새로운 Access Token을 발급합니다."
+    )
+    ApiResponse<TokenResponse> refresh(
+            @Parameter(hidden = true)
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
             HttpServletResponse response
     );
 

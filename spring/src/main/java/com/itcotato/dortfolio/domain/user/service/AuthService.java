@@ -20,12 +20,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -109,6 +113,59 @@ public class AuthService {
         cookieUtil.addRefreshTokenCookie(response, refreshToken, request.rememberMe());
 
         return TokenResponse.of(accessToken);
+    }
+
+    /* Access Token 재발급 로직 */
+    public TokenResponse refresh(String refreshToken, HttpServletResponse response) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            clearRefreshTokenCookies(response);
+            throw new CustomException(UserErrorCode.REFRESH_TOKEN_NOT_FOUND);
+        }
+
+        if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
+            clearRefreshTokenCookies(response);
+            throw new CustomException(UserErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        UUID userId = jwtTokenProvider.getUserId(refreshToken);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> {
+                    redisUtil.deleteData("RT:" + userId);
+                    clearRefreshTokenCookies(response);
+                    return new CustomException(UserErrorCode.USER_NOT_FOUND);
+                });
+
+        String savedRefreshToken = redisUtil.getData("RT:" + userId);
+        if (!tokensMatch(savedRefreshToken, refreshToken)) {
+            clearRefreshTokenCookies(response);
+            throw new CustomException(UserErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        UsernamePasswordAuthenticationToken authenticationToken =
+                new UsernamePasswordAuthenticationToken(
+                        user.getEmail(),
+                        null,
+                        List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
+                );
+
+        String accessToken = jwtTokenProvider.generateAccessToken(authenticationToken, userId);
+        return TokenResponse.of(accessToken);
+    }
+
+    private boolean tokensMatch(String savedRefreshToken, String requestRefreshToken) {
+        if (savedRefreshToken == null) {
+            return false;
+        }
+
+        return MessageDigest.isEqual(
+                savedRefreshToken.getBytes(StandardCharsets.UTF_8),
+                requestRefreshToken.getBytes(StandardCharsets.UTF_8)
+        );
+    }
+
+    private void clearRefreshTokenCookies(HttpServletResponse response) {
+        cookieUtil.deleteCookie(response, "refreshToken");
+        cookieUtil.deleteCookie(response, "XSRF-TOKEN");
     }
 
     /* 로그아웃 로직 */

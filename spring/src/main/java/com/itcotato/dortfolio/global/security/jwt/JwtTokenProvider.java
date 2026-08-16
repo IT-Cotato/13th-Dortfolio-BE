@@ -30,6 +30,10 @@ import java.util.stream.Collectors;
 @Component
 public class JwtTokenProvider {
 
+    private static final String TOKEN_TYPE_CLAIM = "tokenType";
+    private static final String ACCESS_TOKEN_TYPE = "ACCESS";
+    private static final String REFRESH_TOKEN_TYPE = "REFRESH";
+
     private final Key key;
     private final long accessExpirationTime;
     private final long refreshExpirationTime;
@@ -58,7 +62,7 @@ public class JwtTokenProvider {
                 .setSubject(authentication.getName())
                 .claim("userId", userId.toString())
                 .claim("auth", authorities)
-                .claim("tokenType", "ACCESS")
+                .claim(TOKEN_TYPE_CLAIM, ACCESS_TOKEN_TYPE)
                 .setExpiration(accessTokenExpiresIn)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
@@ -72,7 +76,7 @@ public class JwtTokenProvider {
         return Jwts.builder()
                 .setSubject(authentication.getName())
                 .claim("userId", userId.toString())
-                .claim("tokenType", "REFRESH")
+                .claim(TOKEN_TYPE_CLAIM, REFRESH_TOKEN_TYPE)
                 .setExpiration(refreshTokenExpiresIn)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
@@ -109,8 +113,8 @@ public class JwtTokenProvider {
     /* 토큰 유효성 및 만료 기간 검증 */
     public boolean validateToken(String token) {
         try {
-            Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
-            return true;
+            Claims claims = parseValidClaims(token);
+            return ACCESS_TOKEN_TYPE.equals(claims.get(TOKEN_TYPE_CLAIM, String.class));
         } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
             log.info("JWT 검증 실패: {}", UserErrorCode.INVALID_TOKEN_SIGNATURE.getMessage());
         } catch (ExpiredJwtException e) {
@@ -121,6 +125,44 @@ public class JwtTokenProvider {
             log.info("JWT 검증 실패: {}", UserErrorCode.EMPTY_TOKEN.getMessage());
         }
         return false;
+    }
+
+    public boolean validateRefreshToken(String token) {
+        try {
+            Claims claims = parseValidClaims(token);
+            return REFRESH_TOKEN_TYPE.equals(claims.get(TOKEN_TYPE_CLAIM, String.class));
+        } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
+            log.info("Refresh Token 검증 실패: {}", UserErrorCode.INVALID_TOKEN_SIGNATURE.getMessage());
+        } catch (ExpiredJwtException e) {
+            log.info("Refresh Token 검증 실패: {}", UserErrorCode.EXPIRED_TOKEN.getMessage());
+        } catch (UnsupportedJwtException e) {
+            log.info("Refresh Token 검증 실패: {}", UserErrorCode.UNSUPPORTED_TOKEN.getMessage());
+        } catch (IllegalArgumentException e) {
+            log.info("Refresh Token 검증 실패: {}", UserErrorCode.EMPTY_TOKEN.getMessage());
+        }
+        return false;
+    }
+
+    public UUID getUserId(String token) {
+        String userId = parseValidClaims(token).get("userId", String.class);
+
+        if (userId == null || userId.isBlank()) {
+            throw new CustomException(UserErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        try {
+            return UUID.fromString(userId);
+        } catch (IllegalArgumentException e) {
+            throw new CustomException(UserErrorCode.INVALID_REFRESH_TOKEN);
+        }
+    }
+
+    private Claims parseValidClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 
     private Claims parseClaims(String accessToken) {
