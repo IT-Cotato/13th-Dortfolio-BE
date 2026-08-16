@@ -16,6 +16,7 @@ import com.itcotato.dortfolio.global.security.user.CustomUserDetailsService;
 import com.itcotato.dortfolio.global.util.CookieUtil;
 import com.itcotato.dortfolio.global.util.RedisUtil;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -23,6 +24,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +48,7 @@ public class AuthService {
     private final RedisUtil redisUtil;
     private final CookieUtil cookieUtil;
     private final ActivityTypeService activityTypeService;
+    private final CsrfTokenRepository csrfTokenRepository;
 
     @Value("${jwt.refresh-expiration}")
     private long refreshExpirationMillis;
@@ -88,7 +92,11 @@ public class AuthService {
     }
 
     /* 로그인 로직 */
-    public TokenResponse login(LoginRequest request, HttpServletResponse response) { // 💡 HttpServletResponse 추가
+    public TokenResponse login(
+            LoginRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse response
+    ) {
 
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new CustomException(UserErrorCode.INVALID_LOGIN_CREDENTIALS));
@@ -111,6 +119,8 @@ public class AuthService {
 
         redisUtil.setDataExpire("RT:" + user.getId(), refreshToken, refreshExpirationMillis);
         cookieUtil.addRefreshTokenCookie(response, refreshToken, request.rememberMe());
+        CsrfToken csrfToken = csrfTokenRepository.generateToken(httpRequest);
+        cookieUtil.addCsrfTokenCookie(response, csrfToken.getToken(), request.rememberMe());
 
         return TokenResponse.of(accessToken);
     }

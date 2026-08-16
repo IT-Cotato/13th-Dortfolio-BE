@@ -40,6 +40,24 @@ public class CookieUtil {
         response.addHeader(HttpHeaders.SET_COOKIE, cookieBuilder.build().toString());
     }
 
+    public void addCsrfTokenCookie(
+            HttpServletResponse response,
+            String csrfToken,
+            boolean rememberMe
+    ) {
+        ResponseCookie.ResponseCookieBuilder cookieBuilder = ResponseCookie.from("XSRF-TOKEN", csrfToken)
+                .path("/")
+                .httpOnly(false)
+                .secure(true)
+                .sameSite("None");
+
+        if (rememberMe) {
+            cookieBuilder.maxAge(refreshTokenMaxAge);
+        }
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookieBuilder.build().toString());
+    }
+
     private void addHttpOnlyCookie(
             HttpServletResponse response,
             String name,

@@ -51,7 +51,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         cookieUtil.addAccessTokenCookie(response, accessToken);
         cookieUtil.addRefreshTokenCookie(response, refreshToken, true);
         CsrfToken csrfToken = csrfTokenRepository.generateToken(request);
-        csrfTokenRepository.saveToken(csrfToken, request, response);
+        cookieUtil.addCsrfTokenCookie(response, csrfToken.getToken(), true);
 
         getRedirectStrategy().sendRedirect(request, response, successRedirectUri);
     }

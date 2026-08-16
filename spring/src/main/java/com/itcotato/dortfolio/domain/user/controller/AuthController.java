@@ -6,6 +6,7 @@ import com.itcotato.dortfolio.domain.user.service.AuthService;
 import com.itcotato.dortfolio.domain.user.service.PasswordResetService;
 import com.itcotato.dortfolio.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -38,11 +39,12 @@ public class AuthController implements AuthControllerDocs {
     public ApiResponse<TokenResponse> login(
             @Valid
             @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest,
             HttpServletResponse response
     ) {
         return ApiResponse.success(
                 "로그인이 성공적으로 완료되었습니다.",
-                authService.login(request, response)
+                authService.login(request, httpRequest, response)
         );
     }
 

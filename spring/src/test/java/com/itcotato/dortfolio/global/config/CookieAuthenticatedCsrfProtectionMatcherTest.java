@@ -34,4 +34,19 @@ class CookieAuthenticatedCsrfProtectionMatcherTest {
 
         assertThat(matcher.matches(request)).isFalse();
     }
+
+    @Test
+    void protectsRefreshRequestAuthenticatedByRefreshTokenCookie() {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/refresh");
+        request.setCookies(new Cookie("refreshToken", "refresh-token"));
+
+        assertThat(matcher.matches(request)).isTrue();
+    }
+
+    @Test
+    void protectsRefreshRequestEvenWhenCookieIsMissing() {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/refresh");
+
+        assertThat(matcher.matches(request)).isTrue();
+    }
 }
