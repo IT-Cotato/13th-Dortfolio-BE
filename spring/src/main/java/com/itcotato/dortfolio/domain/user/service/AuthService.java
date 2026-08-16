@@ -17,9 +17,8 @@ import com.itcotato.dortfolio.global.util.CookieUtil;
 import com.itcotato.dortfolio.global.util.RedisUtil;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -42,6 +41,9 @@ public class AuthService {
     private final RedisUtil redisUtil;
     private final CookieUtil cookieUtil;
     private final ActivityTypeService activityTypeService;
+
+    @Value("${jwt.refresh-expiration}")
+    private long refreshExpirationMillis;
 
     /* 회원가입 로직 */
     @Transactional
@@ -101,17 +103,10 @@ public class AuthService {
                 = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
 
         String accessToken = jwtTokenProvider.generateAccessToken(authenticationToken, user.getId());
-        String refreshToken = jwtTokenProvider.generateRefreshToken(authenticationToken);
+        String refreshToken = jwtTokenProvider.generateRefreshToken(authenticationToken, user.getId());
 
-        ResponseCookie refreshTokenCookie = ResponseCookie.from("refreshToken", refreshToken)
-                .httpOnly(true)
-                .secure(true)
-                .path("/")
-                .maxAge(14 * 24 * 60 * 60)
-                .sameSite("Lax")
-                .build();
-
-        response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString());
+        redisUtil.setDataExpire("RT:" + user.getId(), refreshToken, refreshExpirationMillis);
+        cookieUtil.addRefreshTokenCookie(response, refreshToken, request.rememberMe());
 
         return TokenResponse.of(accessToken);
     }

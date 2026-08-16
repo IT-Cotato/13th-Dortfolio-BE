@@ -58,18 +58,21 @@ public class JwtTokenProvider {
                 .setSubject(authentication.getName())
                 .claim("userId", userId.toString())
                 .claim("auth", authorities)
+                .claim("tokenType", "ACCESS")
                 .setExpiration(accessTokenExpiresIn)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
     /* Refresh Token 생성 */
-    public String generateRefreshToken(Authentication authentication) {
+    public String generateRefreshToken(Authentication authentication, UUID userId) {
         long now = (new Date()).getTime();
         Date refreshTokenExpiresIn = new Date(now + refreshExpirationTime);
 
         return Jwts.builder()
                 .setSubject(authentication.getName())
+                .claim("userId", userId.toString())
+                .claim("tokenType", "REFRESH")
                 .setExpiration(refreshTokenExpiresIn)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
