@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.UnsupportedJwtException;
@@ -127,32 +128,21 @@ public class JwtTokenProvider {
         return false;
     }
 
-    public boolean validateRefreshToken(String token) {
+    public UUID getRefreshTokenUserId(String token) {
         try {
             Claims claims = parseValidClaims(token);
-            return REFRESH_TOKEN_TYPE.equals(claims.get(TOKEN_TYPE_CLAIM, String.class));
-        } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
-            log.info("Refresh Token 검증 실패: {}", UserErrorCode.INVALID_TOKEN_SIGNATURE.getMessage());
-        } catch (ExpiredJwtException e) {
-            log.info("Refresh Token 검증 실패: {}", UserErrorCode.EXPIRED_TOKEN.getMessage());
-        } catch (UnsupportedJwtException e) {
-            log.info("Refresh Token 검증 실패: {}", UserErrorCode.UNSUPPORTED_TOKEN.getMessage());
-        } catch (IllegalArgumentException e) {
-            log.info("Refresh Token 검증 실패: {}", UserErrorCode.EMPTY_TOKEN.getMessage());
-        }
-        return false;
-    }
+            if (!REFRESH_TOKEN_TYPE.equals(claims.get(TOKEN_TYPE_CLAIM, String.class))) {
+                throw new IllegalArgumentException("Refresh Token이 아닙니다.");
+            }
 
-    public UUID getUserId(String token) {
-        String userId = parseValidClaims(token).get("userId", String.class);
+            String userId = claims.get("userId", String.class);
+            if (userId == null || userId.isBlank()) {
+                throw new IllegalArgumentException("userId 클레임이 없습니다.");
+            }
 
-        if (userId == null || userId.isBlank()) {
-            throw new CustomException(UserErrorCode.INVALID_REFRESH_TOKEN);
-        }
-
-        try {
             return UUID.fromString(userId);
-        } catch (IllegalArgumentException e) {
+        } catch (JwtException | IllegalArgumentException e) {
+            log.info("Refresh Token 검증 실패: {}", e.getMessage());
             throw new CustomException(UserErrorCode.INVALID_REFRESH_TOKEN);
         }
     }

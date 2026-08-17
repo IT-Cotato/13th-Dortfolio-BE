@@ -1,7 +1,10 @@
 package com.itcotato.dortfolio.global.security.jwt;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.itcotato.dortfolio.global.exception.CustomException;
+import com.itcotato.dortfolio.global.exception.types.UserErrorCode;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,17 +44,23 @@ class JwtTokenProviderTest {
     }
 
     @Test
-    void validatesOnlyRefreshTokenAsRefreshToken() {
+    void extractsUserIdOnlyFromValidRefreshToken() {
         String accessToken = jwtTokenProvider.generateAccessToken(authentication, userId);
         String refreshToken = jwtTokenProvider.generateRefreshToken(authentication, userId);
 
-        assertThat(jwtTokenProvider.validateRefreshToken(refreshToken)).isTrue();
-        assertThat(jwtTokenProvider.validateRefreshToken(accessToken)).isFalse();
-        assertThat(jwtTokenProvider.getUserId(refreshToken)).isEqualTo(userId);
+        assertThat(jwtTokenProvider.getRefreshTokenUserId(refreshToken)).isEqualTo(userId);
+        assertInvalidRefreshToken(accessToken);
     }
 
     @Test
     void rejectsMalformedRefreshToken() {
-        assertThat(jwtTokenProvider.validateRefreshToken("invalid-token")).isFalse();
+        assertInvalidRefreshToken("invalid-token");
+    }
+
+    private void assertInvalidRefreshToken(String token) {
+        assertThatThrownBy(() -> jwtTokenProvider.getRefreshTokenUserId(token))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(UserErrorCode.INVALID_REFRESH_TOKEN);
     }
 }

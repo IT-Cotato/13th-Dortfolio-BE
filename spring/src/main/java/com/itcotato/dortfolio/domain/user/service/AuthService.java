@@ -132,12 +132,13 @@ public class AuthService {
             throw new CustomException(UserErrorCode.REFRESH_TOKEN_NOT_FOUND);
         }
 
-        if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
+        UUID userId;
+        try {
+            userId = jwtTokenProvider.getRefreshTokenUserId(refreshToken);
+        } catch (CustomException e) {
             clearRefreshTokenCookies(response);
-            throw new CustomException(UserErrorCode.INVALID_REFRESH_TOKEN);
+            throw e;
         }
-
-        UUID userId = jwtTokenProvider.getUserId(refreshToken);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> {
                     redisUtil.deleteData("RT:" + userId);

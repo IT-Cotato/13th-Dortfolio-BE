@@ -118,6 +118,43 @@ jobs:
             # 오래된 이미지 정리 (디스크 용량 확보)
             docker image prune -f
 
+      - name: 직무 역량 임베딩 동기화
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 30m
+          script: |
+            set -e
+            cd ~/13th-Dortfolio-BE
+
+            # 임베딩 생성은 DB 마이그레이션과 FastAPI 기동이 모두 끝난 뒤 실행해야 한다.
+            for i in $(seq 1 30); do
+              SPRING_OK=$(curl -fsS http://127.0.0.1:8080/actuator/health > /dev/null 2>&1 && echo yes || echo no)
+              FASTAPI_STATE=$(docker inspect -f '{{.State.Health.Status}}' dortfolio-fastapi 2>/dev/null || echo unknown)
+
+              if [ "$SPRING_OK" = "yes" ] && [ "$FASTAPI_STATE" = "healthy" ]; then
+                break
+              fi
+
+              if [ "$i" -eq 30 ]; then
+                echo "임베딩 동기화 실패: Spring 또는 FastAPI가 제한 시간 안에 준비되지 않았습니다."
+                docker compose -f docker-compose.prod.yml ps spring fastapi
+                exit 1
+              fi
+
+              echo "임베딩 동기화 대기 중... ($i/30) spring=$SPRING_OK fastapi=$FASTAPI_STATE"
+              sleep 5
+            done
+
+            # 현재 모델 기준 누락분만 생성하므로 매 배포마다 실행해도 중복 저장되지 않는다.
+            docker compose -f docker-compose.prod.yml run --rm \
+              -e JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED=true \
+              -e JOB_COMPETENCY_EMBEDDING_BATCH_COMMAND=GENERATE_MISSING \
+              -e SPRING_MAIN_WEB_APPLICATION_TYPE=none \
+              spring
+
       - name: 배포 검증
         uses: appleboy/ssh-action@v1
         with:
