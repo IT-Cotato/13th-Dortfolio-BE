@@ -154,8 +154,7 @@ public record LatestInsightResponse(
             UUID recordId,
 
             @Schema(
-                    description = "Insight 생성 당시 기록 제목. 매칭 결과가 없으면 null",
-                    nullable = true,
+                    description = "Insight 생성 당시 기록 제목",
                     example = "API 응답 속도 개선"
             )
             String recordTitle,
@@ -181,8 +180,7 @@ public record LatestInsightResponse(
             UUID templateId,
 
             @Schema(
-                    description = "Insight 생성 당시 템플릿 이름. 매칭 결과가 없으면 null",
-                    nullable = true,
+                    description = "Insight 생성 당시 템플릿 이름",
                     example = "문제 해결 경험"
             )
             String templateName,
@@ -226,13 +224,15 @@ public record LatestInsightResponse(
             UUID recordId,
 
             @Schema(
-                    description = "Insight 생성 당시 기록 제목",
+                    description = "Insight 생성 당시 기록 제목. 매칭 결과가 없으면 null",
+                    nullable = true,
                     example = "API 응답 속도 개선"
             )
             String recordTitle,
 
             @Schema(
-                    description = "Insight 생성 당시 템플릿 이름",
+                    description = "Insight 생성 당시 템플릿 이름. 매칭 결과가 없으면 null",
+                    nullable = true,
                     example = "문제 해결 경험"
             )
             String templateName,

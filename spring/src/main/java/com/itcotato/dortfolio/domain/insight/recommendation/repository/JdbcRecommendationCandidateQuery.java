@@ -239,7 +239,9 @@ public class JdbcRecommendationCandidateQuery
             );
         }
 
-        if (minimumSimilarity < 0.0 || minimumSimilarity > 1.0) {
+        if (!Double.isFinite(minimumSimilarity)
+                || minimumSimilarity < 0.0
+                || minimumSimilarity > 1.0) {
             throw new IllegalArgumentException(
                     "minimumSimilarity must be in [0, 1]"
             );

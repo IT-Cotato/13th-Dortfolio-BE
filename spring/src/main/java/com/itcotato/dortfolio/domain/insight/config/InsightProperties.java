@@ -31,7 +31,8 @@ public record InsightProperties(
             );
         }
 
-        if (recommendationCandidateRatio <= 0.0
+        if (!Double.isFinite(recommendationCandidateRatio)
+                || recommendationCandidateRatio <= 0.0
                 || recommendationCandidateRatio > 1.0) {
             throw new IllegalArgumentException(
                     "recommendationCandidateRatio must be in (0, 1]"
@@ -50,7 +51,8 @@ public record InsightProperties(
             );
         }
 
-        if (recommendationMinSimilarity < 0.0
+        if (!Double.isFinite(recommendationMinSimilarity)
+                || recommendationMinSimilarity < 0.0
                 || recommendationMinSimilarity > 1.0) {
             throw new IllegalArgumentException(
                     "recommendationMinSimilarity must be in [0, 1]"

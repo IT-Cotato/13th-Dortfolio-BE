@@ -58,6 +58,14 @@ class FlywayMigrationTest {
 				where table_name = 'insight_job_recommendations'
 				  and column_name = 'record_id_snapshot'
 				""", String.class)).isEqualTo("YES");
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from pg_constraint
+				where conname in (
+				    'ck_insight_job_recommendation_match_status',
+				    'ck_insight_job_recommendation_match_result'
+				)
+				""", Integer.class)).isEqualTo(2);
 	}
 
 	@Test

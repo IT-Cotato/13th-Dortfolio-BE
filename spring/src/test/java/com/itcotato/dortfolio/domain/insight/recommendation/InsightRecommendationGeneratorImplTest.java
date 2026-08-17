@@ -107,6 +107,27 @@ class InsightRecommendationGeneratorImplTest {
     }
 
     @Test
+    void rejectsNoMatchResponseContainingRecord() {
+        when(client.generate(request))
+                .thenReturn(new RecommendationResult(
+                        false,
+                        jobCompetencyId,
+                        candidateRecordId,
+                        "추천 이유"
+                ));
+
+        assertThatThrownBy(() -> generator.generate(request))
+                .isInstanceOf(CustomException.class)
+                .extracting(error ->
+                        ((CustomException) error).getErrorCode()
+                )
+                .isEqualTo(
+                        InsightErrorCode
+                                .INSIGHT_RECOMMENDATION_INVALID_RESPONSE
+                );
+    }
+
+    @Test
     void rejectsRecordOutsideCandidates() {
         when(client.generate(request))
                 .thenReturn(new RecommendationResult(

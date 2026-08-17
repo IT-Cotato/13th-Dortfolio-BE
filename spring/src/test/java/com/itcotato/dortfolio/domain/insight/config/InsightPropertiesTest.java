@@ -8,6 +8,23 @@ import org.junit.jupiter.api.Test;
 class InsightPropertiesTest {
 
     @Test
+    void rejectsNonFiniteCandidateRatio() {
+        assertThatThrownBy(() -> new InsightProperties(
+                10,
+                Duration.ofHours(24),
+                Double.NaN,
+                1,
+                20,
+                0.0,
+                "gemini-embedding-2",
+                2,
+                Duration.ofSeconds(10)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("recommendationCandidateRatio");
+    }
+
+    @Test
     void rejectsCandidateRatioAboveOne() {
         assertThatThrownBy(() -> new InsightProperties(
                 10,
@@ -50,6 +67,23 @@ class InsightPropertiesTest {
                 1,
                 20,
                 1.1,
+                "gemini-embedding-2",
+                2,
+                Duration.ofSeconds(10)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("recommendationMinSimilarity");
+    }
+
+    @Test
+    void rejectsNonFiniteSimilarity() {
+        assertThatThrownBy(() -> new InsightProperties(
+                10,
+                Duration.ofHours(24),
+                0.1,
+                1,
+                20,
+                Double.NaN,
                 "gemini-embedding-2",
                 2,
                 Duration.ofSeconds(10)

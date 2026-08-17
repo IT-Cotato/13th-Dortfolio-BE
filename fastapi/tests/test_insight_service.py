@@ -129,6 +129,20 @@ class InsightServiceTest(unittest.TestCase):
         self.assertFalse(response.matched)
         self.assertIsNone(response.recordId)
 
+    def test_rejects_no_match_response_containing_record(self):
+        request = self.request()
+
+        with self.assertRaises(ValueError):
+            parse_recommendation_response(
+                json.dumps({
+                    "matched": False,
+                    "jobCompetencyId": str(request.jobCompetencyId),
+                    "recordId": str(request.candidates[0].recordId),
+                    "reason": "추천 이유",
+                }),
+                request,
+            )
+
     def test_rejects_invalid_json(self):
         with self.assertRaises(ValueError):
             parse_recommendation_response(

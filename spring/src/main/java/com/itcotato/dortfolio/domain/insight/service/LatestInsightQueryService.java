@@ -251,18 +251,18 @@ public class LatestInsightQueryService {
             InsightJobRecommendation recommendation,
             Set<UUID> availableRecordIds
     ) {
+        UUID recordId = recommendation.getRecordIdSnapshot();
+
         return new JobRecommendationResponse(
                 recommendation.getJobCompetencyIdSnapshot(),
                 recommendation.getCompetencyNameSnapshot(),
                 recommendation.getMatchStatus(),
-                recommendation.getRecordIdSnapshot(),
+                recordId,
                 recommendation.getRecordTitleSnapshot(),
                 recommendation.getTemplateNameSnapshot(),
                 recommendation.getReason(),
                 recommendation.getSimilarity(),
-                availableRecordIds.contains(
-                        recommendation.getRecordIdSnapshot()
-                )
+                recordId != null && availableRecordIds.contains(recordId)
         );
     }
 
