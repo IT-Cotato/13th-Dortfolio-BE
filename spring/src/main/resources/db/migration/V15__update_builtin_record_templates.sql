@@ -35,7 +35,7 @@ FROM (VALUES
     ('PROBLEM_SOLVING_RESULT_CAUSE', '원인 가설', '이 문제가 발생한 ''가장 유력한 원인''은 무엇이라고 추정했나요?', 2),
     ('PROBLEM_SOLVING_RESULT_SOLUTION', '의사결정', '문제를 해결하기 위해 어떤 대안들을 고려했고, 왜 그 방향(순서)대로 실행했나요?', 3),
     ('PROBLEM_SOLVING_RESULT_OUTCOME', '문제 해결 결과', '내가 조치한 결과 상황이 어떻게 정상화되었으며, 어떤 정량적/정성적 성과로 이어졌나요?', 4),
-    ('PROBLEM_SOLVING_RESULT_INSIGHT', '협업 인사이트', '다음번에 이와 비슷한 문제가 또 터지지 않게 하려면 어떤 예방책이나 규칙이 필요할까요?', 5),
+    ('PROBLEM_SOLVING_RESULT_INSIGHT', '문제 해결 인사이트', '다음번에 이와 비슷한 문제가 또 터지지 않게 하려면 어떤 예방책이나 규칙이 필요할까요?', 5),
 
     ('IMMERSION_CHALLENGE_GOAL', '나의 목표', '기존 방식에 안주하지 않고, 오늘 일부러 ''더 높은 기준''을 적용해 시도한 일은 무엇인가요?', 1),
     ('IMMERSION_CHALLENGE_OBSTACLE', '방해 요소', '목표에 도전하면서 오늘 나를 가장 지치게 하거나 유혹했던 ''방해 요소''는 무엇이었나요?', 2),
