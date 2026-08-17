@@ -72,7 +72,12 @@ class FastApiRecordAnalysisClientTest {
 		assertThat(requestBody.get())
 			.contains("\"recordId\":\"" + recordId + "\"")
 			.contains("\"answers\"")
-			.contains("\"strengthTagCandidates\"");
+			.contains("\"strengthTagCandidates\"")
+			.contains("\"evaluationCriteria\":\"원인을 찾아 적절한 해결책을 실행합니다.\"")
+			.contains("\"positiveExample\":\"병목을 찾아 응답 시간을 줄였습니다.\"")
+			.contains("\"negativeExample\":\"문제를 다른 사람에게 넘기고 끝냈습니다.\"")
+			.contains("\"cosineSimilarity\":0.82")
+			.contains("\"maxStrengthCount\":2");
 		assertThat(response.summary()).isEqualTo("요약");
 		assertThat(response.evidenceSnippets()).containsExactly("근거");
 		assertThat(response.strengthTagIds()).isEmpty();

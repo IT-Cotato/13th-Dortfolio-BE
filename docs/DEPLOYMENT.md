@@ -303,7 +303,7 @@ docker exec dortfolio-postgres pg_dump -U dortfolio dortfolio > backup_$(date +%
 
 | 명령 | 동작 |
 |---|---|
-| `GENERATE_MISSING` | 현재 `GEMINI_EMBEDDING_MODEL`을 기준으로 누락된 임베딩만 생성한 뒤 전체 완료 상태를 검증합니다. |
+| `GENERATE_MISSING` | `INSIGHT_EMBEDDING_MODEL`을 우선 사용하고, 없으면 `GEMINI_EMBEDDING_MODEL`, 둘 다 없으면 기본 모델을 기준으로 누락된 임베딩만 생성한 뒤 전체 완료 상태를 검증합니다. |
 | `VERIFY` | 외부 AI API를 호출하지 않고 전체 개수, 생성 개수, 누락 개수와 누락 ID를 검증합니다. |
 
 ### 로컬 실행

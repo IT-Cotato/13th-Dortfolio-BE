@@ -29,8 +29,8 @@ class FlywayMigrationTest {
 	void migratesFreshSchemaThroughLatestVersion() {
 		MigrateResult result = flyway().migrate();
 
-		assertThat(result.migrationsExecuted).isEqualTo(18);
-		assertThat(result.targetSchemaVersion).isEqualTo("18");
+		assertThat(result.migrationsExecuted).isEqualTo(19);
+		assertThat(result.targetSchemaVersion).isEqualTo("19");
 		assertMatchingIndexesCreated();
 		assertRunningInsightStatusAllowed();
 		assertUserOwnedDataCascadesOnDelete();
@@ -74,6 +74,12 @@ class FlywayMigrationTest {
 	}
 
 	private void assertRecommendationNoMatchSupported() {
+		assertThat(jdbcTemplate().queryForObject("""
+				select is_nullable
+				from information_schema.columns
+				where table_name = 'insight_job_recommendations'
+				  and column_name = 'match_status'
+				""", String.class)).isEqualTo("NO");
 		assertThat(jdbcTemplate().queryForObject("""
 				select is_nullable
 				from information_schema.columns

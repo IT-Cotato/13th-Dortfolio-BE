@@ -1,6 +1,7 @@
 package com.itcotato.dortfolio.domain.record.analysis.service;
 
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
 
@@ -23,7 +24,6 @@ public class RecordEmbeddingTextBuilder {
 			.flatMap(stream -> stream)
 			.filter(value -> value != null && !value.isBlank())
 			.map(String::trim)
-			.reduce((first, second) -> first + " " + second)
-			.orElse("");
+			.collect(Collectors.joining(" "));
 	}
 }

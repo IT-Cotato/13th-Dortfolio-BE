@@ -142,10 +142,15 @@ public class StrengthTagEmbeddingService {
 			throw new CustomException(RecordAnalysisErrorCode.STRENGTH_TAG_EMBEDDING_INVALID_RESPONSE);
 		}
 
+		boolean hasMagnitude = false;
 		for (float value : response.embedding()) {
 			if (!Float.isFinite(value)) {
 				throw new CustomException(RecordAnalysisErrorCode.STRENGTH_TAG_EMBEDDING_INVALID_RESPONSE);
 			}
+			hasMagnitude |= value != 0.0f;
+		}
+		if (!hasMagnitude) {
+			throw new CustomException(RecordAnalysisErrorCode.STRENGTH_TAG_EMBEDDING_INVALID_RESPONSE);
 		}
 	}
 

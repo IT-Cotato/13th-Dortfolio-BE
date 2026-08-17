@@ -28,9 +28,10 @@ class RecordAnalysisServiceTest(unittest.TestCase):
 
         prompt = build_analysis_prompt(request)
 
-        self.assertIn("판단 기준", prompt)
-        self.assertIn("적합한 사례", prompt)
-        self.assertIn("부적합한 사례", prompt)
+        self.assertIn("description: 후보 전용 구조적 문제 해결 설명", prompt)
+        self.assertIn("evaluationCriteria: 원인 규명 후 직접 개선까지 실행했는지", prompt)
+        self.assertIn("positiveExample: 캐시 병목을 찾아 응답 시간을 40% 줄임", prompt)
+        self.assertIn("negativeExample: 문제를 확인만 하고 담당자에게 전달함", prompt)
         self.assertIn("최대 2개", prompt)
         self.assertIn(str(candidate_ids[0]), prompt)
 
@@ -91,10 +92,10 @@ def analysis_request(candidate_count: int = 2) -> tuple[RecordAnalysisRequest, l
                 {
                     "id": str(candidate_id),
                     "name": f"강점 {index}",
-                    "description": "문제를 구조적으로 해결하는 강점",
-                    "evaluationCriteria": "판단 기준",
-                    "positiveExample": "적합한 사례",
-                    "negativeExample": "부적합한 사례",
+                    "description": "후보 전용 구조적 문제 해결 설명",
+                    "evaluationCriteria": "원인 규명 후 직접 개선까지 실행했는지",
+                    "positiveExample": "캐시 병목을 찾아 응답 시간을 40% 줄임",
+                    "negativeExample": "문제를 확인만 하고 담당자에게 전달함",
                     "cosineSimilarity": 0.8 - index * 0.1,
                 }
                 for index, candidate_id in enumerate(candidate_ids)

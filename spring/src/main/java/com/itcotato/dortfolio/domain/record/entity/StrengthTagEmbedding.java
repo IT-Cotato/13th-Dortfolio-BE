@@ -63,6 +63,10 @@ public class StrengthTagEmbedding extends BaseEntity {
 		return new StrengthTagEmbedding(strengthTag, embeddingModel, embedding);
 	}
 
+	public float[] getEmbedding() {
+		return embedding.clone();
+	}
+
 	private static void validate(String embeddingModel, float[] embedding) {
 		if (embeddingModel == null || embeddingModel.isBlank()) {
 			throw new IllegalArgumentException("임베딩 모델명은 비어 있을 수 없습니다.");

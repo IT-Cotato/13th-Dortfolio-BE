@@ -69,6 +69,7 @@ class StrengthTagEmbeddingServiceTest {
 		UUID strengthTagId = UUID.randomUUID();
 		StrengthTag strengthTag = strengthTag();
 		float[] vector = new float[StrengthTagEmbedding.EMBEDDING_DIMENSION];
+		vector[0] = 1.0f;
 		EmbeddingRequest expectedRequest = new EmbeddingRequest("""
 			강점: 문제 해결
 			정의: 문제를 구조적으로 분석하고 해결합니다.
@@ -95,6 +96,22 @@ class StrengthTagEmbeddingServiceTest {
 		when(strengthTagRepository.findById(strengthTagId)).thenReturn(Optional.of(strengthTag()));
 		when(embeddingClient.embed(org.mockito.ArgumentMatchers.any()))
 			.thenReturn(new EmbeddingResponse("another-model", new float[3072]));
+
+		assertThatThrownBy(() -> service.generate(strengthTagId))
+			.isInstanceOfSatisfying(CustomException.class, exception ->
+				assertThat(exception.getErrorCode())
+					.isEqualTo(RecordAnalysisErrorCode.STRENGTH_TAG_EMBEDDING_INVALID_RESPONSE)
+			);
+	}
+
+	@Test
+	void rejectsEmbeddingWithoutMagnitude() {
+		UUID strengthTagId = UUID.randomUUID();
+		when(embeddingRepository.existsByStrengthTag_IdAndEmbeddingModel(strengthTagId, MODEL))
+			.thenReturn(false);
+		when(strengthTagRepository.findById(strengthTagId)).thenReturn(Optional.of(strengthTag()));
+		when(embeddingClient.embed(org.mockito.ArgumentMatchers.any()))
+			.thenReturn(new EmbeddingResponse(MODEL, new float[StrengthTagEmbedding.EMBEDDING_DIMENSION]));
 
 		assertThatThrownBy(() -> service.generate(strengthTagId))
 			.isInstanceOfSatisfying(CustomException.class, exception ->

@@ -12,10 +12,10 @@ import com.itcotato.dortfolio.domain.record.analysis.exception.RecordAnalysisErr
 import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
 import com.itcotato.dortfolio.domain.record.analysis.repository.StrengthMatchCandidateQuery;
 import com.itcotato.dortfolio.domain.record.entity.Record;
+import com.itcotato.dortfolio.domain.record.entity.RecordEmbedding;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
 import com.itcotato.dortfolio.domain.record.entity.RecordStrengthTag;
 import com.itcotato.dortfolio.domain.record.entity.StrengthTag;
-import com.itcotato.dortfolio.domain.record.entity.StrengthTagEmbedding;
 import com.itcotato.dortfolio.domain.record.repository.RecordEmbeddingRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordStrengthTagRepository;
@@ -93,6 +93,9 @@ public class RecordAnalysisService {
 				exception.getErrorCode().getCode(),
 				toRetryable(exception)
 			);
+			return;
+		} catch (Exception exception) {
+			markPersistenceFailure(recordId, "execute", exception);
 			return;
 		}
 
@@ -190,13 +193,18 @@ public class RecordAnalysisService {
 		if (response == null
 			|| !StringUtils.hasText(response.embeddingModel())
 			|| response.embedding() == null
-			|| response.embedding().length != StrengthTagEmbedding.EMBEDDING_DIMENSION) {
+			|| response.embedding().length != RecordEmbedding.EMBEDDING_DIMENSION) {
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 		}
+		boolean hasMagnitude = false;
 		for (float value : response.embedding()) {
 			if (!Float.isFinite(value)) {
 				throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 			}
+			hasMagnitude |= value != 0.0f;
+		}
+		if (!hasMagnitude) {
+			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 		}
 	}
 

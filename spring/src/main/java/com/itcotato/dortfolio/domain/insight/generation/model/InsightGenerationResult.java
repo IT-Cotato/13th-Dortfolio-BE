@@ -64,6 +64,23 @@ public record InsightGenerationResult(
             String reason,
             Double similarity
     ) {
+        public JobRecommendationResult {
+            if (matched && (recordId == null
+                    || recordTitle == null
+                    || templateName == null
+                    || reason == null
+                    || similarity == null)) {
+                throw new IllegalArgumentException("Matched recommendation requires record details");
+            }
+            if (!matched && (recordId != null
+                    || recordTitle != null
+                    || templateName != null
+                    || reason != null
+                    || similarity != null)) {
+                throw new IllegalArgumentException("Unmatched recommendation cannot contain record details");
+            }
+        }
+
         public JobRecommendationResult(
                 UUID jobCompetencyId,
                 String competencyName,

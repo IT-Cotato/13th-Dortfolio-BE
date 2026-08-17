@@ -70,6 +70,9 @@ class RecordAnalysisServiceTest {
 	private StubEmbeddingClient stubEmbeddingClient;
 
 	@Autowired
+	private StubRecordEmbeddingTextBuilder stubRecordEmbeddingTextBuilder;
+
+	@Autowired
 	private StubStrengthMatchCandidateQuery stubStrengthMatchCandidateQuery;
 
 	@Autowired
@@ -112,6 +115,7 @@ class RecordAnalysisServiceTest {
 		stubRecordAnalysisClient.reset();
 		stubRecordEmbeddingWriter.reset();
 		stubEmbeddingClient.reset();
+		stubRecordEmbeddingTextBuilder.reset();
 		stubStrengthMatchCandidateQuery.reset();
 		recordAnalysisRepository.deleteAll();
 		recordEmbeddingRepository.deleteAll();
@@ -193,6 +197,47 @@ class RecordAnalysisServiceTest {
 		assertThat(recordAnalysisRepository.findRetryableRecordIds()).contains(record.id());
 		assertThat(recordEmbeddingRepository.countByRecord_Id(record.id())).isZero();
 		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id())).isEmpty();
+	}
+
+	@Test
+	void analyzeStoresRetryableFailureWhenUnexpectedExecutionErrorOccurs() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template template = createTemplate(user, false);
+		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(), template.getId(), "실행 오류 기록", List.of(), List.of(), RecordStatus.COMPLETED
+		));
+		stubRecordEmbeddingTextBuilder.failure = new IllegalStateException("unexpected execution failure");
+
+		recordAnalysisService.analyze(record.id());
+
+		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow())
+			.satisfies(recordAnalysis -> {
+				assertThat(recordAnalysis.getAiAnalysisStatus()).isEqualTo(AiAnalysisStatus.FAILED);
+				assertThat(recordAnalysis.getFailureReason())
+					.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED.getCode());
+				assertThat(recordAnalysis.isFailureRetryable()).isTrue();
+			});
+	}
+
+	@Test
+	void analyzeRejectsEmbeddingWithoutMagnitude() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template template = createTemplate(user, false);
+		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(), template.getId(), "영 벡터 기록", List.of(), List.of(), RecordStatus.COMPLETED
+		));
+		stubEmbeddingClient.embedding = new float[3072];
+
+		recordAnalysisService.analyze(record.id());
+
+		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow())
+			.satisfies(recordAnalysis -> {
+				assertThat(recordAnalysis.getAiAnalysisStatus()).isEqualTo(AiAnalysisStatus.FAILED);
+				assertThat(recordAnalysis.getFailureReason())
+					.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE.getCode());
+			});
 	}
 
 	@Test
@@ -644,6 +689,12 @@ class RecordAnalysisServiceTest {
 
 		@Bean
 		@Primary
+		StubRecordEmbeddingTextBuilder stubRecordEmbeddingTextBuilder() {
+			return new StubRecordEmbeddingTextBuilder();
+		}
+
+		@Bean
+		@Primary
 		StubStrengthMatchCandidateQuery stubStrengthMatchCandidateQuery() {
 			return new StubStrengthMatchCandidateQuery();
 		}
@@ -652,13 +703,38 @@ class RecordAnalysisServiceTest {
 	static class StubEmbeddingClient implements EmbeddingClient {
 
 		private RuntimeException failure;
+		private float[] embedding = validEmbedding();
 
 		@Override
 		public EmbeddingResponse embed(EmbeddingRequest request) {
 			if (failure != null) {
 				throw failure;
 			}
-			return new EmbeddingResponse("test-embedding", new float[3072]);
+			return new EmbeddingResponse("test-embedding", embedding);
+		}
+
+		private void reset() {
+			this.failure = null;
+			this.embedding = validEmbedding();
+		}
+
+		private static float[] validEmbedding() {
+			float[] embedding = new float[3072];
+			embedding[0] = 1.0f;
+			return embedding;
+		}
+	}
+
+	static class StubRecordEmbeddingTextBuilder extends RecordEmbeddingTextBuilder {
+
+		private RuntimeException failure;
+
+		@Override
+		public String build(RecordAnalysisRequest request) {
+			if (failure != null) {
+				throw failure;
+			}
+			return super.build(request);
 		}
 
 		private void reset() {

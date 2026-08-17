@@ -115,10 +115,15 @@ public class JdbcStrengthMatchCandidateQuery implements StrengthMatchCandidateQu
 			throw new IllegalArgumentException("Invalid strength match candidate arguments");
 		}
 
+		boolean hasMagnitude = false;
 		for (float value : recordEmbedding) {
 			if (!Float.isFinite(value)) {
 				throw new IllegalArgumentException("Record embedding contains a non-finite value");
 			}
+			hasMagnitude |= value != 0.0f;
+		}
+		if (!hasMagnitude) {
+			throw new IllegalArgumentException("Record embedding must have a non-zero magnitude");
 		}
 	}
 

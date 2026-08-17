@@ -5,7 +5,6 @@ UPDATE insight_job_recommendations
 SET match_status = 'MATCHED';
 
 ALTER TABLE insight_job_recommendations
-    ALTER COLUMN match_status SET NOT NULL,
     ALTER COLUMN record_id_snapshot DROP NOT NULL,
     ALTER COLUMN record_title_snapshot DROP NOT NULL,
     ALTER COLUMN template_name_snapshot DROP NOT NULL,
@@ -14,7 +13,9 @@ ALTER TABLE insight_job_recommendations
 
 ALTER TABLE insight_job_recommendations
     ADD CONSTRAINT ck_insight_job_recommendation_match_status
-        CHECK (match_status IN ('MATCHED', 'NO_MATCH')),
+        CHECK (match_status IN ('MATCHED', 'NO_MATCH')) NOT VALID,
+    ADD CONSTRAINT ck_insight_job_recommendation_match_status_not_null
+        CHECK (match_status IS NOT NULL) NOT VALID,
     ADD CONSTRAINT ck_insight_job_recommendation_match_result
         CHECK (
             (
@@ -34,4 +35,4 @@ ALTER TABLE insight_job_recommendations
                 AND reason IS NULL
                 AND similarity IS NULL
             )
-        );
+        ) NOT VALID;

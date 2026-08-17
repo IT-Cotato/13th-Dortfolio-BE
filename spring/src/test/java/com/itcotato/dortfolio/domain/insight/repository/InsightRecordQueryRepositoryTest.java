@@ -258,19 +258,12 @@ class InsightRecordQueryRepositoryTest {
     void findsStrengthTagsInDeterministicOrder() {
         User user = createUser();
         Record record = createAnalyzedRecord(user, "강점 기록", true, true);
-        StrengthTag second = strengthTagRepository.save(
-				StrengthTag.create("TEST_COMP_1", "협업", "협업 역량", "협업 기준", "협업 적합", "협업 부적합")
-        );
-        StrengthTag first = strengthTagRepository.save(
-				StrengthTag.create(
-					"TEST_COMP_2",
-					"문제 해결",
-					"문제 해결 역량",
-					"문제 해결 기준",
-					"문제 해결 적합",
-					"문제 해결 부적합"
-				)
-        );
+        UUID firstId = UUID.fromString("00000000-0000-0000-0000-000000009001");
+        UUID secondId = UUID.fromString("00000000-0000-0000-0000-000000009002");
+        insertStrengthTag(secondId, "TEST_COMP_2", "협업");
+        insertStrengthTag(firstId, "TEST_COMP_1", "문제 해결");
+        StrengthTag second = entityManager.getReference(StrengthTag.class, secondId);
+        StrengthTag first = entityManager.getReference(StrengthTag.class, firstId);
         recordStrengthTagRepository.saveAll(List.of(
                 RecordStrengthTag.create(record, second, 0.8f),
                 RecordStrengthTag.create(record, first, 0.9f)
@@ -278,20 +271,30 @@ class InsightRecordQueryRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<UUID> firstResult =
-                queryRepository.findStrengthTags(List.of(record.getId()))
-                        .stream()
-                        .map(tag -> tag.getStrengthTag().getId())
-                        .toList();
-        List<UUID> secondResult =
+        List<UUID> result =
                 queryRepository.findStrengthTags(List.of(record.getId()))
                         .stream()
                         .map(tag -> tag.getStrengthTag().getId())
                         .toList();
 
-        assertThat(firstResult)
-                .containsExactlyElementsOf(secondResult)
-                .containsExactlyInAnyOrder(first.getId(), second.getId());
+        assertThat(result).containsExactly(firstId, secondId);
+    }
+
+    private void insertStrengthTag(UUID id, String code, String name) {
+        jdbcTemplate.update("""
+                insert into strength_tags (
+                    id, created_at, updated_at, code, name, description,
+                    evaluation_criteria, positive_example, negative_example
+                ) values (?, current_timestamp, current_timestamp, ?, ?, ?, ?, ?, ?)
+                """,
+                id,
+                code,
+                name,
+                name + " 설명",
+                name + " 기준",
+                name + " 적합",
+                name + " 부적합"
+        );
     }
 
     private Record createAnalyzedRecord(
