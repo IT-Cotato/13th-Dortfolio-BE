@@ -44,7 +44,10 @@ class InsightRecommendationGeneratorImplTest {
                 new InsightProperties(
                         10,
                         Duration.ofHours(24),
+                        0.1,
+                        1,
                         5,
+                        0.0,
                         "gemini-embedding-2",
                         2,
                         Duration.ofSeconds(10)
@@ -85,6 +88,22 @@ class InsightRecommendationGeneratorImplTest {
 
         assertThat(result.recordId())
                 .isEqualTo(candidateRecordId);
+    }
+
+    @Test
+    void acceptsNoMatchResponse() {
+        when(client.generate(request))
+                .thenReturn(new RecommendationResult(
+                        false,
+                        jobCompetencyId,
+                        null,
+                        null
+                ));
+
+        RecommendationResult result = generator.generate(request);
+
+        assertThat(result.matched()).isFalse();
+        assertThat(result.recordId()).isNull();
     }
 
     @Test

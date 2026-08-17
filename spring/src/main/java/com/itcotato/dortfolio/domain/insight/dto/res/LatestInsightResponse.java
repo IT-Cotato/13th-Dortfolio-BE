@@ -1,6 +1,7 @@
 package com.itcotato.dortfolio.domain.insight.dto.res;
 
 import com.itcotato.dortfolio.domain.insight.entity.InsightGenerationStatus;
+import com.itcotato.dortfolio.domain.insight.entity.InsightJobRecommendationMatchStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -153,7 +154,8 @@ public record LatestInsightResponse(
             UUID recordId,
 
             @Schema(
-                    description = "Insight 생성 당시 기록 제목",
+                    description = "Insight 생성 당시 기록 제목. 매칭 결과가 없으면 null",
+                    nullable = true,
                     example = "API 응답 속도 개선"
             )
             String recordTitle,
@@ -179,7 +181,8 @@ public record LatestInsightResponse(
             UUID templateId,
 
             @Schema(
-                    description = "Insight 생성 당시 템플릿 이름",
+                    description = "Insight 생성 당시 템플릿 이름. 매칭 결과가 없으면 null",
+                    nullable = true,
                     example = "문제 해결 경험"
             )
             String templateName,
@@ -216,7 +219,10 @@ public record LatestInsightResponse(
             )
             String competencyName,
 
-            @Schema(description = "추천 기록 ID")
+            @Schema(description = "추천 기록 매칭 상태", example = "MATCHED")
+            InsightJobRecommendationMatchStatus matchStatus,
+
+            @Schema(description = "추천 기록 ID. 매칭 결과가 없으면 null", nullable = true)
             UUID recordId,
 
             @Schema(
@@ -232,16 +238,18 @@ public record LatestInsightResponse(
             String templateName,
 
             @Schema(
-                    description = "AI 추천 이유",
+                    description = "AI 추천 이유. 매칭 결과가 없으면 null",
+                    nullable = true,
                     example = "문제를 분석하고 해결한 과정이 구체적입니다."
             )
             String reason,
 
             @Schema(
-                    description = "역량과 기록의 코사인 유사도",
+                    description = "역량과 기록의 코사인 유사도. 매칭 결과가 없으면 null",
+                    nullable = true,
                     example = "0.94"
             )
-            double similarity,
+            Double similarity,
 
             @Schema(
                     description = "현재 기록 상세 화면으로 이동 가능한지 여부",

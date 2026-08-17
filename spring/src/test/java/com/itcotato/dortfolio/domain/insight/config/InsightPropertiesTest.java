@@ -8,17 +8,71 @@ import org.junit.jupiter.api.Test;
 class InsightPropertiesTest {
 
     @Test
-    void rejectsNonPositiveCandidateLimit() {
+    void rejectsCandidateRatioAboveOne() {
         assertThatThrownBy(() -> new InsightProperties(
                 10,
                 Duration.ofHours(24),
-                0,
+                1.1,
+                1,
+                20,
+                0.0,
                 "gemini-embedding-2",
                 2,
                 Duration.ofSeconds(10)
         ))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("recommendationCandidateLimit");
+                .hasMessageContaining("recommendationCandidateRatio");
+    }
+
+    @Test
+    void rejectsCandidateMaximumBelowMinimum() {
+        assertThatThrownBy(() -> new InsightProperties(
+                10,
+                Duration.ofHours(24),
+                0.1,
+                5,
+                4,
+                0.0,
+                "gemini-embedding-2",
+                2,
+                Duration.ofSeconds(10)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("recommendationCandidateMax");
+    }
+
+    @Test
+    void rejectsSimilarityAboveOne() {
+        assertThatThrownBy(() -> new InsightProperties(
+                10,
+                Duration.ofHours(24),
+                0.1,
+                1,
+                20,
+                1.1,
+                "gemini-embedding-2",
+                2,
+                Duration.ofSeconds(10)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("recommendationMinSimilarity");
+    }
+
+    @Test
+    void rejectsNonPositiveCandidateMinimum() {
+        assertThatThrownBy(() -> new InsightProperties(
+                10,
+                Duration.ofHours(24),
+                0.1,
+                0,
+                20,
+                0.0,
+                "gemini-embedding-2",
+                2,
+                Duration.ofSeconds(10)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("recommendationCandidateMin");
     }
 
     @Test
@@ -26,7 +80,10 @@ class InsightPropertiesTest {
         assertThatThrownBy(() -> new InsightProperties(
                 10,
                 Duration.ofHours(24),
+                0.1,
+                1,
                 5,
+                0.0,
                 " ",
                 2,
                 Duration.ofSeconds(10)
@@ -40,7 +97,10 @@ class InsightPropertiesTest {
         assertThatThrownBy(() -> new InsightProperties(
                 10,
                 Duration.ofHours(24),
+                0.1,
+                1,
                 5,
+                0.0,
                 "gemini-embedding-2",
                 0,
                 Duration.ofSeconds(10)
@@ -54,7 +114,10 @@ class InsightPropertiesTest {
         assertThatThrownBy(() -> new InsightProperties(
                 10,
                 Duration.ofHours(24),
+                0.1,
+                1,
                 5,
+                0.0,
                 "gemini-embedding-2",
                 2,
                 Duration.ZERO

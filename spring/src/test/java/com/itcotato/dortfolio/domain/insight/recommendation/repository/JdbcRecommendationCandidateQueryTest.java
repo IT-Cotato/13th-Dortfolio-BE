@@ -17,7 +17,10 @@ class JdbcRecommendationCandidateQueryTest {
                         new InsightProperties(
                                 10,
                                 Duration.ofHours(24),
+                                0.1,
+                                1,
                                 5,
+                                0.0,
                                 "gemini-embedding-2",
                                 2,
                                 Duration.ofSeconds(10)
@@ -38,6 +41,7 @@ class JdbcRecommendationCandidateQueryTest {
                 .contains("analysis.ai_analysis_status = 'COMPLETED'")
                 .contains("analysis.analyzed_record_updated_at")
                 .contains("record_embedding.embedding_model = 'gemini-embedding-2'")
+                .contains(") >= ?")
                 .contains("record.id asc")
                 .contains("limit ?");
     }
@@ -50,7 +54,10 @@ class JdbcRecommendationCandidateQueryTest {
                         new InsightProperties(
                                 10,
                                 Duration.ofHours(24),
+                                0.1,
+                                1,
                                 5,
+                                0.0,
                                 "gemini-embedding-2",
                                 2,
                                 Duration.ofSeconds(10)

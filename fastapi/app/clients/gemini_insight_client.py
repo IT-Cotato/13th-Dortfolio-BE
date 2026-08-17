@@ -63,18 +63,21 @@ def build_recommendation_prompt(
     )
 
     return f"""
-다음 직무 역량을 가장 잘 보여주는 기록 하나를 선택하세요.
+다음 직무 역량을 충분히 보여주는 기록이 있는지 판단하세요.
 
 규칙:
-- 반드시 제공된 후보 기록 중 하나만 선택합니다.
+- 직무 역량을 충분히 보여주는 기록이 있을 때만 제공된 후보 중 하나를 선택합니다.
+- 적합한 기록이 없으면 matched=false로 응답합니다.
 - jobCompetencyId는 요청의 값을 그대로 반환합니다.
-- recordId는 후보 목록에 포함된 값만 반환합니다.
-- reason은 해당 기록이 역량을 보여주는 이유를 한국어 한 문장으로 작성합니다.
+- matched=true이면 recordId는 후보 목록에 포함된 값만 반환합니다.
+- matched=true이면 reason은 해당 기록이 역량을 보여주는 이유를 한국어 한 문장으로 작성합니다.
+- matched=false이면 recordId와 reason은 null로 반환합니다.
 - 후보에 없는 기록이나 역량을 새로 만들지 않습니다.
 - JSON 객체만 반환합니다.
 
 응답 형식:
 {{
+  "matched": true,
   "jobCompetencyId": "{request.jobCompetencyId}",
   "recordId": "후보 목록에 포함된 UUID",
   "reason": "추천 이유 한 문장"
@@ -127,7 +130,7 @@ def parse_recommendation_response(
         for candidate in request.candidates
     }
 
-    if response.recordId not in candidate_ids:
+    if response.matched and response.recordId not in candidate_ids:
         raise ValueError(
             "Gemini selected a record outside candidates."
         )

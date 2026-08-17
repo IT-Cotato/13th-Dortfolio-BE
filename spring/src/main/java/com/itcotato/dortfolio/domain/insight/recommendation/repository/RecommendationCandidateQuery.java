@@ -12,6 +12,7 @@ public interface RecommendationCandidateQuery {
             UUID userId,
             UUID jobCompetencyId,
             LocalDateTime snapshotAt,
-            int limit
+            int limit,
+            double minimumSimilarity
     );
 }

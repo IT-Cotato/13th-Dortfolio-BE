@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.itcotato.dortfolio.domain.insight.entity.Insight;
 import com.itcotato.dortfolio.domain.insight.entity.InsightGenerationStatus;
+import com.itcotato.dortfolio.domain.insight.entity.InsightJobRecommendationMatchStatus;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult.JobRecommendationResult;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult.StrengthRecordResult;
@@ -191,12 +192,43 @@ class InsightGenerationResultWriterTest {
         assertThat(recommendations).hasSize(1);
         assertThat(recommendations.get(0).getJobCompetencyIdSnapshot())
                 .isEqualTo(competencyId);
+        assertThat(recommendations.get(0).getMatchStatus())
+                .isEqualTo(InsightJobRecommendationMatchStatus.MATCHED);
         assertThat(recommendations.get(0).getRecordIdSnapshot())
                 .isEqualTo(recommendationRecordId);
         assertThat(recommendations.get(0).getReason())
                 .isEqualTo("병목을 분석하고 개선한 과정이 구체적입니다.");
         assertThat(recommendations.get(0).getSimilarity())
                 .isEqualTo(0.94);
+    }
+
+    @Test
+    void savesNoMatchRecommendationWithoutRecordSnapshot() {
+        Insight insight = createPendingInsight();
+        UUID competencyId = UUID.randomUUID();
+
+        InsightGenerationResult result = new InsightGenerationResult(
+                insight.getId(),
+                List.of(),
+                List.of(),
+                List.of(JobRecommendationResult.noMatch(
+                        competencyId,
+                        "데이터 분석"
+                ))
+        );
+
+        resultWriter.complete(result);
+
+        var recommendations = recommendationRepository
+                .findAllByInsight_Id(insight.getId());
+
+        assertThat(recommendations).hasSize(1);
+        assertThat(recommendations.get(0).getMatchStatus())
+                .isEqualTo(InsightJobRecommendationMatchStatus.NO_MATCH);
+        assertThat(recommendations.get(0).getJobCompetencyIdSnapshot())
+                .isEqualTo(competencyId);
+        assertThat(recommendations.get(0).getRecordIdSnapshot()).isNull();
+        assertThat(recommendations.get(0).getSimilarity()).isNull();
     }
 
     @Test

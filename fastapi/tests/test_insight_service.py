@@ -61,6 +61,7 @@ class InsightServiceTest(unittest.TestCase):
 
         response = parse_recommendation_response(
             json.dumps({
+                "matched": True,
                 "jobCompetencyId": str(request.jobCompetencyId),
                 "recordId": str(candidate_id),
                 "reason": "문제 해결 과정이 구체적으로 드러납니다.",
@@ -76,6 +77,7 @@ class InsightServiceTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_recommendation_response(
                 json.dumps({
+                    "matched": True,
                     "jobCompetencyId": str(request.jobCompetencyId),
                     "recordId": str(uuid4()),
                     "reason": "추천 이유",
@@ -89,6 +91,7 @@ class InsightServiceTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_recommendation_response(
                 json.dumps({
+                    "matched": True,
                     "jobCompetencyId": str(uuid4()),
                     "recordId": str(request.candidates[0].recordId),
                     "reason": "추천 이유",
@@ -102,12 +105,29 @@ class InsightServiceTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_recommendation_response(
                 json.dumps({
+                    "matched": True,
                     "jobCompetencyId": str(request.jobCompetencyId),
                     "recordId": str(request.candidates[0].recordId),
                     "reason": " ",
                 }),
                 request,
             )
+
+    def test_parses_no_match_response(self):
+        request = self.request()
+
+        response = parse_recommendation_response(
+            json.dumps({
+                "matched": False,
+                "jobCompetencyId": str(request.jobCompetencyId),
+                "recordId": None,
+                "reason": None,
+            }),
+            request,
+        )
+
+        self.assertFalse(response.matched)
+        self.assertIsNone(response.recordId)
 
     def test_rejects_invalid_json(self):
         with self.assertRaises(ValueError):

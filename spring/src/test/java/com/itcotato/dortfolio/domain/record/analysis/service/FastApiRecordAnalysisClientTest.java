@@ -6,7 +6,7 @@ import com.itcotato.dortfolio.domain.record.analysis.config.AiServiceProperties;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.ActivityPayload;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.AnswerPayload;
-import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.CompetencyTagCandidatePayload;
+import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.StrengthTagCandidatePayload;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.TemplatePayload;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisResponse;
 import com.sun.net.httpserver.HttpExchange;
@@ -57,13 +57,13 @@ class FastApiRecordAnalysisClientTest {
 			new TemplatePayload("템플릿"),
 			List.of(new AnswerPayload("질문", "답변")),
 			List.of(),
-			List.of(new CompetencyTagCandidatePayload(UUID.randomUUID(), "문제 해결", "문제를 정의하고 해결합니다."))
+			List.of(new StrengthTagCandidatePayload(UUID.randomUUID(), "문제 해결", "문제를 정의하고 해결합니다."))
 		));
 
 		assertThat(requestBody.get())
 			.contains("\"recordId\":\"" + recordId + "\"")
 			.contains("\"answers\"")
-			.contains("\"competencyTagCandidates\"");
+			.contains("\"strengthTagCandidates\"");
 		assertThat(response.summary()).isEqualTo("요약");
 		assertThat(response.evidenceSnippets()).containsExactly("근거");
 		assertThat(response.embedding()).containsExactly(0.1f, 0.2f, 0.3f);
@@ -75,7 +75,7 @@ class FastApiRecordAnalysisClientTest {
 			{
 			  "summary": "요약",
 			  "evidenceSnippets": ["근거"],
-			  "competencyTags": [],
+			  "strengthTags": [],
 			  "embeddingModel": "test",
 			  "embedding": [0.1, 0.2, 0.3]
 			}

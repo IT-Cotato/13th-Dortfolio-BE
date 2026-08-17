@@ -5,7 +5,7 @@ import java.util.List;
 public record RecordAnalysisResponse(
 	String summary,
 	List<String> evidenceSnippets,
-	List<AnalyzedCompetencyTagResponse> competencyTags,
+	List<AnalyzedStrengthTagResponse> strengthTags,
 	String embeddingModel,
 	float[] embedding
 ) {

@@ -115,7 +115,7 @@ public class InsightGenerationWorker {
                 toTemplateResults(templateStatistics);
 
         List<JobRecommendationResult> recommendations =
-                generateRecommendations(command);
+                generateRecommendations(command, records.size());
 
         return new InsightGenerationResult(
                 command.insightId(),
@@ -188,37 +188,45 @@ public class InsightGenerationWorker {
 
     /* 스냅샷에 포함된 5개 직무 역량을 순서대로 처리 */
     private List<JobRecommendationResult> generateRecommendations(
-            InsightGenerationCommand command
+            InsightGenerationCommand command,
+            int totalEligibleRecordCount
     ) {
+        int candidateCount = calculateCandidateCount(totalEligibleRecordCount);
+
         return command.jobCompetencies()
                 .stream()
                 .map(competency ->
                         generateRecommendation(
                                 command,
-                                competency
+                                competency,
+                                candidateCount
                         )
                 )
                 .toList();
     }
 
+    int calculateCandidateCount(int totalEligibleRecordCount) {
+        return Math.min(insightProperties.recommendationCandidateMax(), Math.max(insightProperties.recommendationCandidateMin(), (int) Math.ceil(totalEligibleRecordCount * insightProperties.recommendationCandidateRatio())));
+    }
+
     private JobRecommendationResult generateRecommendation(
             InsightGenerationCommand command,
-            JobCompetencySnapshot competency
+            JobCompetencySnapshot competency,
+            int candidateCount
     ) {
         List<RecommendationCandidate> candidates =
                 candidateQuery.findTopCandidates(
                         command.userId(),
                         competency.jobCompetencyId(),
                         command.snapshotAt(),
-                        insightProperties
-                                .recommendationCandidateLimit()
+                        candidateCount,
+                        insightProperties.recommendationMinSimilarity()
                 );
 
-        // 후보가 없으면 AI를 호출 X
         if (candidates.isEmpty()) {
-            throw new CustomException(
-                    InsightErrorCode
-                            .INSIGHT_RECOMMENDATION_CANDIDATES_EMPTY
+            return JobRecommendationResult.noMatch(
+                    competency.jobCompetencyId(),
+                    competency.competencyName()
             );
         }
 
@@ -235,6 +243,13 @@ public class InsightGenerationWorker {
         RecommendationResult recommendation =
                 recommendationGenerator.generate(request);
 
+        if (!recommendation.matched()) {
+            return JobRecommendationResult.noMatch(
+                    competency.jobCompetencyId(),
+                    competency.competencyName()
+            );
+        }
+
         RecommendationCandidate selectedCandidate =
                 candidates.stream()
                         .filter(candidate ->
@@ -249,6 +264,7 @@ public class InsightGenerationWorker {
                         ));
 
         return new JobRecommendationResult(
+                true,
                 competency.jobCompetencyId(),
                 competency.competencyName(),
                 selectedCandidate.recordId(),

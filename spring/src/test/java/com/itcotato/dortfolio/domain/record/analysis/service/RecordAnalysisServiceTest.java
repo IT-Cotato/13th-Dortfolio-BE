@@ -6,11 +6,7 @@ import com.itcotato.dortfolio.domain.activity.entity.Activity;
 import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
-import com.itcotato.dortfolio.domain.job.entity.Job;
-import com.itcotato.dortfolio.domain.job.entity.JobCompetency;
-import com.itcotato.dortfolio.domain.job.repository.JobCompetencyRepository;
-import com.itcotato.dortfolio.domain.job.repository.JobRepository;
-import com.itcotato.dortfolio.domain.record.analysis.dto.AnalyzedCompetencyTagResponse;
+import com.itcotato.dortfolio.domain.record.analysis.dto.AnalyzedStrengthTagResponse;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisResponse;
 import com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus;
@@ -20,11 +16,11 @@ import com.itcotato.dortfolio.domain.record.dto.req.RecordAnswerRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordUpdateRequest;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordResponse;
-import com.itcotato.dortfolio.domain.record.entity.CompetencyTag;
+import com.itcotato.dortfolio.domain.record.entity.StrengthTag;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
-import com.itcotato.dortfolio.domain.record.repository.CompetencyTagRepository;
+import com.itcotato.dortfolio.domain.record.repository.StrengthTagRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordAnswerRepository;
-import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagRepository;
+import com.itcotato.dortfolio.domain.record.repository.RecordStrengthTagRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordEmbeddingRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordMemoRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
@@ -33,13 +29,10 @@ import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
-import com.itcotato.dortfolio.domain.user.entity.UserJob;
-import com.itcotato.dortfolio.domain.user.repository.UserJobRepository;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,10 +69,10 @@ class RecordAnalysisServiceTest {
 	private RecordEmbeddingRepository recordEmbeddingRepository;
 
 	@Autowired
-	private RecordCompetencyTagRepository recordCompetencyTagRepository;
+	private RecordStrengthTagRepository recordStrengthTagRepository;
 
 	@Autowired
-	private CompetencyTagRepository competencyTagRepository;
+	private StrengthTagRepository strengthTagRepository;
 
 	@Autowired
 	private RecordMemoRepository recordMemoRepository;
@@ -102,16 +95,7 @@ class RecordAnalysisServiceTest {
 	@Autowired
 	private UserRepository userRepository;
 
-	@Autowired
-	private UserJobRepository userJobRepository;
-
-	@Autowired
-	private JobRepository jobRepository;
-
-	@Autowired
-	private JobCompetencyRepository jobCompetencyRepository;
-
-	private List<CompetencyTag> competencyCandidates;
+	private List<StrengthTag> strengthCandidates;
 
 	@BeforeEach
 	void setUp() {
@@ -119,10 +103,8 @@ class RecordAnalysisServiceTest {
 		stubRecordEmbeddingWriter.reset();
 		recordAnalysisRepository.deleteAll();
 		recordEmbeddingRepository.deleteAll();
-		recordCompetencyTagRepository.deleteAll();
-		userJobRepository.deleteAll();
-		jobCompetencyRepository.deleteAll();
-		competencyTagRepository.deleteAll();
+		recordStrengthTagRepository.deleteAll();
+		strengthTagRepository.deleteAll();
 		recordMemoRepository.deleteAll();
 		recordAnswerRepository.deleteAll();
 		recordRepository.deleteAll();
@@ -130,22 +112,15 @@ class RecordAnalysisServiceTest {
 		activityRepository.deleteAll();
 		activityTypeRepository.deleteAll();
 		userRepository.deleteAll();
-		jobRepository.deleteAll();
-		competencyCandidates = null;
-	}
-
-	@AfterEach
-	void tearDownJobFixtures() {
-		userJobRepository.deleteAll();
-		jobCompetencyRepository.deleteAll();
+		strengthCandidates = null;
 	}
 
 	@Test
-	void analyzeCompletedRecordSavesAnalysisEmbeddingAndCompetencyTags() {
+	void analyzeCompletedRecordSavesAnalysisEmbeddingAndStrengthTags() {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, true);
-		CompetencyTag competencyTag = competencyCandidates.get(0);
+		StrengthTag strengthTag = strengthCandidates.get(0);
 		TemplateQuestion question = template.getQuestions().get(0);
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
@@ -158,7 +133,7 @@ class RecordAnalysisServiceTest {
 		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
 			"추천 기준을 개선한 경험입니다.",
 			List.of("추천 기준을 다시 정의했습니다."),
-			List.of(new AnalyzedCompetencyTagResponse(competencyTag.getId(), 0.9f)),
+			List.of(new AnalyzedStrengthTagResponse(strengthTag.getId(), 0.9f)),
 			"test-embedding",
 			new float[] {0.1f, 0.2f}
 		);
@@ -174,10 +149,10 @@ class RecordAnalysisServiceTest {
 		assertThat(stubRecordEmbeddingWriter.recordId).isEqualTo(record.id());
 		assertThat(stubRecordEmbeddingWriter.embeddingModel).isEqualTo("test-embedding");
 		assertThat(stubRecordEmbeddingWriter.embedding).containsExactly(0.1f, 0.2f);
-		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(record.id()))
+		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id()))
 			.singleElement()
 			.satisfies(tag -> {
-				assertThat(tag.getCompetencyTag().getId()).isEqualTo(competencyTag.getId());
+				assertThat(tag.getStrengthTag().getId()).isEqualTo(strengthTag.getId());
 				assertThat(tag.getScore()).isEqualTo(0.9f);
 			});
 	}
@@ -207,7 +182,7 @@ class RecordAnalysisServiceTest {
 			.isTrue();
 		assertThat(recordAnalysisRepository.findRetryableRecordIds()).contains(record.id());
 		assertThat(recordEmbeddingRepository.countByRecord_Id(record.id())).isZero();
-		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(record.id())).isEmpty();
+		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id())).isEmpty();
 	}
 
 	@Test
@@ -275,7 +250,7 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		CompetencyTag competencyTag = competencyCandidates.get(0);
+		StrengthTag strengthTag = strengthCandidates.get(0);
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
 			template.getId(),
@@ -287,7 +262,7 @@ class RecordAnalysisServiceTest {
 		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
 			"기존 요약",
 			List.of("기존 근거"),
-			List.of(new AnalyzedCompetencyTagResponse(competencyTag.getId(), 0.9f)),
+			List.of(new AnalyzedStrengthTagResponse(strengthTag.getId(), 0.9f)),
 			"test-embedding",
 			new float[] {0.1f}
 		);
@@ -308,15 +283,15 @@ class RecordAnalysisServiceTest {
 					.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_FAILED.getCode());
 			});
 		assertThat(recordAnalysisRepository.findRetryableRecordIds()).contains(record.id());
-		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(record.id())).hasSize(1);
+		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id())).hasSize(1);
 	}
 
 	@Test
-	void analyzeStoresFailedStatusWhenResponseHasDuplicateCompetencyTags() {
+	void analyzeStoresFailedStatusWhenResponseHasDuplicateStrengthTags() {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		CompetencyTag competencyTag = competencyCandidates.get(0);
+		StrengthTag strengthTag = strengthCandidates.get(0);
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
 			template.getId(),
@@ -329,8 +304,8 @@ class RecordAnalysisServiceTest {
 			"요약",
 			List.of("근거"),
 			List.of(
-				new AnalyzedCompetencyTagResponse(competencyTag.getId(), 0.8f),
-				new AnalyzedCompetencyTagResponse(competencyTag.getId(), 0.7f)
+				new AnalyzedStrengthTagResponse(strengthTag.getId(), 0.8f),
+				new AnalyzedStrengthTagResponse(strengthTag.getId(), 0.7f)
 			),
 			"test-embedding",
 			new float[] {0.1f}
@@ -344,7 +319,7 @@ class RecordAnalysisServiceTest {
 				assertThat(recordAnalysis.getFailureReason())
 					.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE.getCode());
 			});
-		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(record.id())).isEmpty();
+		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id())).isEmpty();
 	}
 
 	@Test
@@ -372,7 +347,7 @@ class RecordAnalysisServiceTest {
 		recordAnalysisService.analyze(record.id());
 
 		assertThat(recordAnalysisRepository.findByRecord_Id(record.id())).isEmpty();
-		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(record.id())).isEmpty();
+		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id())).isEmpty();
 		assertThat(stubRecordEmbeddingWriter.recordId).isNull();
 	}
 
@@ -381,7 +356,7 @@ class RecordAnalysisServiceTest {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		CompetencyTag competencyTag = competencyCandidates.get(0);
+		StrengthTag strengthTag = strengthCandidates.get(0);
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(),
 			template.getId(),
@@ -393,7 +368,7 @@ class RecordAnalysisServiceTest {
 		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
 			"기존 요약",
 			List.of("기존 근거"),
-			List.of(new AnalyzedCompetencyTagResponse(competencyTag.getId(), 0.7f)),
+			List.of(new AnalyzedStrengthTagResponse(strengthTag.getId(), 0.7f)),
 			"test-embedding",
 			new float[] {0.1f}
 		);
@@ -417,7 +392,7 @@ class RecordAnalysisServiceTest {
 				assertThat(recordAnalysis.getSummary()).isEqualTo("기존 요약");
 				assertThat(recordAnalysis.getEvidenceSnippets()).contains("기존 근거");
 			});
-		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(record.id())).hasSize(1);
+		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id())).hasSize(1);
 		assertThat(stubRecordEmbeddingWriter.recordId).isNull();
 	}
 
@@ -451,7 +426,7 @@ class RecordAnalysisServiceTest {
 		recordAnalysisService.analyze(record.id());
 
 		assertThat(recordAnalysisRepository.findByRecord_Id(record.id())).isEmpty();
-		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(record.id())).isEmpty();
+		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id())).isEmpty();
 		assertThat(stubRecordEmbeddingWriter.recordId).isNull();
 	}
 
@@ -489,7 +464,7 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
-	void analyzePassesOnlyPrimaryJobCompetenciesInSortOrder() {
+	void analyzePassesAllConfiguredStrengthTags() {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
@@ -502,26 +477,24 @@ class RecordAnalysisServiceTest {
 
 		recordAnalysisService.analyze(record.id());
 
-		assertThat(stubRecordAnalysisClient.lastRequest.competencyTagCandidates())
-			.extracting(RecordAnalysisRequest.CompetencyTagCandidatePayload::id)
-			.containsExactlyElementsOf(competencyCandidates.stream().map(CompetencyTag::getId).toList());
+		assertThat(stubRecordAnalysisClient.lastRequest.strengthTagCandidates())
+			.extracting(RecordAnalysisRequest.StrengthTagCandidatePayload::id)
+			.containsExactlyElementsOf(strengthCandidates.stream().map(StrengthTag::getId).toList());
 	}
 
 	@Test
-	void analyzeRejectsCompetencyOutsidePrimaryJobCandidates() {
+	void analyzeRejectsStrengthOutsideConfiguredCandidates() {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
-		CompetencyTag outsideCandidate = competencyTagRepository.save(
-			CompetencyTag.create("OUTSIDE_COMP", "후보 외 역량", "주 희망 직무에 속하지 않는 역량")
-		);
+		UUID outsideCandidateId = UUID.randomUUID();
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(), template.getId(), "후보 검증 기록", List.of(), List.of(), RecordStatus.COMPLETED
 		));
 		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
 			"요약",
 			List.of("근거"),
-			List.of(new AnalyzedCompetencyTagResponse(outsideCandidate.getId(), 0.8f)),
+			List.of(new AnalyzedStrengthTagResponse(outsideCandidateId, 0.8f)),
 			"test-embedding",
 			new float[] {0.1f}
 		);
@@ -534,7 +507,7 @@ class RecordAnalysisServiceTest {
 				assertThat(recordAnalysis.getFailureReason())
 					.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE.getCode());
 			});
-		assertThat(recordCompetencyTagRepository.findAllByRecord_Id(record.id())).isEmpty();
+		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id())).isEmpty();
 	}
 
 	private User createUser() {
@@ -543,23 +516,13 @@ class RecordAnalysisServiceTest {
 			"encoded-password",
 			"테스터"
 		));
-		Job job = jobRepository.save(Job.create(
-			"TEST_JOB_" + UUID.randomUUID().toString().substring(0, 8),
-			"IT_DEVELOPMENT",
-			"테스트 직무",
-			"기록 분석 테스트용 직무"
-		));
-		userJobRepository.save(UserJob.create(user, job, true));
-		competencyCandidates = java.util.stream.IntStream.rangeClosed(1, 5)
-			.mapToObj(index -> competencyTagRepository.save(CompetencyTag.create(
-				"TEST_COMP_" + index + "_" + UUID.randomUUID().toString().substring(0, 8),
-				"테스트 역량 " + index,
-				"테스트 역량 설명 " + index
+		strengthCandidates = java.util.stream.IntStream.rangeClosed(1, 5)
+			.mapToObj(index -> strengthTagRepository.save(StrengthTag.create(
+				"TEST_STRENGTH_" + index + "_" + UUID.randomUUID().toString().substring(0, 8),
+				"테스트 강점 " + index,
+				"테스트 강점 설명 " + index
 			)))
 			.toList();
-		jobCompetencyRepository.saveAll(java.util.stream.IntStream.range(0, competencyCandidates.size())
-			.mapToObj(index -> JobCompetency.create(job, competencyCandidates.get(index), index + 1))
-			.toList());
 		return user;
 	}
 

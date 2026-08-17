@@ -24,7 +24,7 @@ def analyze_record_with_gemini(request: RecordAnalysisRequest, settings) -> Reco
     answer_texts = [answer.answerText.strip() for answer in request.answers if answer.answerText.strip()]
     source_text = build_embedding_source_text(request, answer_texts)
     try:
-        summary, evidence_snippets, competency_tags = client.analyze_record(request)
+        summary, evidence_snippets, strength_tags = client.analyze_record(request)
         embedding = client.embed_record(source_text)
     except errors.APIError as exception:
         raise HTTPException(
@@ -40,7 +40,7 @@ def analyze_record_with_gemini(request: RecordAnalysisRequest, settings) -> Reco
     return RecordAnalysisResponse(
         summary=summary,
         evidenceSnippets=evidence_snippets,
-        competencyTags=competency_tags,
+        strengthTags=strength_tags,
         embeddingModel=settings.gemini_embedding_model,
         embedding=embedding,
     )

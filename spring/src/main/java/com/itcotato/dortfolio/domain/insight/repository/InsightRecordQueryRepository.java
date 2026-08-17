@@ -2,7 +2,7 @@ package com.itcotato.dortfolio.domain.insight.repository;
 
 import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysis;
 import com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus;
-import com.itcotato.dortfolio.domain.record.entity.RecordCompetencyTag;
+import com.itcotato.dortfolio.domain.record.entity.RecordStrengthTag;
 import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
@@ -185,7 +185,7 @@ public class InsightRecordQueryRepository {
                 .getResultList();
     }
 
-    public List<RecordCompetencyTag> findStrengthTags(
+    public List<RecordStrengthTag> findStrengthTags(
             List<UUID> recordIds
     ) {
         if (recordIds.isEmpty()) {
@@ -193,14 +193,14 @@ public class InsightRecordQueryRepository {
         }
 
         return entityManager.createQuery("""
-                        select recordCompetencyTag
-                        from RecordCompetencyTag recordCompetencyTag
-                        join fetch recordCompetencyTag.record
-                        join fetch recordCompetencyTag.competencyTag
-                        where recordCompetencyTag.record.id in :recordIds
-                        order by recordCompetencyTag.record.id asc,
-                                 recordCompetencyTag.competencyTag.id asc
-                        """, RecordCompetencyTag.class)
+                        select recordStrengthTag
+                        from RecordStrengthTag recordStrengthTag
+                        join fetch recordStrengthTag.record
+                        join fetch recordStrengthTag.strengthTag
+                        where recordStrengthTag.record.id in :recordIds
+                        order by recordStrengthTag.record.id asc,
+                                 recordStrengthTag.strengthTag.id asc
+                        """, RecordStrengthTag.class)
                 .setParameter("recordIds", recordIds)
                 .getResultList();
     }

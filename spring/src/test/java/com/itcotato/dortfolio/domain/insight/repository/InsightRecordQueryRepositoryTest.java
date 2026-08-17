@@ -9,11 +9,11 @@ import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
 import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysis;
 import com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus;
 import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
-import com.itcotato.dortfolio.domain.record.entity.CompetencyTag;
+import com.itcotato.dortfolio.domain.record.entity.StrengthTag;
 import com.itcotato.dortfolio.domain.record.entity.Record;
-import com.itcotato.dortfolio.domain.record.entity.RecordCompetencyTag;
-import com.itcotato.dortfolio.domain.record.repository.CompetencyTagRepository;
-import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagRepository;
+import com.itcotato.dortfolio.domain.record.entity.RecordStrengthTag;
+import com.itcotato.dortfolio.domain.record.repository.StrengthTagRepository;
+import com.itcotato.dortfolio.domain.record.repository.RecordStrengthTagRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
@@ -59,10 +59,10 @@ class InsightRecordQueryRepositoryTest {
     private RecordAnalysisRepository recordAnalysisRepository;
 
     @Autowired
-    private CompetencyTagRepository competencyTagRepository;
+    private StrengthTagRepository strengthTagRepository;
 
     @Autowired
-    private RecordCompetencyTagRepository recordCompetencyTagRepository;
+    private RecordStrengthTagRepository recordStrengthTagRepository;
 
     @Autowired
     private EntityManager entityManager;
@@ -258,15 +258,15 @@ class InsightRecordQueryRepositoryTest {
     void findsStrengthTagsInDeterministicOrder() {
         User user = createUser();
         Record record = createAnalyzedRecord(user, "강점 기록", true, true);
-        CompetencyTag second = competencyTagRepository.save(
-                CompetencyTag.create("TEST_COMP_1", "협업", "협업 역량")
+        StrengthTag second = strengthTagRepository.save(
+                StrengthTag.create("TEST_COMP_1", "협업", "협업 역량")
         );
-        CompetencyTag first = competencyTagRepository.save(
-                CompetencyTag.create("TEST_COMP_2", "문제 해결", "문제 해결 역량")
+        StrengthTag first = strengthTagRepository.save(
+                StrengthTag.create("TEST_COMP_2", "문제 해결", "문제 해결 역량")
         );
-        recordCompetencyTagRepository.saveAll(List.of(
-                RecordCompetencyTag.create(record, second, 0.8f),
-                RecordCompetencyTag.create(record, first, 0.9f)
+        recordStrengthTagRepository.saveAll(List.of(
+                RecordStrengthTag.create(record, second, 0.8f),
+                RecordStrengthTag.create(record, first, 0.9f)
         ));
         entityManager.flush();
         entityManager.clear();
@@ -274,12 +274,12 @@ class InsightRecordQueryRepositoryTest {
         List<UUID> firstResult =
                 queryRepository.findStrengthTags(List.of(record.getId()))
                         .stream()
-                        .map(tag -> tag.getCompetencyTag().getId())
+                        .map(tag -> tag.getStrengthTag().getId())
                         .toList();
         List<UUID> secondResult =
                 queryRepository.findStrengthTags(List.of(record.getId()))
                         .stream()
-                        .map(tag -> tag.getCompetencyTag().getId())
+                        .map(tag -> tag.getStrengthTag().getId())
                         .toList();
 
         assertThat(firstResult)

@@ -1,10 +1,10 @@
 package com.itcotato.dortfolio.domain.record.analysis.dto;
 
 import com.itcotato.dortfolio.domain.memo.entity.Memo;
-import com.itcotato.dortfolio.domain.record.entity.CompetencyTag;
 import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.record.entity.RecordAnswer;
 import com.itcotato.dortfolio.domain.record.entity.RecordMemo;
+import com.itcotato.dortfolio.domain.record.entity.StrengthTag;
 import java.util.List;
 import java.util.UUID;
 
@@ -15,13 +15,13 @@ public record RecordAnalysisRequest(
 	TemplatePayload template,
 	List<AnswerPayload> answers,
 	List<MemoPayload> memos,
-	List<CompetencyTagCandidatePayload> competencyTagCandidates
+	List<StrengthTagCandidatePayload> strengthTagCandidates
 ) {
 	public static RecordAnalysisRequest of(
 		Record record,
 		List<RecordAnswer> answers,
 		List<RecordMemo> memos,
-		List<CompetencyTag> competencyTagCandidates
+		List<StrengthTag> strengthTagCandidates
 	) {
 		return new RecordAnalysisRequest(
 			record.getId(),
@@ -34,8 +34,8 @@ public record RecordAnalysisRequest(
 			memos.stream()
 				.map(MemoPayload::from)
 				.toList(),
-			competencyTagCandidates.stream()
-				.map(CompetencyTagCandidatePayload::from)
+			strengthTagCandidates.stream()
+				.map(StrengthTagCandidatePayload::from)
 				.toList()
 		);
 	}
@@ -79,16 +79,16 @@ public record RecordAnalysisRequest(
 		}
 	}
 
-	public record CompetencyTagCandidatePayload(
+	public record StrengthTagCandidatePayload(
 		UUID id,
 		String name,
 		String description
 	) {
-		public static CompetencyTagCandidatePayload from(CompetencyTag competencyTag) {
-			return new CompetencyTagCandidatePayload(
-				competencyTag.getId(),
-				competencyTag.getName(),
-				competencyTag.getDescription()
+		public static StrengthTagCandidatePayload from(StrengthTag strengthTag) {
+			return new StrengthTagCandidatePayload(
+				strengthTag.getId(),
+				strengthTag.getName(),
+				strengthTag.getDescription()
 			);
 		}
 	}

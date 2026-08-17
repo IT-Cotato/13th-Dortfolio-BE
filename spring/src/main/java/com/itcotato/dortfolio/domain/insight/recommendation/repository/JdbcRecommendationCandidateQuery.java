@@ -37,13 +37,15 @@ public class JdbcRecommendationCandidateQuery
             UUID userId,
             UUID jobCompetencyId,
             LocalDateTime snapshotAt,
-            int limit
+            int limit,
+            double minimumSimilarity
     ) {
         validateArguments(
                 userId,
                 jobCompetencyId,
                 snapshotAt,
-                limit
+                limit,
+                minimumSimilarity
         );
 
         String embeddingModel = insightProperties.embeddingModel();
@@ -68,6 +70,10 @@ public class JdbcRecommendationCandidateQuery
                 snapshotAt,
                 snapshotAt,
                 snapshotAt,
+
+                // 최소 유사도 필터 계산에 사용
+                competencyVector,
+                minimumSimilarity,
 
                 // ORDER BY의 거리 계산에 다시 사용
                 competencyVector,
@@ -137,6 +143,10 @@ public class JdbcRecommendationCandidateQuery
                   and analysis.analyzed_record_updated_at
                         = record.updated_at
                   and record_embedding.embedding_model = %s
+                  and 1.0 - (
+                        record_embedding.embedding::halfvec(%d)
+                        <=> cast(? as halfvec(%d))
+                  ) >= ?
                 order by
                     record_embedding.embedding::halfvec(%d)
                         <=> cast(? as halfvec(%d)) asc,
@@ -146,6 +156,8 @@ public class JdbcRecommendationCandidateQuery
                 EMBEDDING_DIMENSION,
                 EMBEDDING_DIMENSION,
                 modelLiteral,
+                EMBEDDING_DIMENSION,
+                EMBEDDING_DIMENSION,
                 EMBEDDING_DIMENSION,
                 EMBEDDING_DIMENSION
         );
@@ -197,7 +209,8 @@ public class JdbcRecommendationCandidateQuery
             UUID userId,
             UUID jobCompetencyId,
             LocalDateTime snapshotAt,
-            int limit
+            int limit,
+            double minimumSimilarity
     ) {
         if (userId == null) {
             throw new IllegalArgumentException(
@@ -220,9 +233,15 @@ public class JdbcRecommendationCandidateQuery
         if (limit <= 0
                 || limit
                 > insightProperties
-                .recommendationCandidateLimit()) {
+                .recommendationCandidateMax()) {
             throw new IllegalArgumentException(
                     "Recommendation candidate limit is invalid."
+            );
+        }
+
+        if (minimumSimilarity < 0.0 || minimumSimilarity > 1.0) {
+            throw new IllegalArgumentException(
+                    "minimumSimilarity must be in [0, 1]"
             );
         }
     }

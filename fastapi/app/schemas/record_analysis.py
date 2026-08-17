@@ -22,7 +22,7 @@ class MemoPayload(BaseModel):
     content: str
 
 
-class CompetencyTagCandidatePayload(BaseModel):
+class StrengthTagCandidatePayload(BaseModel):
     id: UUID
     name: str
     description: str | None = None
@@ -35,17 +35,17 @@ class RecordAnalysisRequest(BaseModel):
     template: TemplatePayload
     answers: list[AnswerPayload]
     memos: list[MemoPayload]
-    competencyTagCandidates: list[CompetencyTagCandidatePayload]
+    strengthTagCandidates: list[StrengthTagCandidatePayload]
 
 
-class AnalyzedCompetencyTagResponse(BaseModel):
-    competencyTagId: UUID
+class AnalyzedStrengthTagResponse(BaseModel):
+    strengthTagId: UUID
     score: float
 
 
 class RecordAnalysisResponse(BaseModel):
     summary: str
     evidenceSnippets: list[str]
-    competencyTags: list[AnalyzedCompetencyTagResponse]
+    strengthTags: list[AnalyzedStrengthTagResponse]
     embeddingModel: str
     embedding: list[float]

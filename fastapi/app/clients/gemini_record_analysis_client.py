@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.schemas.record_analysis import (
-    AnalyzedCompetencyTagResponse,
+    AnalyzedStrengthTagResponse,
     RecordAnalysisRequest,
 )
 
@@ -21,7 +21,7 @@ class GeminiRecordAnalysisClient:
             http_options=types.HttpOptions(timeout=int(settings.gemini_http_timeout_seconds * 1000)),
         )
 
-    def analyze_record(self, request: RecordAnalysisRequest) -> tuple[str, list[str], list[AnalyzedCompetencyTagResponse]]:
+    def analyze_record(self, request: RecordAnalysisRequest) -> tuple[str, list[str], list[AnalyzedStrengthTagResponse]]:
         prompt = build_analysis_prompt(request)
         response = self.client.models.generate_content(
             model=self.settings.gemini_generation_model,
@@ -51,9 +51,9 @@ def build_analysis_prompt(request: RecordAnalysisRequest) -> str:
         f"- 제목: {memo.title or ''}\n  내용: {memo.content}"
         for memo in request.memos
     )
-    competency_tags = "\n".join(
+    strength_tags = "\n".join(
         f"- id: {candidate.id}, name: {candidate.name}, description: {candidate.description or ''}"
-        for candidate in request.competencyTagCandidates
+        for candidate in request.strengthTagCandidates
     )
 
     return f"""
@@ -62,7 +62,8 @@ def build_analysis_prompt(request: RecordAnalysisRequest) -> str:
 규칙:
 - summary는 한국어 1문장으로 작성합니다.
 - evidenceSnippets는 답변/메모 원문에서 핵심 근거 문장만 1~5개 추출합니다.
-- competencyTags는 반드시 후보군 id 중에서만 선택합니다.
+- strengthTags는 반드시 후보군 id 중에서만 선택합니다.
+- 후보군이 비어 있거나 기록에서 확인할 수 있는 강점이 없으면 빈 배열을 반환합니다.
 - score는 0.0 이상 1.0 이하 숫자입니다.
 - 새로운 태그 id를 만들지 않습니다.
 
@@ -70,8 +71,8 @@ def build_analysis_prompt(request: RecordAnalysisRequest) -> str:
 {{
   "summary": "string",
   "evidenceSnippets": ["string"],
-  "competencyTags": [
-    {{"competencyTagId": "uuid", "score": 0.9}}
+  "strengthTags": [
+    {{"strengthTagId": "uuid", "score": 0.9}}
   ]
 }}
 
@@ -89,66 +90,66 @@ def build_analysis_prompt(request: RecordAnalysisRequest) -> str:
 {memos}
 
 강점 태그 후보군:
-{competency_tags}
+{strength_tags}
 """.strip()
 
 
 def parse_analysis_payload(
     payload: dict,
     request: RecordAnalysisRequest,
-) -> tuple[str, list[str], list[AnalyzedCompetencyTagResponse]]:
+) -> tuple[str, list[str], list[AnalyzedStrengthTagResponse]]:
     if not isinstance(payload, dict):
         raise ValueError("Gemini analysis response must be a JSON object.")
-    required_fields = {"summary", "evidenceSnippets", "competencyTags"}
+    required_fields = {"summary", "evidenceSnippets", "strengthTags"}
     if not required_fields.issubset(payload):
         raise ValueError("Gemini analysis response is missing required fields.")
 
     summary = payload["summary"]
     evidence_snippets = payload["evidenceSnippets"]
-    raw_competency_tags = payload["competencyTags"]
+    raw_strength_tags = payload["strengthTags"]
     if not isinstance(summary, str):
         raise ValueError("Gemini analysis summary must be a string.")
     if not isinstance(evidence_snippets, list) or not all(isinstance(item, str) for item in evidence_snippets):
         raise ValueError("Gemini analysis evidenceSnippets must be a string array.")
-    if not isinstance(raw_competency_tags, list):
-        raise ValueError("Gemini analysis competencyTags must be an array.")
+    if not isinstance(raw_strength_tags, list):
+        raise ValueError("Gemini analysis strengthTags must be an array.")
 
-    candidate_ids = {candidate.id for candidate in request.competencyTagCandidates}
+    candidate_ids = {candidate.id for candidate in request.strengthTagCandidates}
     seen_ids: set[UUID] = set()
-    competency_tags = [
+    strength_tags = [
         tag
         for tag in (
-            parse_competency_tag(tag_payload, candidate_ids, seen_ids)
-            for tag_payload in raw_competency_tags
+            parse_strength_tag(tag_payload, candidate_ids, seen_ids)
+            for tag_payload in raw_strength_tags
         )
         if tag is not None
     ]
-    return summary, evidence_snippets, competency_tags
+    return summary, evidence_snippets, strength_tags
 
 
-def parse_competency_tag(
+def parse_strength_tag(
     payload: object,
     candidate_ids: set[UUID],
     seen_ids: set[UUID],
-) -> AnalyzedCompetencyTagResponse | None:
+    ) -> AnalyzedStrengthTagResponse | None:
     if not isinstance(payload, dict):
-        raise ValueError("Gemini analysis competency tag must be an object.")
+        raise ValueError("Gemini analysis strength tag must be an object.")
     try:
-        tag = AnalyzedCompetencyTagResponse(
-            competencyTagId=payload["competencyTagId"],
+        tag = AnalyzedStrengthTagResponse(
+            strengthTagId=payload["strengthTagId"],
             score=payload["score"],
         )
     except (KeyError, TypeError, ValidationError) as exception:
-        raise ValueError("Gemini analysis competency tag is malformed.") from exception
+        raise ValueError("Gemini analysis strength tag is malformed.") from exception
 
-    if tag.competencyTagId not in candidate_ids:
+    if tag.strengthTagId not in candidate_ids:
         return None
-    if tag.competencyTagId in seen_ids:
+    if tag.strengthTagId in seen_ids:
         return None
     if isnan(tag.score) or tag.score < 0.0 or tag.score > 1.0:
         return None
 
-    seen_ids.add(tag.competencyTagId)
+    seen_ids.add(tag.strengthTagId)
     return tag
 
 

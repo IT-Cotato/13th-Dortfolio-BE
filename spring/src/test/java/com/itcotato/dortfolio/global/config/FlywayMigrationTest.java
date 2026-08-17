@@ -29,8 +29,8 @@ class FlywayMigrationTest {
 	void migratesFreshSchemaThroughLatestVersion() {
 		MigrateResult result = flyway().migrate();
 
-		assertThat(result.migrationsExecuted).isEqualTo(15);
-		assertThat(result.targetSchemaVersion).isEqualTo("15");
+		assertThat(result.migrationsExecuted).isEqualTo(17);
+		assertThat(result.targetSchemaVersion).isEqualTo("17");
 		assertMatchingIndexesCreated();
 		assertRunningInsightStatusAllowed();
 		assertUserOwnedDataCascadesOnDelete();
@@ -39,6 +39,25 @@ class FlywayMigrationTest {
 		assertTemplateDescriptionsExtended();
 		assertBuiltinTemplatesSeeded();
 		assertJobCatalogSeeded();
+		assertRecordStrengthTablesCreated();
+		assertRecommendationNoMatchSupported();
+	}
+
+	private void assertRecordStrengthTablesCreated() {
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from information_schema.tables
+				where table_name in ('strength_tags', 'record_strength_tags')
+				""", Integer.class)).isEqualTo(2);
+	}
+
+	private void assertRecommendationNoMatchSupported() {
+		assertThat(jdbcTemplate().queryForObject("""
+				select is_nullable
+				from information_schema.columns
+				where table_name = 'insight_job_recommendations'
+				  and column_name = 'record_id_snapshot'
+				""", String.class)).isEqualTo("YES");
 	}
 
 	@Test

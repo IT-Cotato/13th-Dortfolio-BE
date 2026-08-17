@@ -70,7 +70,10 @@ matching:
 insight:
   minimum-analyzed-record-count: 10
   regeneration-cooldown: 24h
-  recommendation-candidate-limit: 5
+  recommendation-candidate-ratio: 0.1
+  recommendation-candidate-min: 1
+  recommendation-candidate-max: 20
+  recommendation-min-similarity: 0.0
   embedding-model: gemini-embedding-2
   recommendation-max-attempts: 2
   recommendation-timeout: 30s

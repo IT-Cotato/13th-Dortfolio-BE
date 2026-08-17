@@ -64,7 +64,10 @@ class JdbcRecommendationCandidateQueryContainerTest {
                 new InsightProperties(
                         10,
                         Duration.ofHours(24),
+                        0.1,
+                        1,
                         5,
+                        0.0,
                         MODEL,
                         2,
                         Duration.ofSeconds(10)
@@ -107,7 +110,8 @@ class JdbcRecommendationCandidateQueryContainerTest {
                                 ownerId,
                                 competencyId,
                                 snapshotAt,
-                                5
+                                5,
+                                0.0
                         )
                 );
 

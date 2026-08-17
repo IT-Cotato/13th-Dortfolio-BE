@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class InsightRecommendationCandidate(BaseModel):
@@ -24,13 +24,17 @@ class InsightRecommendationRequest(BaseModel):
 
 
 class InsightRecommendationResponse(BaseModel):
+    matched: bool
     jobCompetencyId: UUID
-    recordId: UUID
-    reason: str = Field(min_length=1, max_length=300)
+    recordId: UUID | None = None
+    reason: str | None = Field(default=None, max_length=300)
 
     @field_validator("reason")
     @classmethod
-    def validate_reason(cls, value: str) -> str:
+    def validate_reason(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+
         normalized = value.strip()
 
         if not normalized:
@@ -44,3 +48,15 @@ class InsightRecommendationResponse(BaseModel):
             )
 
         return normalized
+
+    @model_validator(mode="after")
+    def validate_match_result(self):
+        if self.matched and (self.recordId is None or self.reason is None):
+            raise ValueError(
+                "Matched recommendation requires recordId and reason."
+            )
+        if not self.matched and (self.recordId is not None or self.reason is not None):
+            raise ValueError(
+                "Unmatched recommendation must not contain recordId or reason."
+            )
+        return self

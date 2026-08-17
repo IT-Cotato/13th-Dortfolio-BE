@@ -3,20 +3,20 @@ package com.itcotato.dortfolio.domain.record.analysis.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.itcotato.dortfolio.domain.record.analysis.dto.AnalyzedCompetencyTagResponse;
+import com.itcotato.dortfolio.domain.record.analysis.dto.AnalyzedStrengthTagResponse;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisResponse;
 import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysis;
 import com.itcotato.dortfolio.domain.record.analysis.exception.RecordAnalysisErrorCode;
 import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
-import com.itcotato.dortfolio.domain.record.entity.CompetencyTag;
 import com.itcotato.dortfolio.domain.record.entity.Record;
-import com.itcotato.dortfolio.domain.record.entity.RecordCompetencyTag;
+import com.itcotato.dortfolio.domain.record.entity.RecordStrengthTag;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
-import com.itcotato.dortfolio.domain.record.repository.CompetencyTagRepository;
-import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagRepository;
+import com.itcotato.dortfolio.domain.record.entity.StrengthTag;
 import com.itcotato.dortfolio.domain.record.repository.RecordEmbeddingRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
+import com.itcotato.dortfolio.domain.record.repository.RecordStrengthTagRepository;
+import com.itcotato.dortfolio.domain.record.repository.StrengthTagRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -42,8 +42,8 @@ public class RecordAnalysisService {
 	private final RecordRepository recordRepository;
 	private final RecordAnalysisRepository recordAnalysisRepository;
 	private final RecordEmbeddingRepository recordEmbeddingRepository;
-	private final RecordCompetencyTagRepository recordCompetencyTagRepository;
-	private final CompetencyTagRepository competencyTagRepository;
+	private final RecordStrengthTagRepository recordStrengthTagRepository;
+	private final StrengthTagRepository strengthTagRepository;
 	private final RecordAnalysisLockManager recordAnalysisLockManager;
 	private final RecordAnalysisRequestBuilder recordAnalysisRequestBuilder;
 	private final RecordAnalysisClient recordAnalysisClient;
@@ -137,12 +137,12 @@ public class RecordAnalysisService {
 		RecordAnalysis recordAnalysis = getOrCreate(record);
 
 		recordEmbeddingRepository.deleteAllByRecord_Id(recordId);
-		recordCompetencyTagRepository.deleteAllByRecord_Id(recordId);
+		recordStrengthTagRepository.deleteAllByRecord_Id(recordId);
 		recordAnalysis.complete(response.summary(), evidenceSnippetsJson, snapshot.recordUpdatedAt());
-		saveCompetencyTags(record, response.competencyTags());
+		saveStrengthTags(record, response.strengthTags());
 		recordEmbeddingWriter.save(record, response.embeddingModel(), response.embedding());
 		recordAnalysisRepository.flush();
-		recordCompetencyTagRepository.flush();
+		recordStrengthTagRepository.flush();
 	}
 
 	private void markFailed(UUID recordId, String failureReason, boolean retryable) {
@@ -204,63 +204,63 @@ public class RecordAnalysisService {
 		if (response.embedding() == null || response.embedding().length == 0) {
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 		}
-		validateCompetencyTags(response.competencyTags(), request.competencyTagCandidates());
+		validateStrengthTags(response.strengthTags(), request.strengthTagCandidates());
 	}
 
-	private void validateCompetencyTags(
-		List<AnalyzedCompetencyTagResponse> competencyTags,
-		List<RecordAnalysisRequest.CompetencyTagCandidatePayload> candidates
+	private void validateStrengthTags(
+		List<AnalyzedStrengthTagResponse> strengthTags,
+		List<RecordAnalysisRequest.StrengthTagCandidatePayload> candidates
 	) {
-		if (competencyTags == null) {
+		if (strengthTags == null) {
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 		}
-		Map<UUID, RecordAnalysisRequest.CompetencyTagCandidatePayload> candidateMap = candidates.stream()
-			.collect(Collectors.toMap(RecordAnalysisRequest.CompetencyTagCandidatePayload::id, Function.identity()));
-		Set<UUID> analyzedTagIds = competencyTags.stream()
-			.map(AnalyzedCompetencyTagResponse::competencyTagId)
+		Map<UUID, RecordAnalysisRequest.StrengthTagCandidatePayload> candidateMap = candidates.stream()
+			.collect(Collectors.toMap(RecordAnalysisRequest.StrengthTagCandidatePayload::id, Function.identity()));
+		Set<UUID> analyzedTagIds = strengthTags.stream()
+			.map(AnalyzedStrengthTagResponse::strengthTagId)
 			.collect(Collectors.toSet());
-		if (analyzedTagIds.size() != competencyTags.size()) {
+		if (analyzedTagIds.size() != strengthTags.size()) {
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 		}
 
-		for (AnalyzedCompetencyTagResponse competencyTag : competencyTags) {
-			if (!candidateMap.containsKey(competencyTag.competencyTagId())) {
+		for (AnalyzedStrengthTagResponse strengthTag : strengthTags) {
+			if (!candidateMap.containsKey(strengthTag.strengthTagId())) {
 				throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 			}
-			if (competencyTag.score() < 0.0f || competencyTag.score() > 1.0f) {
+			if (strengthTag.score() < 0.0f || strengthTag.score() > 1.0f) {
 				throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 			}
-			if (Float.isNaN(competencyTag.score())) {
+			if (Float.isNaN(strengthTag.score())) {
 				throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 			}
 		}
 	}
 
-	private void saveCompetencyTags(Record record, List<AnalyzedCompetencyTagResponse> analyzedTags) {
+	private void saveStrengthTags(Record record, List<AnalyzedStrengthTagResponse> analyzedTags) {
 		if (analyzedTags.isEmpty()) {
 			return;
 		}
 
-		Map<UUID, CompetencyTag> competencyTagMap = competencyTagRepository.findAllById(
+		Map<UUID, StrengthTag> strengthTagMap = strengthTagRepository.findAllById(
 				analyzedTags.stream()
-					.map(AnalyzedCompetencyTagResponse::competencyTagId)
+					.map(AnalyzedStrengthTagResponse::strengthTagId)
 					.toList()
 			)
 			.stream()
-			.collect(Collectors.toMap(CompetencyTag::getId, Function.identity()));
+			.collect(Collectors.toMap(StrengthTag::getId, Function.identity()));
 
-		if (competencyTagMap.size() != analyzedTags.stream()
-			.map(AnalyzedCompetencyTagResponse::competencyTagId)
+		if (strengthTagMap.size() != analyzedTags.stream()
+			.map(AnalyzedStrengthTagResponse::strengthTagId)
 			.collect(Collectors.toSet())
 			.size()) {
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 		}
 
-		List<RecordCompetencyTag> recordCompetencyTags = analyzedTags.stream()
-			.map(tag -> RecordCompetencyTag.create(record, competencyTagMap.get(tag.competencyTagId()), tag.score()))
+		List<RecordStrengthTag> recordStrengthTags = analyzedTags.stream()
+			.map(tag -> RecordStrengthTag.create(record, strengthTagMap.get(tag.strengthTagId()), tag.score()))
 			.toList();
 
-		recordCompetencyTagRepository.saveAll(recordCompetencyTags);
+		recordStrengthTagRepository.saveAll(recordStrengthTags);
 	}
 
 	private String toJson(List<String> evidenceSnippets) {

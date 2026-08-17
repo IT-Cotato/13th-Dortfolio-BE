@@ -8,9 +8,9 @@ import static org.mockito.Mockito.never;
 
 import com.itcotato.dortfolio.domain.insight.repository.InsightRecordQueryRepository;
 import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysis;
-import com.itcotato.dortfolio.domain.record.entity.CompetencyTag;
+import com.itcotato.dortfolio.domain.record.entity.StrengthTag;
 import com.itcotato.dortfolio.domain.record.entity.Record;
-import com.itcotato.dortfolio.domain.record.entity.RecordCompetencyTag;
+import com.itcotato.dortfolio.domain.record.entity.RecordStrengthTag;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -48,10 +48,10 @@ class JpaAnalyzedRecordQueryTest {
     private Template template;
 
     @Mock
-    private RecordCompetencyTag recordTag;
+    private RecordStrengthTag recordTag;
 
     @Mock
-    private CompetencyTag competencyTag;
+    private StrengthTag strengthTag;
 
     private JpaAnalyzedRecordQuery analyzedRecordQuery;
 
@@ -143,9 +143,9 @@ class JpaAnalyzedRecordQueryTest {
         given(template.getId()).willReturn(TEMPLATE_ID);
         given(template.getTitle()).willReturn("문제 해결 경험");
         given(recordTag.getRecord()).willReturn(record);
-        given(recordTag.getCompetencyTag()).willReturn(competencyTag);
+        given(recordTag.getStrengthTag()).willReturn(strengthTag);
         given(recordTag.getScore()).willReturn(0.9f);
-        given(competencyTag.getId()).willReturn(TAG_ID);
-        given(competencyTag.getName()).willReturn("문제 해결");
+        given(strengthTag.getId()).willReturn(TAG_ID);
+        given(strengthTag.getName()).willReturn("문제 해결");
     }
 }

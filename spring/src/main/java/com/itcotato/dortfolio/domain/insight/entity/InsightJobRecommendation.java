@@ -36,36 +36,42 @@ public class InsightJobRecommendation extends BaseEntity {
     @Column(name = "sort_order_snapshot", nullable = false)
     private int sortOrderSnapshot;
 
-    @Column(name = "record_id_snapshot", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private InsightJobRecommendationMatchStatus matchStatus;
+
+    @Column(name = "record_id_snapshot")
     private UUID recordIdSnapshot;
 
-    @Column(name = "record_title_snapshot", nullable = false)
+    @Column(name = "record_title_snapshot")
     private String recordTitleSnapshot;
 
-    @Column(name = "template_name_snapshot", nullable = false)
+    @Column(name = "template_name_snapshot")
     private String templateNameSnapshot;
 
-    @Column(columnDefinition = "text", nullable = false)
+    @Column(columnDefinition = "text")
     private String reason;
 
-    @Column(nullable = false)
-    private double similarity;
+    @Column
+    private Double similarity;
 
     private InsightJobRecommendation(
             Insight insight,
             UUID jobCompetencyIdSnapshot,
             String competencyNameSnapshot,
             int sortOrderSnapshot,
+            InsightJobRecommendationMatchStatus matchStatus,
             UUID recordIdSnapshot,
             String recordTitleSnapshot,
             String templateNameSnapshot,
             String reason,
-            double similarity
+            Double similarity
     ) {
         this.insight = insight;
         this.jobCompetencyIdSnapshot = jobCompetencyIdSnapshot;
         this.competencyNameSnapshot = competencyNameSnapshot;
         this.sortOrderSnapshot = sortOrderSnapshot;
+        this.matchStatus = matchStatus;
         this.recordIdSnapshot = recordIdSnapshot;
         this.recordTitleSnapshot = recordTitleSnapshot;
         this.templateNameSnapshot = templateNameSnapshot;
@@ -73,7 +79,7 @@ public class InsightJobRecommendation extends BaseEntity {
         this.similarity = similarity;
     }
 
-    public static InsightJobRecommendation create(
+    public static InsightJobRecommendation matched(
             Insight insight,
             UUID jobCompetencyIdSnapshot,
             String competencyNameSnapshot,
@@ -89,11 +95,56 @@ public class InsightJobRecommendation extends BaseEntity {
                 jobCompetencyIdSnapshot,
                 competencyNameSnapshot,
                 sortOrderSnapshot,
+                InsightJobRecommendationMatchStatus.MATCHED,
                 recordIdSnapshot,
                 recordTitleSnapshot,
                 templateNameSnapshot,
                 reason,
                 similarity
+        );
+    }
+
+    public static InsightJobRecommendation create(
+            Insight insight,
+            UUID jobCompetencyIdSnapshot,
+            String competencyNameSnapshot,
+            int sortOrderSnapshot,
+            UUID recordIdSnapshot,
+            String recordTitleSnapshot,
+            String templateNameSnapshot,
+            String reason,
+            double similarity
+    ) {
+        return matched(
+                insight,
+                jobCompetencyIdSnapshot,
+                competencyNameSnapshot,
+                sortOrderSnapshot,
+                recordIdSnapshot,
+                recordTitleSnapshot,
+                templateNameSnapshot,
+                reason,
+                similarity
+        );
+    }
+
+    public static InsightJobRecommendation noMatch(
+            Insight insight,
+            UUID jobCompetencyIdSnapshot,
+            String competencyNameSnapshot,
+            int sortOrderSnapshot
+    ) {
+        return new InsightJobRecommendation(
+                insight,
+                jobCompetencyIdSnapshot,
+                competencyNameSnapshot,
+                sortOrderSnapshot,
+                InsightJobRecommendationMatchStatus.NO_MATCH,
+                null,
+                null,
+                null,
+                null,
+                null
         );
     }
 }

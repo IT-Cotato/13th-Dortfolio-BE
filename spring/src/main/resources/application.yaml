@@ -123,7 +123,10 @@ matching:
 insight:
   minimum-analyzed-record-count: 10
   regeneration-cooldown: 24h
-  recommendation-candidate-limit: 5
+  recommendation-candidate-ratio: ${INSIGHT_RECOMMENDATION_CANDIDATE_RATIO:0.1}
+  recommendation-candidate-min: ${INSIGHT_RECOMMENDATION_CANDIDATE_MIN:1}
+  recommendation-candidate-max: ${INSIGHT_RECOMMENDATION_CANDIDATE_MAX:20}
+  recommendation-min-similarity: ${INSIGHT_RECOMMENDATION_MIN_SIMILARITY:0.0}
   embedding-model: ${INSIGHT_EMBEDDING_MODEL:gemini-embedding-2}
   recommendation-max-attempts: ${INSIGHT_RECOMMENDATION_MAX_ATTEMPTS:2}
   # FastAPI의 Gemini 제한(기본 25초)보다 길어야 재시도 요청이 겹치지 않는다.

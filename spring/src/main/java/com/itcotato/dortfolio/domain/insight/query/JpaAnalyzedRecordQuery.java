@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.itcotato.dortfolio.domain.insight.repository.InsightRecordQueryRepository;
 import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysis;
 import com.itcotato.dortfolio.domain.record.entity.Record;
-import com.itcotato.dortfolio.domain.record.entity.RecordCompetencyTag;
+import com.itcotato.dortfolio.domain.record.entity.RecordStrengthTag;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -48,7 +48,7 @@ public class JpaAnalyzedRecordQuery implements AnalyzedRecordQuery {
                 .map(Record::getId)
                 .toList();
 
-        Map<UUID, List<RecordCompetencyTag>> tagsByRecordId =
+        Map<UUID, List<RecordStrengthTag>> tagsByRecordId =
                 queryRepository.findStrengthTags(recordIds)
                         .stream()
                         .collect(Collectors.groupingBy(
@@ -70,7 +70,7 @@ public class JpaAnalyzedRecordQuery implements AnalyzedRecordQuery {
 
     private AnalyzedRecordSnapshot toSnapshot(
             RecordAnalysis analysis,
-            List<RecordCompetencyTag> recordTags
+            List<RecordStrengthTag> recordTags
     ) {
         Record record = analysis.getRecord();
 
@@ -95,11 +95,11 @@ public class JpaAnalyzedRecordQuery implements AnalyzedRecordQuery {
     }
 
     private AnalyzedRecordSnapshot.StrengthTagSnapshot toStrengthTagSnapshot(
-            RecordCompetencyTag recordTag
+            RecordStrengthTag recordTag
     ) {
         return new AnalyzedRecordSnapshot.StrengthTagSnapshot(
-                recordTag.getCompetencyTag().getId(),
-                recordTag.getCompetencyTag().getName(),
+                recordTag.getStrengthTag().getId(),
+                recordTag.getStrengthTag().getName(),
                 recordTag.getScore()
         );
     }

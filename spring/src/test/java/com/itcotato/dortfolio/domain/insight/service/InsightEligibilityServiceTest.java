@@ -76,7 +76,10 @@ class InsightEligibilityServiceTest {
                 new InsightProperties(
                         10,
                         Duration.ofHours(24),
+                        0.1,
+                        1,
                         5,
+                        0.0,
                         "gemini-embedding-2",
                         2,
                         Duration.ofSeconds(10)

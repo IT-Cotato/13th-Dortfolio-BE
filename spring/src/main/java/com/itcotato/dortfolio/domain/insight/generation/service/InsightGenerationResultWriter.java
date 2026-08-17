@@ -135,19 +135,40 @@ public class InsightGenerationResultWriter {
                     result.recommendations().get(sortOrder);
 
             InsightJobRecommendation recommendation =
-                    InsightJobRecommendation.create(
+                    toRecommendation(
                             insight,
-                            recommendationResult.jobCompetencyId(),
-                            recommendationResult.competencyName(),
                             sortOrder,
-                            recommendationResult.recordId(),
-                            recommendationResult.recordTitle(),
-                            recommendationResult.templateName(),
-                            recommendationResult.reason(),
-                            recommendationResult.similarity()
+                            recommendationResult
                     );
 
             recommendationRepository.save(recommendation);
         }
+    }
+
+    private InsightJobRecommendation toRecommendation(
+            Insight insight,
+            int sortOrder,
+            JobRecommendationResult result
+    ) {
+        if (!result.matched()) {
+            return InsightJobRecommendation.noMatch(
+                    insight,
+                    result.jobCompetencyId(),
+                    result.competencyName(),
+                    sortOrder
+            );
+        }
+
+        return InsightJobRecommendation.matched(
+                insight,
+                result.jobCompetencyId(),
+                result.competencyName(),
+                sortOrder,
+                result.recordId(),
+                result.recordTitle(),
+                result.templateName(),
+                result.reason(),
+                result.similarity()
+        );
     }
 }
