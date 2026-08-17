@@ -1,4 +1,4 @@
-package com.itcotato.dortfolio.domain.job.embedding.dto;
+package com.itcotato.dortfolio.global.ai.embedding.dto;
 
 public record EmbeddingRequest(
         String question

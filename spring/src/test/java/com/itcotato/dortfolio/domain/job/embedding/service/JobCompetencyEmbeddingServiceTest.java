@@ -9,8 +9,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
-import com.itcotato.dortfolio.domain.job.embedding.dto.EmbeddingRequest;
-import com.itcotato.dortfolio.domain.job.embedding.dto.EmbeddingResponse;
+import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingRequest;
+import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingResponse;
+import com.itcotato.dortfolio.global.ai.embedding.service.EmbeddingClient;
 import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingBatchResult;
 import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingCoverage;
 import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingGenerationStatus;

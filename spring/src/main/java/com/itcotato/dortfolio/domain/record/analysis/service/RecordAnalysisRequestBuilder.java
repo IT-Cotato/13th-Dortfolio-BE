@@ -4,10 +4,8 @@ import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest;
 import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.record.entity.RecordAnswer;
 import com.itcotato.dortfolio.domain.record.entity.RecordMemo;
-import com.itcotato.dortfolio.domain.record.entity.StrengthTag;
 import com.itcotato.dortfolio.domain.record.repository.RecordAnswerRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordMemoRepository;
-import com.itcotato.dortfolio.domain.record.repository.StrengthTagRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -18,7 +16,6 @@ public class RecordAnalysisRequestBuilder {
 
     private final RecordAnswerRepository recordAnswerRepository;
     private final RecordMemoRepository recordMemoRepository;
-    private final StrengthTagRepository strengthTagRepository;
 
     public RecordAnalysisRequest build(Record record) {
         List<RecordAnswer> answers =
@@ -29,13 +26,10 @@ public class RecordAnalysisRequestBuilder {
                 recordMemoRepository
                         .findAllByRecord_IdOrderBySortOrderAsc(record.getId());
 
-        List<StrengthTag> strengthTagCandidates = strengthTagRepository.findAll();
-
         return RecordAnalysisRequest.of(
                 record,
                 answers,
-                memos,
-                strengthTagCandidates
+                memos
         );
     }
 }

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ActivityPayload(BaseModel):
@@ -25,7 +25,11 @@ class MemoPayload(BaseModel):
 class StrengthTagCandidatePayload(BaseModel):
     id: UUID
     name: str
-    description: str | None = None
+    description: str
+    evaluationCriteria: str
+    positiveExample: str
+    negativeExample: str
+    cosineSimilarity: float = Field(ge=-1.0, le=1.0)
 
 
 class RecordAnalysisRequest(BaseModel):
@@ -36,16 +40,10 @@ class RecordAnalysisRequest(BaseModel):
     answers: list[AnswerPayload]
     memos: list[MemoPayload]
     strengthTagCandidates: list[StrengthTagCandidatePayload]
-
-
-class AnalyzedStrengthTagResponse(BaseModel):
-    strengthTagId: UUID
-    score: float
+    maxStrengthCount: int = Field(ge=1)
 
 
 class RecordAnalysisResponse(BaseModel):
     summary: str
     evidenceSnippets: list[str]
-    strengthTags: list[AnalyzedStrengthTagResponse]
-    embeddingModel: str
-    embedding: list[float]
+    strengthTagIds: list[UUID]

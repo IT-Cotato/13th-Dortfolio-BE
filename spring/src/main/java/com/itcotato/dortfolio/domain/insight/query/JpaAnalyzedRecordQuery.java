@@ -100,7 +100,7 @@ public class JpaAnalyzedRecordQuery implements AnalyzedRecordQuery {
         return new AnalyzedRecordSnapshot.StrengthTagSnapshot(
                 recordTag.getStrengthTag().getId(),
                 recordTag.getStrengthTag().getName(),
-                recordTag.getScore()
+                recordTag.getCosineSimilarity()
         );
     }
 

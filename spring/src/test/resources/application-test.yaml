@@ -48,6 +48,9 @@ record-analysis:
   async-max-pool-size: 1
   async-queue-capacity: 10
   lock-timeout: 1s
+  strength-candidate-limit: 5
+  strength-max-count: 2
+  strength-min-similarity: 0.4
 
 matching:
   default-record-limit: 3

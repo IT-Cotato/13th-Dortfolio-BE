@@ -31,16 +31,19 @@ public class RecordStrengthTag extends BaseEntity {
 	@JoinColumn(name = "strength_tag_id", nullable = false)
 	private StrengthTag strengthTag;
 
-	@Column(nullable = false)
-	private float score;
+	@Column(name = "cosine_similarity", nullable = false)
+	private float cosineSimilarity;
 
-	private RecordStrengthTag(Record record, StrengthTag strengthTag, float score) {
+	private RecordStrengthTag(Record record, StrengthTag strengthTag, float cosineSimilarity) {
+		if (!Float.isFinite(cosineSimilarity) || cosineSimilarity < -1.0f || cosineSimilarity > 1.0f) {
+			throw new IllegalArgumentException("코사인 유사도는 -1.0 이상 1.0 이하여야 합니다.");
+		}
 		this.record = record;
 		this.strengthTag = strengthTag;
-		this.score = score;
+		this.cosineSimilarity = cosineSimilarity;
 	}
 
-	public static RecordStrengthTag create(Record record, StrengthTag strengthTag, float score) {
-		return new RecordStrengthTag(record, strengthTag, score);
+	public static RecordStrengthTag create(Record record, StrengthTag strengthTag, float cosineSimilarity) {
+		return new RecordStrengthTag(record, strengthTag, cosineSimilarity);
 	}
 }

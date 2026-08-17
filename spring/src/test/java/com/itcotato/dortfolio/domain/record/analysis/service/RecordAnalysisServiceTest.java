@@ -6,12 +6,13 @@ import com.itcotato.dortfolio.domain.activity.entity.Activity;
 import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
-import com.itcotato.dortfolio.domain.record.analysis.dto.AnalyzedStrengthTagResponse;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisResponse;
+import com.itcotato.dortfolio.domain.record.analysis.dto.StrengthMatchCandidate;
 import com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus;
 import com.itcotato.dortfolio.domain.record.analysis.exception.RecordAnalysisErrorCode;
 import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
+import com.itcotato.dortfolio.domain.record.analysis.repository.StrengthMatchCandidateQuery;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordAnswerRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordUpdateRequest;
@@ -30,6 +31,9 @@ import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
+import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingRequest;
+import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingResponse;
+import com.itcotato.dortfolio.global.ai.embedding.service.EmbeddingClient;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -61,6 +65,12 @@ class RecordAnalysisServiceTest {
 
 	@Autowired
 	private StubRecordEmbeddingWriter stubRecordEmbeddingWriter;
+
+	@Autowired
+	private StubEmbeddingClient stubEmbeddingClient;
+
+	@Autowired
+	private StubStrengthMatchCandidateQuery stubStrengthMatchCandidateQuery;
 
 	@Autowired
 	private RecordAnalysisRepository recordAnalysisRepository;
@@ -101,6 +111,8 @@ class RecordAnalysisServiceTest {
 	void setUp() {
 		stubRecordAnalysisClient.reset();
 		stubRecordEmbeddingWriter.reset();
+		stubEmbeddingClient.reset();
+		stubStrengthMatchCandidateQuery.reset();
 		recordAnalysisRepository.deleteAll();
 		recordEmbeddingRepository.deleteAll();
 		recordStrengthTagRepository.deleteAll();
@@ -133,9 +145,7 @@ class RecordAnalysisServiceTest {
 		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
 			"추천 기준을 개선한 경험입니다.",
 			List.of("추천 기준을 다시 정의했습니다."),
-			List.of(new AnalyzedStrengthTagResponse(strengthTag.getId(), 0.9f)),
-			"test-embedding",
-			new float[] {0.1f, 0.2f}
+			List.of(strengthTag.getId())
 		);
 
 		recordAnalysisService.analyze(record.id());
@@ -148,12 +158,12 @@ class RecordAnalysisServiceTest {
 			.contains("추천 기준을 다시 정의했습니다.");
 		assertThat(stubRecordEmbeddingWriter.recordId).isEqualTo(record.id());
 		assertThat(stubRecordEmbeddingWriter.embeddingModel).isEqualTo("test-embedding");
-		assertThat(stubRecordEmbeddingWriter.embedding).containsExactly(0.1f, 0.2f);
+		assertThat(stubRecordEmbeddingWriter.embedding).hasSize(3072);
 		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id()))
 			.singleElement()
 			.satisfies(tag -> {
 				assertThat(tag.getStrengthTag().getId()).isEqualTo(strengthTag.getId());
-				assertThat(tag.getScore()).isEqualTo(0.9f);
+				assertThat(tag.getCosineSimilarity()).isEqualTo(0.9f);
 			});
 	}
 
@@ -262,9 +272,7 @@ class RecordAnalysisServiceTest {
 		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
 			"기존 요약",
 			List.of("기존 근거"),
-			List.of(new AnalyzedStrengthTagResponse(strengthTag.getId(), 0.9f)),
-			"test-embedding",
-			new float[] {0.1f}
+			List.of(strengthTag.getId())
 		);
 		recordAnalysisService.analyze(record.id());
 		stubRecordAnalysisClient.reset();
@@ -287,6 +295,46 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
+	void successfulReanalysisCanSelectTheSameStrengthTagAgain() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template template = createTemplate(user, false);
+		StrengthTag strengthTag = strengthCandidates.get(0);
+		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(),
+			template.getId(),
+			"재분석 기록",
+			List.of(),
+			List.of(),
+			RecordStatus.COMPLETED
+		));
+		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
+			"첫 번째 요약",
+			List.of("첫 번째 근거"),
+			List.of(strengthTag.getId())
+		);
+		recordAnalysisService.analyze(record.id());
+		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
+			"두 번째 요약",
+			List.of("두 번째 근거"),
+			List.of(strengthTag.getId())
+		);
+
+		recordAnalysisService.analyze(record.id());
+
+		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow())
+			.satisfies(recordAnalysis -> {
+				assertThat(recordAnalysis.getAiAnalysisStatus()).isEqualTo(AiAnalysisStatus.COMPLETED);
+				assertThat(recordAnalysis.getSummary()).isEqualTo("두 번째 요약");
+			});
+		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id()))
+			.singleElement()
+			.satisfies(recordTag ->
+				assertThat(recordTag.getStrengthTag().getId()).isEqualTo(strengthTag.getId())
+			);
+	}
+
+	@Test
 	void analyzeStoresFailedStatusWhenResponseHasDuplicateStrengthTags() {
 		User user = createUser();
 		Activity activity = createActivity(user);
@@ -304,11 +352,39 @@ class RecordAnalysisServiceTest {
 			"요약",
 			List.of("근거"),
 			List.of(
-				new AnalyzedStrengthTagResponse(strengthTag.getId(), 0.8f),
-				new AnalyzedStrengthTagResponse(strengthTag.getId(), 0.7f)
-			),
-			"test-embedding",
-			new float[] {0.1f}
+				strengthTag.getId(),
+				strengthTag.getId()
+			)
+		);
+
+		recordAnalysisService.analyze(record.id());
+
+		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow())
+			.satisfies(recordAnalysis -> {
+				assertThat(recordAnalysis.getAiAnalysisStatus()).isEqualTo(AiAnalysisStatus.FAILED);
+				assertThat(recordAnalysis.getFailureReason())
+					.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE.getCode());
+			});
+		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id())).isEmpty();
+	}
+
+	@Test
+	void analyzeRejectsMoreStrengthTagsThanConfiguredMaximum() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template template = createTemplate(user, false);
+		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(),
+			template.getId(),
+			"강점 개수 초과 기록",
+			List.of(),
+			List.of(),
+			RecordStatus.COMPLETED
+		));
+		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
+			"요약",
+			List.of("근거"),
+			strengthCandidates.stream().limit(3).map(StrengthTag::getId).toList()
 		);
 
 		recordAnalysisService.analyze(record.id());
@@ -338,9 +414,7 @@ class RecordAnalysisServiceTest {
 		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
 			"요약",
 			List.of("근거"),
-			List.of(),
-			"test-embedding",
-			new float[] {0.1f}
+			List.of()
 		);
 		stubRecordAnalysisClient.beforeReturn = () -> recordService.deleteRecord(user.getId(), record.id());
 
@@ -368,9 +442,7 @@ class RecordAnalysisServiceTest {
 		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
 			"기존 요약",
 			List.of("기존 근거"),
-			List.of(new AnalyzedStrengthTagResponse(strengthTag.getId(), 0.7f)),
-			"test-embedding",
-			new float[] {0.1f}
+			List.of(strengthTag.getId())
 		);
 		recordAnalysisService.analyze(record.id());
 
@@ -378,9 +450,7 @@ class RecordAnalysisServiceTest {
 		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
 			"삭제 후 도착한 요약",
 			List.of("삭제 후 도착한 근거"),
-			List.of(),
-			"test-embedding",
-			new float[] {0.2f}
+			List.of()
 		);
 		stubRecordAnalysisClient.beforeReturn = () -> recordService.deleteRecord(user.getId(), record.id());
 
@@ -412,9 +482,7 @@ class RecordAnalysisServiceTest {
 		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
 			"오래된 요약",
 			List.of("오래된 근거"),
-			List.of(),
-			"test-embedding",
-			new float[] {0.1f}
+			List.of()
 		);
 		stubRecordAnalysisClient.beforeReturn = () -> recordService.updateRecord(user.getId(), record.id(), new RecordUpdateRequest(
 			"수정 후 기록",
@@ -446,9 +514,7 @@ class RecordAnalysisServiceTest {
 		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
 			"요약",
 			List.of("근거"),
-			List.of(),
-			"test-embedding",
-			new float[] {0.1f}
+			List.of()
 		);
 		stubRecordEmbeddingWriter.failure = new IllegalStateException("embedding write failed");
 
@@ -471,9 +537,7 @@ class RecordAnalysisServiceTest {
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(), template.getId(), "후보 순서 기록", List.of(), List.of(), RecordStatus.COMPLETED
 		));
-		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
-			"요약", List.of("근거"), List.of(), "test-embedding", new float[] {0.1f}
-		);
+		stubRecordAnalysisClient.response = new RecordAnalysisResponse("요약", List.of("근거"), List.of());
 
 		recordAnalysisService.analyze(record.id());
 
@@ -494,9 +558,7 @@ class RecordAnalysisServiceTest {
 		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
 			"요약",
 			List.of("근거"),
-			List.of(new AnalyzedStrengthTagResponse(outsideCandidateId, 0.8f)),
-			"test-embedding",
-			new float[] {0.1f}
+			List.of(outsideCandidateId)
 		);
 
 		recordAnalysisService.analyze(record.id());
@@ -520,8 +582,22 @@ class RecordAnalysisServiceTest {
 			.mapToObj(index -> strengthTagRepository.save(StrengthTag.create(
 				"TEST_STRENGTH_" + index + "_" + UUID.randomUUID().toString().substring(0, 8),
 				"테스트 강점 " + index,
-				"테스트 강점 설명 " + index
+				"테스트 강점 설명 " + index,
+				"테스트 판단 기준 " + index,
+				"테스트 적합 예시 " + index,
+				"테스트 부적합 예시 " + index
 			)))
+			.toList();
+		stubStrengthMatchCandidateQuery.candidates = strengthCandidates.stream()
+			.map(tag -> new StrengthMatchCandidate(
+				tag.getId(),
+				tag.getName(),
+				tag.getDescription(),
+				tag.getEvaluationCriteria(),
+				tag.getPositiveExample(),
+				tag.getNegativeExample(),
+				0.9f
+			))
 			.toList();
 		return user;
 	}
@@ -558,6 +634,54 @@ class RecordAnalysisServiceTest {
 		@Primary
 		StubRecordEmbeddingWriter stubRecordEmbeddingWriter() {
 			return new StubRecordEmbeddingWriter();
+		}
+
+		@Bean
+		@Primary
+		StubEmbeddingClient stubEmbeddingClient() {
+			return new StubEmbeddingClient();
+		}
+
+		@Bean
+		@Primary
+		StubStrengthMatchCandidateQuery stubStrengthMatchCandidateQuery() {
+			return new StubStrengthMatchCandidateQuery();
+		}
+	}
+
+	static class StubEmbeddingClient implements EmbeddingClient {
+
+		private RuntimeException failure;
+
+		@Override
+		public EmbeddingResponse embed(EmbeddingRequest request) {
+			if (failure != null) {
+				throw failure;
+			}
+			return new EmbeddingResponse("test-embedding", new float[3072]);
+		}
+
+		private void reset() {
+			this.failure = null;
+		}
+	}
+
+	static class StubStrengthMatchCandidateQuery implements StrengthMatchCandidateQuery {
+
+		private List<StrengthMatchCandidate> candidates = List.of();
+
+		@Override
+		public List<StrengthMatchCandidate> findTopCandidates(
+			String embeddingModel,
+			float[] recordEmbedding,
+			int limit,
+			double minimumSimilarity
+		) {
+			return candidates.stream().limit(limit).toList();
+		}
+
+		private void reset() {
+			this.candidates = List.of();
 		}
 	}
 

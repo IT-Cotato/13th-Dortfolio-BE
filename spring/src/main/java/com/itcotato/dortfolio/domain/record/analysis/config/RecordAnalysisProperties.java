@@ -18,7 +18,12 @@ public record RecordAnalysisProperties(
 	@Min(0)
 	int asyncQueueCapacity,
 	@NotNull
-	Duration lockTimeout
+	Duration lockTimeout,
+	@Min(1)
+	int strengthCandidateLimit,
+	@Min(1)
+	int strengthMaxCount,
+	double strengthMinSimilarity
 ) {
 
 	@AssertTrue(message = "asyncMaxPoolSize must be greater than or equal to asyncCorePoolSize")
@@ -29,5 +34,17 @@ public record RecordAnalysisProperties(
 	@AssertTrue(message = "lockTimeout must be positive")
 	public boolean isLockTimeoutValid() {
 		return lockTimeout != null && !lockTimeout.isZero() && !lockTimeout.isNegative();
+	}
+
+	@AssertTrue(message = "strengthMaxCount must not exceed strengthCandidateLimit")
+	public boolean isStrengthCountValid() {
+		return strengthMaxCount <= strengthCandidateLimit;
+	}
+
+	@AssertTrue(message = "strengthMinSimilarity must be finite and between -1.0 and 1.0")
+	public boolean isStrengthMinSimilarityValid() {
+		return Double.isFinite(strengthMinSimilarity)
+			&& strengthMinSimilarity >= -1.0
+			&& strengthMinSimilarity <= 1.0;
 	}
 }

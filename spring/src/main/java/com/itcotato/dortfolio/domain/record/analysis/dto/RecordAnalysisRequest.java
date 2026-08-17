@@ -4,7 +4,6 @@ import com.itcotato.dortfolio.domain.memo.entity.Memo;
 import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.record.entity.RecordAnswer;
 import com.itcotato.dortfolio.domain.record.entity.RecordMemo;
-import com.itcotato.dortfolio.domain.record.entity.StrengthTag;
 import java.util.List;
 import java.util.UUID;
 
@@ -15,13 +14,13 @@ public record RecordAnalysisRequest(
 	TemplatePayload template,
 	List<AnswerPayload> answers,
 	List<MemoPayload> memos,
-	List<StrengthTagCandidatePayload> strengthTagCandidates
+	List<StrengthTagCandidatePayload> strengthTagCandidates,
+	int maxStrengthCount
 ) {
 	public static RecordAnalysisRequest of(
 		Record record,
 		List<RecordAnswer> answers,
-		List<RecordMemo> memos,
-		List<StrengthTag> strengthTagCandidates
+		List<RecordMemo> memos
 	) {
 		return new RecordAnalysisRequest(
 			record.getId(),
@@ -34,9 +33,26 @@ public record RecordAnalysisRequest(
 			memos.stream()
 				.map(MemoPayload::from)
 				.toList(),
-			strengthTagCandidates.stream()
+			List.of(),
+			0
+		);
+	}
+
+	public RecordAnalysisRequest withStrengthCandidates(
+		List<StrengthMatchCandidate> candidates,
+		int maxStrengthCount
+	) {
+		return new RecordAnalysisRequest(
+			recordId,
+			title,
+			activity,
+			template,
+			answers,
+			memos,
+			candidates.stream()
 				.map(StrengthTagCandidatePayload::from)
-				.toList()
+				.toList(),
+			maxStrengthCount
 		);
 	}
 
@@ -82,13 +98,21 @@ public record RecordAnalysisRequest(
 	public record StrengthTagCandidatePayload(
 		UUID id,
 		String name,
-		String description
+		String description,
+		String evaluationCriteria,
+		String positiveExample,
+		String negativeExample,
+		float cosineSimilarity
 	) {
-		public static StrengthTagCandidatePayload from(StrengthTag strengthTag) {
+		public static StrengthTagCandidatePayload from(StrengthMatchCandidate candidate) {
 			return new StrengthTagCandidatePayload(
-				strengthTag.getId(),
-				strengthTag.getName(),
-				strengthTag.getDescription()
+				candidate.strengthTagId(),
+				candidate.name(),
+				candidate.description(),
+				candidate.evaluationCriteria(),
+				candidate.positiveExample(),
+				candidate.negativeExample(),
+				candidate.cosineSimilarity()
 			);
 		}
 	}

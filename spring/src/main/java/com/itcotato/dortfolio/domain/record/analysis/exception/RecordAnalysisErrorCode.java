@@ -13,7 +13,11 @@ public enum RecordAnalysisErrorCode implements ErrorCode {
 	RECORD_ANALYSIS_INVALID_RESPONSE(HttpStatus.BAD_GATEWAY, "RA002", "AI 분석 응답이 올바르지 않습니다.", false),
 	RECORD_ANALYSIS_EVIDENCE_SERIALIZE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "RA003", "핵심 근거 문장 저장 형식 변환에 실패했습니다.", false),
 	RECORD_ANALYSIS_AI_SERVICE_REJECTED(HttpStatus.BAD_GATEWAY, "RA004", "AI 분석 서비스가 요청을 처리하지 못했습니다.", false),
-	RECORD_ANALYSIS_PERSISTENCE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "RA005", "AI 분석 결과 저장에 실패했습니다.", true);
+	RECORD_ANALYSIS_PERSISTENCE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "RA005", "AI 분석 결과 저장에 실패했습니다.", true),
+	STRENGTH_TAG_EMBEDDING_AI_SERVICE_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "RA006", "강점 임베딩 서비스를 사용할 수 없습니다.", true),
+	STRENGTH_TAG_EMBEDDING_INVALID_RESPONSE(HttpStatus.BAD_GATEWAY, "RA007", "강점 임베딩 응답이 올바르지 않습니다.", true),
+	STRENGTH_TAG_EMBEDDING_NOT_READY(HttpStatus.SERVICE_UNAVAILABLE, "RA008", "강점 임베딩이 준비되지 않았습니다.", true),
+	STRENGTH_TAG_NOT_FOUND(HttpStatus.NOT_FOUND, "RA009", "강점 태그를 찾을 수 없습니다.", false);
 
 	private final HttpStatus status;
 	private final String code;

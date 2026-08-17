@@ -144,7 +144,7 @@ class JpaAnalyzedRecordQueryTest {
         given(template.getTitle()).willReturn("문제 해결 경험");
         given(recordTag.getRecord()).willReturn(record);
         given(recordTag.getStrengthTag()).willReturn(strengthTag);
-        given(recordTag.getScore()).willReturn(0.9f);
+        given(recordTag.getCosineSimilarity()).willReturn(0.9f);
         given(strengthTag.getId()).willReturn(TAG_ID);
         given(strengthTag.getName()).willReturn("문제 해결");
     }

@@ -20,16 +20,49 @@ public class StrengthTag extends BaseEntity {
 	@Column(nullable = false, length = 100)
 	private String name;
 
-	@Column(length = 255)
+	@Column(nullable = false, length = 255)
 	private String description;
 
-	private StrengthTag(String code, String name, String description) {
+	@Column(name = "evaluation_criteria", nullable = false, length = 255)
+	private String evaluationCriteria;
+
+	@Column(name = "positive_example", nullable = false, length = 500)
+	private String positiveExample;
+
+	@Column(name = "negative_example", nullable = false, length = 500)
+	private String negativeExample;
+
+	private StrengthTag(
+		String code,
+		String name,
+		String description,
+		String evaluationCriteria,
+		String positiveExample,
+		String negativeExample
+	) {
 		this.code = code;
 		this.name = name;
 		this.description = description;
+		this.evaluationCriteria = evaluationCriteria;
+		this.positiveExample = positiveExample;
+		this.negativeExample = negativeExample;
 	}
 
-	public static StrengthTag create(String code, String name, String description) {
-		return new StrengthTag(code, name, description);
+	public static StrengthTag create(
+		String code,
+		String name,
+		String description,
+		String evaluationCriteria,
+		String positiveExample,
+		String negativeExample
+	) {
+		return new StrengthTag(
+			code,
+			name,
+			description,
+			evaluationCriteria,
+			positiveExample,
+			negativeExample
+		);
 	}
 }

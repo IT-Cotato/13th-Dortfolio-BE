@@ -259,10 +259,17 @@ class InsightRecordQueryRepositoryTest {
         User user = createUser();
         Record record = createAnalyzedRecord(user, "강점 기록", true, true);
         StrengthTag second = strengthTagRepository.save(
-                StrengthTag.create("TEST_COMP_1", "협업", "협업 역량")
+				StrengthTag.create("TEST_COMP_1", "협업", "협업 역량", "협업 기준", "협업 적합", "협업 부적합")
         );
         StrengthTag first = strengthTagRepository.save(
-                StrengthTag.create("TEST_COMP_2", "문제 해결", "문제 해결 역량")
+				StrengthTag.create(
+					"TEST_COMP_2",
+					"문제 해결",
+					"문제 해결 역량",
+					"문제 해결 기준",
+					"문제 해결 적합",
+					"문제 해결 부적합"
+				)
         );
         recordStrengthTagRepository.saveAll(List.of(
                 RecordStrengthTag.create(record, second, 0.8f),

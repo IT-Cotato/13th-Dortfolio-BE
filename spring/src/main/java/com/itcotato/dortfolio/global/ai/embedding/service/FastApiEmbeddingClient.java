@@ -1,8 +1,8 @@
-package com.itcotato.dortfolio.domain.job.embedding.service;
+package com.itcotato.dortfolio.global.ai.embedding.service;
 
-import com.itcotato.dortfolio.domain.job.embedding.dto.EmbeddingRequest;
-import com.itcotato.dortfolio.domain.job.embedding.dto.EmbeddingResponse;
 import com.itcotato.dortfolio.domain.record.analysis.config.AiServiceProperties;
+import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingRequest;
+import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingResponse;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -40,7 +40,6 @@ public class FastApiEmbeddingClient implements EmbeddingClient {
             EmbeddingRequest request
     ) {
         return restClient.post()
-                // PR #41에서 제공하는 공통 임베딩 API를 재사용한다.
                 .uri("/ai/matching/question-embedding")
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)

@@ -29,8 +29,8 @@ class FlywayMigrationTest {
 	void migratesFreshSchemaThroughLatestVersion() {
 		MigrateResult result = flyway().migrate();
 
-		assertThat(result.migrationsExecuted).isEqualTo(17);
-		assertThat(result.targetSchemaVersion).isEqualTo("17");
+		assertThat(result.migrationsExecuted).isEqualTo(18);
+		assertThat(result.targetSchemaVersion).isEqualTo("18");
 		assertMatchingIndexesCreated();
 		assertRunningInsightStatusAllowed();
 		assertUserOwnedDataCascadesOnDelete();
@@ -40,6 +40,7 @@ class FlywayMigrationTest {
 		assertBuiltinTemplatesSeeded();
 		assertJobCatalogSeeded();
 		assertRecordStrengthTablesCreated();
+		assertStrengthTagCatalogSeeded();
 		assertRecommendationNoMatchSupported();
 	}
 
@@ -47,8 +48,29 @@ class FlywayMigrationTest {
 		assertThat(jdbcTemplate().queryForObject("""
 				select count(*)
 				from information_schema.tables
-				where table_name in ('strength_tags', 'record_strength_tags')
-				""", Integer.class)).isEqualTo(2);
+				where table_name in ('strength_tags', 'strength_tag_embeddings', 'record_strength_tags')
+				""", Integer.class)).isEqualTo(3);
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from information_schema.columns
+				where table_name = 'record_strength_tags'
+				  and column_name = 'cosine_similarity'
+				""", Integer.class)).isEqualTo(1);
+	}
+
+	private void assertStrengthTagCatalogSeeded() {
+		assertThat(jdbcTemplate().queryForObject(
+			"select count(*) from strength_tags",
+			Integer.class
+		)).isEqualTo(30);
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from strength_tags
+				where description is not null
+				  and evaluation_criteria is not null
+				  and positive_example is not null
+				  and negative_example is not null
+				""", Integer.class)).isEqualTo(30);
 	}
 
 	private void assertRecommendationNoMatchSupported() {

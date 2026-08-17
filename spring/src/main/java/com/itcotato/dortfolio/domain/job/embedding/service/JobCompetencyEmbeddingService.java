@@ -1,8 +1,6 @@
 package com.itcotato.dortfolio.domain.job.embedding.service;
 
 import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
-import com.itcotato.dortfolio.domain.job.embedding.dto.EmbeddingRequest;
-import com.itcotato.dortfolio.domain.job.embedding.dto.EmbeddingResponse;
 import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingBatchResult;
 import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingCoverage;
 import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingFailure;
@@ -13,6 +11,9 @@ import com.itcotato.dortfolio.domain.job.repository.JobCompetencyEmbeddingReposi
 import com.itcotato.dortfolio.domain.job.repository.JobCompetencyRepository;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.JobErrorCode;
+import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingRequest;
+import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingResponse;
+import com.itcotato.dortfolio.global.ai.embedding.service.EmbeddingClient;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
