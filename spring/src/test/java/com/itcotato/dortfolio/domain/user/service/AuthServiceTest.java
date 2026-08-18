@@ -3,6 +3,8 @@ package com.itcotato.dortfolio.domain.user.service;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -28,6 +30,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 
@@ -44,6 +47,7 @@ class AuthServiceTest {
     @Mock private CookieUtil cookieUtil;
     @Mock private ActivityTypeService activityTypeService;
     @Mock private CsrfTokenRepository csrfTokenRepository;
+    @Mock private SignUpEmailConflictResolver signUpEmailConflictResolver;
 
     @InjectMocks
     private AuthService authService;
@@ -173,6 +177,30 @@ class AuthServiceTest {
                 .isEqualTo(UserErrorCode.EMAIL_ALREADY_EXISTS);
 
         verifyNoInteractions(passwordEncoder);
+    }
+
+    @Test
+    void rejectsSignUpWithGoogleErrorWhenGoogleAccountWinsConcurrentInsert() {
+        SignUpRequest request = createSignUpRequest("race@example.com");
+
+        when(userRepository.findByEmail("race@example.com"))
+                .thenReturn(Optional.empty());
+        when(passwordEncoder.encode("Password1!"))
+                .thenReturn("encoded-password");
+        doThrow(new DataIntegrityViolationException("duplicate email"))
+                .when(userRepository)
+                .saveAndFlush(any(User.class));
+        when(signUpEmailConflictResolver.resolve("race@example.com"))
+                .thenReturn(UserErrorCode.GOOGLE_ACCOUNT_ALREADY_EXISTS);
+
+        assertThatThrownBy(() -> authService.signUp(request))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception ->
+                        ((CustomException) exception).getErrorCode()
+                )
+                .isEqualTo(UserErrorCode.GOOGLE_ACCOUNT_ALREADY_EXISTS);
+
+        verify(signUpEmailConflictResolver).resolve("race@example.com");
     }
 
     private SignUpRequest createSignUpRequest(String email) {

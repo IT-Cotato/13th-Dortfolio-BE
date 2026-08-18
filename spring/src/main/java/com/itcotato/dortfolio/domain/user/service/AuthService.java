@@ -49,6 +49,7 @@ public class AuthService {
     private final CookieUtil cookieUtil;
     private final ActivityTypeService activityTypeService;
     private final CsrfTokenRepository csrfTokenRepository;
+    private final SignUpEmailConflictResolver signUpEmailConflictResolver;
 
     @Value("${jwt.refresh-expiration}")
     private long refreshExpirationMillis;
@@ -82,7 +83,7 @@ public class AuthService {
             userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
             throw new CustomException(
-                    UserErrorCode.EMAIL_ALREADY_EXISTS
+                    signUpEmailConflictResolver.resolve(request.email())
             );
         }
 

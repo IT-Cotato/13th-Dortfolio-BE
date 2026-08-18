@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.util.Objects;
+
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -43,16 +45,18 @@ public class GlobalExceptionHandler {
 
         GlobalErrorCode errorCode = GlobalErrorCode.INVALID_INPUT_VALUE;
         String bindingMessage = e.getBindingResult()
-                .getFieldError()
-                .getDefaultMessage();
+                .getAllErrors()
+                .stream()
+                .map(error -> error.getDefaultMessage())
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(errorCode.getMessage());
 
         return ResponseEntity
                 .status(errorCode.getStatus())
                 .body(ApiResponse.fail(
                         errorCode.getCode(),
-                        bindingMessage != null
-                                ? bindingMessage
-                                : errorCode.getMessage()
+                        bindingMessage
                 ));
     }
 
