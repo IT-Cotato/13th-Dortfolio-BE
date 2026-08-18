@@ -100,6 +100,7 @@ record-analysis:
   strength-max-count: ${RECORD_ANALYSIS_STRENGTH_MAX_COUNT:2}
   strength-min-similarity: ${RECORD_ANALYSIS_STRENGTH_MIN_SIMILARITY:0.4}
   embedding-max-characters: ${RECORD_ANALYSIS_EMBEDDING_MAX_CHARACTERS:12000}
+  retry-not-ready-batch-enabled: ${RECORD_ANALYSIS_RETRY_NOT_READY_BATCH_ENABLED:false}
 
 matching:
   default-record-limit: ${MATCHING_DEFAULT_RECORD_LIMIT:3}

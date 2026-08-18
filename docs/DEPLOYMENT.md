@@ -303,7 +303,7 @@ docker exec dortfolio-postgres pg_dump -U dortfolio dortfolio > backup_$(date +%
 
 | 명령 | 동작 |
 |---|---|
-| `GENERATE_MISSING` | `INSIGHT_EMBEDDING_MODEL`을 우선 사용하고, 없으면 `GEMINI_EMBEDDING_MODEL`, 둘 다 없으면 기본 모델을 기준으로 누락된 임베딩만 생성한 뒤 전체 완료 상태를 검증합니다. |
+| `GENERATE_MISSING` | Spring의 `insight.embedding-model`을 기준으로 누락된 임베딩만 생성한 뒤 전체 완료 상태를 검증합니다. 운영 Compose는 Spring의 `INSIGHT_EMBEDDING_MODEL`에 FastAPI와 같은 `GEMINI_EMBEDDING_MODEL` 값을 전달합니다. |
 | `VERIFY` | 외부 AI API를 호출하지 않고 전체 개수, 생성 개수, 누락 개수와 누락 ID를 검증합니다. |
 
 ### 로컬 실행
@@ -382,6 +382,7 @@ docker compose -f docker-compose.prod.yml run --rm \
 나머지 항목은 계속 처리됩니다.
 실패 또는 누락이 하나라도 남으면 명령이 실패하므로 원인을 해결한 뒤 같은 명령을 다시 실행합니다.
 이미 생성된 현재 모델의 임베딩은 건너뛰므로 재실행해도 중복 저장되지 않습니다.
+자동 배포에서는 임베딩 생성이 끝난 뒤 준비 전 상태(`RA008`)로 실패했던 기록만 한 번 재분석합니다.
 
 ---
 

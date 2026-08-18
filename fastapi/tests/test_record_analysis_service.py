@@ -103,6 +103,19 @@ class RecordAnalysisServiceTest(unittest.TestCase):
                 request,
             )
 
+    def test_parse_analysis_payload_rejects_blank_evidence_item(self):
+        request, _ = analysis_request()
+
+        with self.assertRaisesRegex(ValueError, "non-blank strings"):
+            parse_analysis_payload(
+                {
+                    "summary": "요약",
+                    "evidenceSnippets": ["   "],
+                    "strengthTagIds": [],
+                },
+                request,
+            )
+
 
 def analysis_request(candidate_count: int = 2) -> tuple[RecordAnalysisRequest, list[UUID]]:
     candidate_ids = [uuid4() for _ in range(candidate_count)]

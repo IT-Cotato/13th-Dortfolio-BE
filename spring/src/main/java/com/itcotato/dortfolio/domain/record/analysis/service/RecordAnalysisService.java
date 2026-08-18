@@ -230,6 +230,9 @@ public class RecordAnalysisService {
 			|| !StringUtils.hasText(response.summary())
 			|| response.evidenceSnippets() == null
 			|| response.evidenceSnippets().isEmpty()
+			|| response.evidenceSnippets().size() > 5
+			|| response.evidenceSnippets().stream()
+				.anyMatch(snippet -> !StringUtils.hasText(snippet))
 			|| response.strengthTagIds() == null) {
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 		}

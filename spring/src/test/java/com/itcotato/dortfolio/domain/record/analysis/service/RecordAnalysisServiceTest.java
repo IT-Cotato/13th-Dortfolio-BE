@@ -35,6 +35,7 @@ import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingRequest;
 import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingResponse;
 import com.itcotato.dortfolio.global.ai.embedding.service.EmbeddingClient;
+import com.itcotato.dortfolio.global.exception.CustomException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -624,6 +625,54 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
+	void analyzeRejectsBlankEvidenceSnippet() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template template = createTemplate(user, false);
+		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(), template.getId(), "근거 검증 기록", List.of(), List.of(), RecordStatus.COMPLETED
+		));
+		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
+			"요약",
+			List.of("   "),
+			List.of()
+		);
+
+		recordAnalysisService.analyze(record.id());
+
+		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow())
+			.satisfies(recordAnalysis -> {
+				assertThat(recordAnalysis.getAiAnalysisStatus()).isEqualTo(AiAnalysisStatus.FAILED);
+				assertThat(recordAnalysis.getFailureReason())
+					.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE.getCode());
+			});
+	}
+
+	@Test
+	void analyzeRejectsMoreThanFiveEvidenceSnippets() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template template = createTemplate(user, false);
+		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(), template.getId(), "근거 개수 검증 기록", List.of(), List.of(), RecordStatus.COMPLETED
+		));
+		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
+			"요약",
+			List.of("근거1", "근거2", "근거3", "근거4", "근거5", "근거6"),
+			List.of()
+		);
+
+		recordAnalysisService.analyze(record.id());
+
+		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow())
+			.satisfies(recordAnalysis -> {
+				assertThat(recordAnalysis.getAiAnalysisStatus()).isEqualTo(AiAnalysisStatus.FAILED);
+				assertThat(recordAnalysis.getFailureReason())
+					.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE.getCode());
+			});
+	}
+
+	@Test
 	void analyzePreservesInvalidResponseFailureRaisedDuringPersistence() {
 		User user = createUser();
 		Activity activity = createActivity(user);
@@ -676,6 +725,24 @@ class RecordAnalysisServiceTest {
 					.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE.getCode());
 				assertThat(recordAnalysis.isFailureRetryable()).isFalse();
 			});
+	}
+
+	@Test
+	void notReadyFailureIsSelectedForPostEmbeddingBatchRetry() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template template = createTemplate(user, false);
+		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(), template.getId(), "임베딩 준비 전 기록", List.of(), List.of(), RecordStatus.COMPLETED
+		));
+		stubStrengthMatchCandidateQuery.failure =
+			new CustomException(RecordAnalysisErrorCode.STRENGTH_TAG_EMBEDDING_NOT_READY);
+
+		recordAnalysisService.analyze(record.id());
+
+		assertThat(recordAnalysisRepository.findRetryableRecordIdsByFailureCode(
+			RecordAnalysisErrorCode.STRENGTH_TAG_EMBEDDING_NOT_READY.getCode()
+		)).contains(record.id());
 	}
 
 	private User createUser() {

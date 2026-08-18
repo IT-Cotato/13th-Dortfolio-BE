@@ -43,6 +43,26 @@ class RecordEmbeddingTextBuilderTest {
 		assertThat(result).startsWith("활동 제목: 프로젝트\n활동 설명:");
 	}
 
+	@Test
+	void doesNotSplitSurrogatePairWhenTruncatingEmbeddingText() {
+		RecordEmbeddingTextBuilder builder = new RecordEmbeddingTextBuilder(properties(8));
+		RecordAnalysisRequest request = new RecordAnalysisRequest(
+			UUID.randomUUID(),
+			"😀기록",
+			new ActivityPayload("😀", null),
+			new TemplatePayload("템플릿"),
+			List.of(),
+			List.of(),
+			List.of(),
+			2
+		);
+
+		String result = builder.build(request);
+
+		assertThat(result).isEqualTo("활동 제목: ");
+		assertThat(result).doesNotContain("�");
+	}
+
 	private RecordAnalysisRequest request() {
 		return new RecordAnalysisRequest(
 			UUID.randomUUID(),

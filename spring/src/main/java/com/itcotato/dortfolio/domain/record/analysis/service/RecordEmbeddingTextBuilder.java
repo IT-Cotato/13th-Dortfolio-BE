@@ -35,7 +35,14 @@ public class RecordEmbeddingTextBuilder {
 			.flatMap(stream -> stream)
 			.filter(value -> value != null)
 			.collect(Collectors.joining("\n"));
-		return text.substring(0, Math.min(text.length(), properties.embeddingMaxCharacters()));
+		int endIndex = Math.min(text.length(), properties.embeddingMaxCharacters());
+		if (endIndex < text.length()
+			&& endIndex > 0
+			&& Character.isHighSurrogate(text.charAt(endIndex - 1))
+			&& Character.isLowSurrogate(text.charAt(endIndex))) {
+			endIndex--;
+		}
+		return text.substring(0, endIndex);
 	}
 
 	private String labeled(String label, String value) {

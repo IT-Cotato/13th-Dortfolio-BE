@@ -111,8 +111,11 @@ def parse_analysis_payload(
     raw_strength_tag_ids = payload["strengthTagIds"]
     if not isinstance(summary, str):
         raise ValueError("Gemini analysis summary must be a string.")
-    if not isinstance(evidence_snippets, list) or not all(isinstance(item, str) for item in evidence_snippets):
-        raise ValueError("Gemini analysis evidenceSnippets must be a string array.")
+    if not isinstance(evidence_snippets, list) or not all(
+        isinstance(item, str) and item.strip()
+        for item in evidence_snippets
+    ):
+        raise ValueError("Gemini analysis evidenceSnippets must contain non-blank strings.")
     if not 1 <= len(evidence_snippets) <= 5:
         raise ValueError("Gemini analysis evidenceSnippets must contain between 1 and 5 items.")
     if not isinstance(raw_strength_tag_ids, list):
