@@ -2,6 +2,7 @@ package com.itcotato.dortfolio.domain.user.controller.docs;
 
 import com.itcotato.dortfolio.domain.user.dto.*;
 import com.itcotato.dortfolio.global.response.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
@@ -18,7 +19,32 @@ import java.util.UUID;
 @Tag(name = "Auth", description = "인증/인가 API")
 public interface AuthControllerDocs {
 
-    @Operation(summary = "자체 회원가입 API", description = "이메일, 비밀번호, 닉네임 및 약관 동의 정보를 받아 자체 회원가입을 진행합니다.")
+    @Operation(
+            summary = "자체 회원가입 API",
+            description = """
+                이메일, 비밀번호, 닉네임 및 약관 동의 정보를 받아 자체 회원가입을 진행합니다.
+
+                입력한 이메일이 기존 구글 계정으로 가입되어 있으면
+                HTTP 409와 U018 코드를 반환합니다.
+                """
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "회원가입 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = """
+                        G001: 입력값 검증 실패
+                        U005: 이미 일반 회원으로 가입된 이메일
+                        """
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "409",
+                    description = "U018: 이미 구글로 가입된 이메일"
+            )
+    })
     ApiResponse<Void> signUp(
             @Valid @RequestBody SignUpRequest request
     );
