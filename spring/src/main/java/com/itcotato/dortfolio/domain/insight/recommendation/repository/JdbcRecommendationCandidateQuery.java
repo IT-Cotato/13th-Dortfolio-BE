@@ -146,7 +146,7 @@ public class JdbcRecommendationCandidateQuery
                   and 1.0 - (
                         record_embedding.embedding::halfvec(%d)
                         <=> cast(? as halfvec(%d))
-                  ) >= ?
+                  ) > ?
                 order by
                     record_embedding.embedding::halfvec(%d)
                         <=> cast(? as halfvec(%d)) asc,

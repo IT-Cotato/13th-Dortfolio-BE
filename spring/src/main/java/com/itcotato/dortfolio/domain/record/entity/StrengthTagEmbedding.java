@@ -41,7 +41,11 @@ public class StrengthTagEmbedding extends BaseEntity {
 	private String embeddingModel;
 
 	@JdbcTypeCode(SqlTypes.VECTOR)
-	@Column(name = "embedding", nullable = false, columnDefinition = "vector(3072)")
+	@Column(
+		name = "embedding",
+		nullable = false,
+		columnDefinition = "vector(" + EMBEDDING_DIMENSION + ")"
+	)
 	private float[] embedding;
 
 	private StrengthTagEmbedding(

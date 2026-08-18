@@ -77,6 +77,32 @@ class RecordAnalysisServiceTest(unittest.TestCase):
                 request,
             )
 
+    def test_parse_analysis_payload_rejects_empty_evidence(self):
+        request, _ = analysis_request()
+
+        with self.assertRaisesRegex(ValueError, "between 1 and 5"):
+            parse_analysis_payload(
+                {
+                    "summary": "요약",
+                    "evidenceSnippets": [],
+                    "strengthTagIds": [],
+                },
+                request,
+            )
+
+    def test_parse_analysis_payload_rejects_more_than_five_evidence_items(self):
+        request, _ = analysis_request()
+
+        with self.assertRaisesRegex(ValueError, "between 1 and 5"):
+            parse_analysis_payload(
+                {
+                    "summary": "요약",
+                    "evidenceSnippets": ["근거"] * 6,
+                    "strengthTagIds": [],
+                },
+                request,
+            )
+
 
 def analysis_request(candidate_count: int = 2) -> tuple[RecordAnalysisRequest, list[UUID]]:
     candidate_ids = [uuid4() for _ in range(candidate_count)]

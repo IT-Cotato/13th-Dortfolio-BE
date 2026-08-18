@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.itcotato.dortfolio.domain.record.analysis.dto.StrengthMatchCandidate;
 import com.itcotato.dortfolio.domain.record.analysis.exception.RecordAnalysisErrorCode;
+import com.itcotato.dortfolio.domain.record.entity.StrengthTagEmbedding;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,6 +14,7 @@ import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.configuration.FluentConfiguration;
 import org.flywaydb.database.postgresql.PostgreSQLConfigurationExtension;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -79,6 +81,11 @@ class JdbcStrengthMatchCandidateQueryContainerTest {
 			});
 	}
 
+	@AfterEach
+	void tearDown() {
+		jdbcTemplate.update("delete from strength_tag_embeddings");
+	}
+
 	@Test
 	void rejectsMatchingWhenEmbeddingCoverageIsIncomplete() {
 		insertEmbeddings();
@@ -116,14 +123,17 @@ class JdbcStrengthMatchCandidateQueryContainerTest {
 	}
 
 	private static float[] vectorValues(double first, double second) {
-		float[] values = new float[3072];
+		float[] values = new float[StrengthTagEmbedding.EMBEDDING_DIMENSION];
 		values[0] = (float) first;
 		values[1] = (float) second;
 		return values;
 	}
 
 	private static String vectorLiteral(double first, double second) {
-		List<String> values = new ArrayList<>(Collections.nCopies(3072, "0"));
+		List<String> values = new ArrayList<>(Collections.nCopies(
+			StrengthTagEmbedding.EMBEDDING_DIMENSION,
+			"0"
+		));
 		values.set(0, Double.toString(first));
 		values.set(1, Double.toString(second));
 		return "[" + String.join(",", values) + "]";

@@ -75,6 +75,7 @@ class StrengthTagEmbeddingServiceTest {
 			정의: 문제를 구조적으로 분석하고 해결합니다.
 			판단 기준: 원인을 파악하고 해결책을 실행했는지 확인합니다.
 			적합 예시: 병목을 분석하고 개선했습니다.
+			부적합 예시: 문제를 다른 사람에게 넘겼습니다.
 			""".strip());
 		when(embeddingRepository.existsByStrengthTag_IdAndEmbeddingModel(strengthTagId, MODEL))
 			.thenReturn(false);

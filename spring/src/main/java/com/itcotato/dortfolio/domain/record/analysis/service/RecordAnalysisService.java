@@ -105,6 +105,17 @@ public class RecordAnalysisService {
 					saveSuccessfulAnalysis(snapshotOptional.get(), result)
 				)
 			);
+		} catch (CustomException exception) {
+			recordAnalysisLockManager.executeWithLock(
+				recordId,
+				() -> markFailed(recordId, toFailureReason(exception), toRetryable(exception))
+			);
+			log.warn(
+				"Record AI analysis persistence rejected. recordId={}, errorCode={}",
+				recordId,
+				exception.getErrorCode().getCode()
+			);
+			return;
 		} catch (Exception exception) {
 			markPersistenceFailure(recordId, "persistence", exception);
 			return;
@@ -163,6 +174,9 @@ public class RecordAnalysisService {
 			);
 		} catch (CustomException exception) {
 			throw exception;
+		} catch (IllegalArgumentException exception) {
+			log.warn("Strength match candidate arguments are invalid.", exception);
+			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 		} catch (Exception exception) {
 			log.warn("Strength match candidate query failed.", exception);
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED);

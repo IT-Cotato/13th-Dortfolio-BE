@@ -138,6 +138,12 @@ class JdbcRecommendationCandidateQueryContainerTest {
         );
         insertAnalyzedRecord(
                 ownerId,
+                "임계값과 같은 기록",
+                snapshotAt.minusHours(1),
+                vector(0.5, Math.sqrt(0.75))
+        );
+        insertAnalyzedRecord(
+                ownerId,
                 "직교하는 기록",
                 snapshotAt.minusHours(1),
                 vector(1)
@@ -287,6 +293,16 @@ class JdbcRecommendationCandidateQueryContainerTest {
                         Collections.nCopies(3072, "0")
                 );
         values.set(activeIndex, "1");
+        return "[" + String.join(",", values) + "]";
+    }
+
+    private static String vector(double first, double second) {
+        List<String> values =
+                new java.util.ArrayList<>(
+                        Collections.nCopies(3072, "0")
+                );
+        values.set(0, Double.toString(first));
+        values.set(1, Double.toString(second));
         return "[" + String.join(",", values) + "]";
     }
 }

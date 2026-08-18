@@ -12,11 +12,13 @@ public class StrengthTagEmbeddingTextBuilder {
 			정의: %s
 			판단 기준: %s
 			적합 예시: %s
+			부적합 예시: %s
 			""".formatted(
 			strengthTag.getName().trim(),
 			strengthTag.getDescription().trim(),
 			strengthTag.getEvaluationCriteria().trim(),
-			strengthTag.getPositiveExample().trim()
+			strengthTag.getPositiveExample().trim(),
+			strengthTag.getNegativeExample().trim()
 		).strip();
 	}
 }

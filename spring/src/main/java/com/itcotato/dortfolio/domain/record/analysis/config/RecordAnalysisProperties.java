@@ -23,7 +23,9 @@ public record RecordAnalysisProperties(
 	int strengthCandidateLimit,
 	@Min(1)
 	int strengthMaxCount,
-	double strengthMinSimilarity
+	double strengthMinSimilarity,
+	@Min(1)
+	int embeddingMaxCharacters
 ) {
 
 	@AssertTrue(message = "asyncMaxPoolSize must be greater than or equal to asyncCorePoolSize")

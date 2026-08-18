@@ -128,6 +128,34 @@ class InsightRecommendationGeneratorImplTest {
     }
 
     @Test
+    void rejectsNoMatchResponseContainingEmptyReason() {
+        when(client.generate(request))
+                .thenReturn(new RecommendationResult(
+                        false,
+                        jobCompetencyId,
+                        null,
+                        ""
+                ));
+
+        assertThatThrownBy(() -> generator.generate(request))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    void rejectsNoMatchResponseContainingWhitespaceReason() {
+        when(client.generate(request))
+                .thenReturn(new RecommendationResult(
+                        false,
+                        jobCompetencyId,
+                        null,
+                        " "
+                ));
+
+        assertThatThrownBy(() -> generator.generate(request))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test
     void rejectsRecordOutsideCandidates() {
         when(client.generate(request))
                 .thenReturn(new RecommendationResult(

@@ -100,7 +100,7 @@ public class InsightRecommendationGeneratorImpl
 
         if (!response.matched()) {
             if (response.recordId() != null
-                    || StringUtils.hasText(response.reason())) {
+                    || response.reason() != null) {
                 throw new InvalidRecommendationResponseException();
             }
             return new RecommendationResult(

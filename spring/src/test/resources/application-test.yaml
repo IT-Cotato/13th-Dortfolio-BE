@@ -51,6 +51,7 @@ record-analysis:
   strength-candidate-limit: 5
   strength-max-count: 2
   strength-min-similarity: 0.4
+  embedding-max-characters: 12000
 
 matching:
   default-record-limit: 3

@@ -6,6 +6,7 @@ import com.itcotato.dortfolio.domain.activity.entity.Activity;
 import com.itcotato.dortfolio.domain.activity.entity.ActivityType;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityRepository;
 import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
+import com.itcotato.dortfolio.domain.record.analysis.config.RecordAnalysisProperties;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisResponse;
 import com.itcotato.dortfolio.domain.record.analysis.dto.StrengthMatchCandidate;
@@ -37,6 +38,7 @@ import com.itcotato.dortfolio.global.ai.embedding.service.EmbeddingClient;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +61,9 @@ class RecordAnalysisServiceTest {
 
 	@Autowired
 	private RecordAnalysisService recordAnalysisService;
+
+	@Autowired
+	private RecordAnalysisProperties recordAnalysisProperties;
 
 	@Autowired
 	private StubRecordAnalysisClient stubRecordAnalysisClient;
@@ -128,7 +133,7 @@ class RecordAnalysisServiceTest {
 		activityRepository.deleteAll();
 		activityTypeRepository.deleteAll();
 		userRepository.deleteAll();
-		strengthCandidates = null;
+		createStrengthCandidates();
 	}
 
 	@Test
@@ -426,6 +431,7 @@ class RecordAnalysisServiceTest {
 			List.of(),
 			RecordStatus.COMPLETED
 		));
+		assertThat(recordAnalysisProperties.strengthMaxCount()).isEqualTo(2);
 		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
 			"요약",
 			List.of("근거"),
@@ -617,13 +623,71 @@ class RecordAnalysisServiceTest {
 		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id())).isEmpty();
 	}
 
+	@Test
+	void analyzePreservesInvalidResponseFailureRaisedDuringPersistence() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template template = createTemplate(user, false);
+		UUID missingStrengthTagId = UUID.randomUUID();
+		stubStrengthMatchCandidateQuery.candidates = List.of(new StrengthMatchCandidate(
+			missingStrengthTagId,
+			"존재하지 않는 강점",
+			"설명",
+			"기준",
+			"적합",
+			"부적합",
+			0.9f
+		));
+		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(), template.getId(), "저장 검증 기록", List.of(), List.of(), RecordStatus.COMPLETED
+		));
+		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
+			"요약",
+			List.of("근거"),
+			List.of(missingStrengthTagId)
+		);
+
+		recordAnalysisService.analyze(record.id());
+
+		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow())
+			.satisfies(recordAnalysis -> {
+				assertThat(recordAnalysis.getAiAnalysisStatus()).isEqualTo(AiAnalysisStatus.FAILED);
+				assertThat(recordAnalysis.getFailureReason())
+					.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE.getCode());
+				assertThat(recordAnalysis.isFailureRetryable()).isFalse();
+			});
+	}
+
+	@Test
+	void analyzeTreatsInvalidCandidateArgumentsAsNonRetryableInvalidResponse() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template template = createTemplate(user, false);
+		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
+			activity.getId(), template.getId(), "후보 인자 오류 기록", List.of(), List.of(), RecordStatus.COMPLETED
+		));
+		stubStrengthMatchCandidateQuery.failure = new IllegalArgumentException("invalid arguments");
+
+		recordAnalysisService.analyze(record.id());
+
+		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow())
+			.satisfies(recordAnalysis -> {
+				assertThat(recordAnalysis.getFailureReason())
+					.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE.getCode());
+				assertThat(recordAnalysis.isFailureRetryable()).isFalse();
+			});
+	}
+
 	private User createUser() {
-		User user = userRepository.save(User.of(
+		return userRepository.save(User.of(
 			UUID.randomUUID() + "@test.com",
 			"encoded-password",
 			"테스터"
 		));
-		strengthCandidates = java.util.stream.IntStream.rangeClosed(1, 5)
+	}
+
+	private void createStrengthCandidates() {
+		strengthCandidates = IntStream.rangeClosed(1, 5)
 			.mapToObj(index -> strengthTagRepository.save(StrengthTag.create(
 				"TEST_STRENGTH_" + index + "_" + UUID.randomUUID().toString().substring(0, 8),
 				"테스트 강점 " + index,
@@ -644,7 +708,6 @@ class RecordAnalysisServiceTest {
 				0.9f
 			))
 			.toList();
-		return user;
 	}
 
 	private Activity createActivity(User user) {
@@ -689,8 +752,10 @@ class RecordAnalysisServiceTest {
 
 		@Bean
 		@Primary
-		StubRecordEmbeddingTextBuilder stubRecordEmbeddingTextBuilder() {
-			return new StubRecordEmbeddingTextBuilder();
+		StubRecordEmbeddingTextBuilder stubRecordEmbeddingTextBuilder(
+			RecordAnalysisProperties properties
+		) {
+			return new StubRecordEmbeddingTextBuilder(properties);
 		}
 
 		@Bean
@@ -729,6 +794,10 @@ class RecordAnalysisServiceTest {
 
 		private RuntimeException failure;
 
+		StubRecordEmbeddingTextBuilder(RecordAnalysisProperties properties) {
+			super(properties);
+		}
+
 		@Override
 		public String build(RecordAnalysisRequest request) {
 			if (failure != null) {
@@ -745,6 +814,7 @@ class RecordAnalysisServiceTest {
 	static class StubStrengthMatchCandidateQuery implements StrengthMatchCandidateQuery {
 
 		private List<StrengthMatchCandidate> candidates = List.of();
+		private RuntimeException failure;
 
 		@Override
 		public List<StrengthMatchCandidate> findTopCandidates(
@@ -753,11 +823,15 @@ class RecordAnalysisServiceTest {
 			int limit,
 			double minimumSimilarity
 		) {
+			if (failure != null) {
+				throw failure;
+			}
 			return candidates.stream().limit(limit).toList();
 		}
 
 		private void reset() {
 			this.candidates = List.of();
+			this.failure = null;
 		}
 	}
 

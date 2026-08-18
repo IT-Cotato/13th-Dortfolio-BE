@@ -99,6 +99,7 @@ record-analysis:
   strength-candidate-limit: ${RECORD_ANALYSIS_STRENGTH_CANDIDATE_LIMIT:5}
   strength-max-count: ${RECORD_ANALYSIS_STRENGTH_MAX_COUNT:2}
   strength-min-similarity: ${RECORD_ANALYSIS_STRENGTH_MIN_SIMILARITY:0.4}
+  embedding-max-characters: ${RECORD_ANALYSIS_EMBEDDING_MAX_CHARACTERS:12000}
 
 matching:
   default-record-limit: ${MATCHING_DEFAULT_RECORD_LIMIT:3}

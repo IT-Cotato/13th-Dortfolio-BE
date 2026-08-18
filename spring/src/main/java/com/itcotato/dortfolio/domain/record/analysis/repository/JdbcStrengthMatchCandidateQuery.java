@@ -34,30 +34,39 @@ public class JdbcStrengthMatchCandidateQuery implements StrengthMatchCandidateQu
 		String vector = toVectorLiteral(recordEmbedding);
 		return jdbcTemplate.query(
 			"""
+			with candidates as (
+				select
+					strength_tag.id as strength_tag_id,
+					strength_tag.name,
+					strength_tag.description,
+					strength_tag.evaluation_criteria,
+					strength_tag.positive_example,
+					strength_tag.negative_example,
+					1.0 - (embedding.embedding <=> cast(? as vector)) as cosine_similarity
+				from strength_tag_embeddings embedding
+				join strength_tags strength_tag
+				  on strength_tag.id = embedding.strength_tag_id
+				where embedding.embedding_model = ?
+			)
 			select
-				strength_tag.id as strength_tag_id,
-				strength_tag.name,
-				strength_tag.description,
-				strength_tag.evaluation_criteria,
-				strength_tag.positive_example,
-				strength_tag.negative_example,
-				1.0 - (embedding.embedding <=> cast(? as vector)) as cosine_similarity
-			from strength_tag_embeddings embedding
-			join strength_tags strength_tag
-			  on strength_tag.id = embedding.strength_tag_id
-			where embedding.embedding_model = ?
-			  and 1.0 - (embedding.embedding <=> cast(? as vector)) > ?
+				strength_tag_id,
+				name,
+				description,
+				evaluation_criteria,
+				positive_example,
+				negative_example,
+				cosine_similarity
+			from candidates
+			where cosine_similarity > ?
 			order by
-				embedding.embedding <=> cast(? as vector) asc,
-				strength_tag.id asc
+				cosine_similarity desc,
+				strength_tag_id asc
 			limit ?
 			""",
 			this::mapCandidate,
 			vector,
 			embeddingModel,
-			vector,
 			minimumSimilarity,
-			vector,
 			limit
 		);
 	}
@@ -88,6 +97,7 @@ public class JdbcStrengthMatchCandidateQuery implements StrengthMatchCandidateQu
 	}
 
 	private StrengthMatchCandidate mapCandidate(ResultSet resultSet, int rowNumber) throws SQLException {
+		float cosineSimilarity = Math.max(-1.0f, Math.min(1.0f, resultSet.getFloat("cosine_similarity")));
 		return new StrengthMatchCandidate(
 			resultSet.getObject("strength_tag_id", UUID.class),
 			resultSet.getString("name"),
@@ -95,7 +105,7 @@ public class JdbcStrengthMatchCandidateQuery implements StrengthMatchCandidateQu
 			resultSet.getString("evaluation_criteria"),
 			resultSet.getString("positive_example"),
 			resultSet.getString("negative_example"),
-			resultSet.getFloat("cosine_similarity")
+			cosineSimilarity
 		);
 	}
 
