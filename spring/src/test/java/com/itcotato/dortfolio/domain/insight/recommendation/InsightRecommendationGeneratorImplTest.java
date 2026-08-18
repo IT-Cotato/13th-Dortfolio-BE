@@ -138,7 +138,14 @@ class InsightRecommendationGeneratorImplTest {
                 ));
 
         assertThatThrownBy(() -> generator.generate(request))
-                .isInstanceOf(CustomException.class);
+                .isInstanceOf(CustomException.class)
+                .extracting(error ->
+                        ((CustomException) error).getErrorCode()
+                )
+                .isEqualTo(
+                        InsightErrorCode
+                                .INSIGHT_RECOMMENDATION_INVALID_RESPONSE
+                );
     }
 
     @Test
@@ -152,7 +159,14 @@ class InsightRecommendationGeneratorImplTest {
                 ));
 
         assertThatThrownBy(() -> generator.generate(request))
-                .isInstanceOf(CustomException.class);
+                .isInstanceOf(CustomException.class)
+                .extracting(error ->
+                        ((CustomException) error).getErrorCode()
+                )
+                .isEqualTo(
+                        InsightErrorCode
+                                .INSIGHT_RECOMMENDATION_INVALID_RESPONSE
+                );
     }
 
     @Test
