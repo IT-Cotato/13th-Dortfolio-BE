@@ -152,6 +152,9 @@ jobs:
             docker compose -f docker-compose.prod.yml run --rm \
               -e JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED=true \
               -e JOB_COMPETENCY_EMBEDDING_BATCH_COMMAND=GENERATE_MISSING \
+              -e STRENGTH_TAG_EMBEDDING_BATCH_ENABLED=true \
+              -e STRENGTH_TAG_EMBEDDING_BATCH_COMMAND=GENERATE_MISSING \
+              -e RECORD_ANALYSIS_RETRY_NOT_READY_BATCH_ENABLED=true \
               -e SPRING_MAIN_WEB_APPLICATION_TYPE=none \
               spring
 

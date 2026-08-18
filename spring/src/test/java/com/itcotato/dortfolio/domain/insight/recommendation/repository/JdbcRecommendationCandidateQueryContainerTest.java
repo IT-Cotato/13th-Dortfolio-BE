@@ -64,7 +64,10 @@ class JdbcRecommendationCandidateQueryContainerTest {
                 new InsightProperties(
                         10,
                         Duration.ofHours(24),
+                        0.1,
+                        1,
                         5,
+                        0.0,
                         MODEL,
                         2,
                         Duration.ofSeconds(10)
@@ -107,7 +110,8 @@ class JdbcRecommendationCandidateQueryContainerTest {
                                 ownerId,
                                 competencyId,
                                 snapshotAt,
-                                5
+                                5,
+                                0.0
                         )
                 );
 
@@ -117,6 +121,48 @@ class JdbcRecommendationCandidateQueryContainerTest {
                         boundaryRecordId,
                         expectedRecordId
                 );
+    }
+
+    @Test
+    void excludesCandidatesBelowMinimumSimilarity() {
+        UUID ownerId = insertUser("threshold-owner");
+        UUID competencyId = insertCompetencyEmbedding();
+        LocalDateTime snapshotAt =
+                LocalDateTime.of(2026, 8, 7, 10, 0);
+
+        UUID matchingRecordId = insertAnalyzedRecord(
+                ownerId,
+                "유사한 기록",
+                snapshotAt.minusHours(1),
+                vector(0)
+        );
+        insertAnalyzedRecord(
+                ownerId,
+                "임계값과 같은 기록",
+                snapshotAt.minusHours(1),
+                vector(0.5, Math.sqrt(0.75))
+        );
+        insertAnalyzedRecord(
+                ownerId,
+                "직교하는 기록",
+                snapshotAt.minusHours(1),
+                vector(1)
+        );
+
+        List<RecommendationCandidate> result =
+                transactionTemplate.execute(status ->
+                        repository.findTopCandidates(
+                                ownerId,
+                                competencyId,
+                                snapshotAt,
+                                5,
+                                0.5
+                        )
+                );
+
+        assertThat(result)
+                .extracting(RecommendationCandidate::recordId)
+                .containsExactly(matchingRecordId);
     }
 
     private static UUID insertUser(String prefix) {
@@ -133,22 +179,23 @@ class JdbcRecommendationCandidateQueryContainerTest {
         UUID jobId = UUID.randomUUID();
         UUID tagId = UUID.randomUUID();
         UUID competencyId = UUID.randomUUID();
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
         jdbcTemplate.update("""
                 insert into jobs (
                     id, created_at, updated_at,
                     code, category_code, name
                 ) values (
                     ?, now(), now(),
-                    'TEST_JOB_001', 'IT_DEVELOPMENT', '백엔드 개발자'
+                    ?, 'IT_DEVELOPMENT', '백엔드 개발자'
                 )
-                """, jobId);
+                """, jobId, "TEST_JOB_" + suffix);
         jdbcTemplate.update("""
                 insert into competency_tags (
                     id, created_at, updated_at, code, name
                 ) values (
-                    ?, now(), now(), 'TEST_COMP_001', '문제 해결'
+                    ?, now(), now(), ?, '문제 해결'
                 )
-                """, tagId);
+                """, tagId, "TEST_" + suffix);
         jdbcTemplate.update("""
                 insert into job_competencies (
                     id, created_at, updated_at, sort_order,
@@ -160,7 +207,7 @@ class JdbcRecommendationCandidateQueryContainerTest {
                     id, created_at, updated_at, job_competency_id,
                     embedding_model, embedding
                 ) values (?, now(), now(), ?, ?, ?::vector)
-                """, UUID.randomUUID(), competencyId, MODEL, vector());
+                """, UUID.randomUUID(), competencyId, MODEL, vector(0));
         return competencyId;
     }
 
@@ -168,6 +215,20 @@ class JdbcRecommendationCandidateQueryContainerTest {
             UUID userId,
             String title,
             LocalDateTime completedAt
+    ) {
+        return insertAnalyzedRecord(
+                userId,
+                title,
+                completedAt,
+                vector(0)
+        );
+    }
+
+    private static UUID insertAnalyzedRecord(
+            UUID userId,
+            String title,
+            LocalDateTime completedAt,
+            String embeddingVector
     ) {
         UUID activityTypeId = UUID.randomUUID();
         UUID activityId = UUID.randomUUID();
@@ -222,16 +283,26 @@ class JdbcRecommendationCandidateQueryContainerTest {
                     id, created_at, updated_at, embedding,
                     embedding_model, record_id
                 ) values (?, now(), now(), ?::vector, ?, ?)
-                """, UUID.randomUUID(), vector(), MODEL, recordId);
+                """, UUID.randomUUID(), embeddingVector, MODEL, recordId);
         return recordId;
     }
 
-    private static String vector() {
+    private static String vector(int activeIndex) {
         List<String> values =
                 new java.util.ArrayList<>(
                         Collections.nCopies(3072, "0")
                 );
-        values.set(0, "1");
+        values.set(activeIndex, "1");
+        return "[" + String.join(",", values) + "]";
+    }
+
+    private static String vector(double first, double second) {
+        List<String> values =
+                new java.util.ArrayList<>(
+                        Collections.nCopies(3072, "0")
+                );
+        values.set(0, Double.toString(first));
+        values.set(1, Double.toString(second));
         return "[" + String.join(",", values) + "]";
     }
 }

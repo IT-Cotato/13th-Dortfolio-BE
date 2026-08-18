@@ -10,6 +10,7 @@ import com.itcotato.dortfolio.domain.insight.dto.res.LatestInsightResponse;
 import com.itcotato.dortfolio.domain.insight.entity.Insight;
 import com.itcotato.dortfolio.domain.insight.entity.InsightGenerationStatus;
 import com.itcotato.dortfolio.domain.insight.entity.InsightJobRecommendation;
+import com.itcotato.dortfolio.domain.insight.entity.InsightJobRecommendationMatchStatus;
 import com.itcotato.dortfolio.domain.insight.entity.InsightStrength;
 import com.itcotato.dortfolio.domain.insight.entity.InsightStrengthRecord;
 import com.itcotato.dortfolio.domain.insight.entity.InsightTemplateStatistic;
@@ -194,6 +195,8 @@ class LatestInsightQueryServiceTest {
                 .satisfies(item -> {
                     assertThat(item.recordId())
                             .isEqualTo(DELETED_RECORD_ID);
+                    assertThat(item.matchStatus())
+                            .isEqualTo(InsightJobRecommendationMatchStatus.MATCHED);
                     assertThat(item.navigationAvailable()).isFalse();
                 });
 
@@ -243,6 +246,58 @@ class LatestInsightQueryServiceTest {
         assertThat(result.recommendations()).isEmpty();
         assertThat(result.currentGeneration()).isNull();
         assertThat(result.changes().desiredJobChanged()).isTrue();
+        verify(recordRepository, never())
+                .findAvailableRecordIds(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any()
+                );
+    }
+
+    @Test
+    void returnsNoMatchRecommendationWithoutLookingUpNullRecordId() {
+        stubCompletedInsight();
+        when(insightRepository.findLatestCompletedByUserId(USER_ID))
+                .thenReturn(Optional.of(completedInsight));
+        when(strengthRepository
+                .findAllByInsight_IdOrderByRankAscStrengthTagIdSnapshotAsc(
+                        INSIGHT_ID
+                )).thenReturn(List.of());
+        when(strengthRecordRepository.findAllForInsight(INSIGHT_ID))
+                .thenReturn(List.of());
+        when(templateRepository
+                .findAllByInsight_IdOrderByRankAscTemplateIdSnapshotAsc(
+                        INSIGHT_ID
+                )).thenReturn(List.of());
+        when(recommendationRepository
+                .findAllByInsight_IdOrderBySortOrderSnapshotAscJobCompetencyIdSnapshotAsc(
+                        INSIGHT_ID
+                )).thenReturn(List.of(recommendation));
+        when(recommendation.getJobCompetencyIdSnapshot())
+                .thenReturn(COMPETENCY_ID);
+        when(recommendation.getCompetencyNameSnapshot())
+                .thenReturn("problem-solving");
+        when(recommendation.getMatchStatus())
+                .thenReturn(InsightJobRecommendationMatchStatus.NO_MATCH);
+        when(recommendation.getSimilarity()).thenReturn(null);
+        when(insightRepository.findPendingByUserId(USER_ID))
+                .thenReturn(Optional.empty());
+        when(userJobRepository.findByUserIdAndIsPrimaryTrue(USER_ID))
+                .thenReturn(Optional.empty());
+
+        LatestInsightResponse result = service.getLatest(USER_ID);
+
+        assertThat(result.recommendations())
+                .singleElement()
+                .satisfies(item -> {
+                    assertThat(item.matchStatus())
+                            .isEqualTo(InsightJobRecommendationMatchStatus.NO_MATCH);
+                    assertThat(item.recordId()).isNull();
+                    assertThat(item.recordTitle()).isNull();
+                    assertThat(item.templateName()).isNull();
+                    assertThat(item.reason()).isNull();
+                    assertThat(item.similarity()).isNull();
+                    assertThat(item.navigationAvailable()).isFalse();
+                });
         verify(recordRepository, never())
                 .findAvailableRecordIds(
                         org.mockito.ArgumentMatchers.any(),
@@ -317,6 +372,8 @@ class LatestInsightQueryServiceTest {
                 .thenReturn(COMPETENCY_ID);
         when(recommendation.getCompetencyNameSnapshot())
                 .thenReturn("problem-solving");
+        when(recommendation.getMatchStatus())
+                .thenReturn(InsightJobRecommendationMatchStatus.MATCHED);
         when(recommendation.getRecordIdSnapshot())
                 .thenReturn(DELETED_RECORD_ID);
         when(recommendation.getRecordTitleSnapshot())

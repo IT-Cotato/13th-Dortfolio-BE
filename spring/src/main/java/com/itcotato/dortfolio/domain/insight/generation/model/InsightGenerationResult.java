@@ -55,13 +55,67 @@ public record InsightGenerationResult(
 
     /* 직무 역량별 최종 추천 결과 */
     public record JobRecommendationResult(
+            boolean matched,
             UUID jobCompetencyId,
             String competencyName,
             UUID recordId,
             String recordTitle,
             String templateName,
             String reason,
-            double similarity
+            Double similarity
     ) {
+        public JobRecommendationResult {
+            if (matched && (recordId == null
+                    || recordTitle == null
+                    || templateName == null
+                    || reason == null
+                    || similarity == null)) {
+                throw new IllegalArgumentException("Matched recommendation requires record details");
+            }
+            if (!matched && (recordId != null
+                    || recordTitle != null
+                    || templateName != null
+                    || reason != null
+                    || similarity != null)) {
+                throw new IllegalArgumentException("Unmatched recommendation cannot contain record details");
+            }
+        }
+
+        public JobRecommendationResult(
+                UUID jobCompetencyId,
+                String competencyName,
+                UUID recordId,
+                String recordTitle,
+                String templateName,
+                String reason,
+                double similarity
+        ) {
+            this(
+                    true,
+                    jobCompetencyId,
+                    competencyName,
+                    recordId,
+                    recordTitle,
+                    templateName,
+                    reason,
+                    similarity
+            );
+        }
+
+        public static JobRecommendationResult noMatch(
+                UUID jobCompetencyId,
+                String competencyName
+        ) {
+            return new JobRecommendationResult(
+                    false,
+                    jobCompetencyId,
+                    competencyName,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+            );
+        }
     }
 }

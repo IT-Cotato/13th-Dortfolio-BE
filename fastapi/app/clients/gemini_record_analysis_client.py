@@ -1,16 +1,10 @@
 import json
-from math import isnan
 from uuid import UUID
 
 from google import genai
 from google.genai import types
-from pydantic import ValidationError
-
 from app.core.config import Settings
-from app.schemas.record_analysis import (
-    AnalyzedCompetencyTagResponse,
-    RecordAnalysisRequest,
-)
+from app.schemas.record_analysis import RecordAnalysisRequest
 
 
 class GeminiRecordAnalysisClient:
@@ -21,7 +15,7 @@ class GeminiRecordAnalysisClient:
             http_options=types.HttpOptions(timeout=int(settings.gemini_http_timeout_seconds * 1000)),
         )
 
-    def analyze_record(self, request: RecordAnalysisRequest) -> tuple[str, list[str], list[AnalyzedCompetencyTagResponse]]:
+    def analyze_record(self, request: RecordAnalysisRequest) -> tuple[str, list[str], list[UUID]]:
         prompt = build_analysis_prompt(request)
         response = self.client.models.generate_content(
             model=self.settings.gemini_generation_model,
@@ -51,9 +45,17 @@ def build_analysis_prompt(request: RecordAnalysisRequest) -> str:
         f"- 제목: {memo.title or ''}\n  내용: {memo.content}"
         for memo in request.memos
     )
-    competency_tags = "\n".join(
-        f"- id: {candidate.id}, name: {candidate.name}, description: {candidate.description or ''}"
-        for candidate in request.competencyTagCandidates
+    strength_tags = "\n".join(
+        (
+            f"- id: {candidate.id}\n"
+            f"  name: {candidate.name}\n"
+            f"  description: {candidate.description}\n"
+            f"  evaluationCriteria: {candidate.evaluationCriteria}\n"
+            f"  positiveExample: {candidate.positiveExample}\n"
+            f"  negativeExample: {candidate.negativeExample}\n"
+            f"  cosineSimilarity: {candidate.cosineSimilarity}"
+        )
+        for candidate in request.strengthTagCandidates
     )
 
     return f"""
@@ -62,17 +64,18 @@ def build_analysis_prompt(request: RecordAnalysisRequest) -> str:
 규칙:
 - summary는 한국어 1문장으로 작성합니다.
 - evidenceSnippets는 답변/메모 원문에서 핵심 근거 문장만 1~5개 추출합니다.
-- competencyTags는 반드시 후보군 id 중에서만 선택합니다.
-- score는 0.0 이상 1.0 이하 숫자입니다.
+- strengthTagIds는 반드시 후보군 id 중에서만 선택합니다.
+- 정의, 판단 기준, 적합 예시와 부적합 예시를 함께 고려합니다.
+- 코사인 유사도는 후보 검색 결과이며 최종 판단의 유일한 근거로 사용하지 않습니다.
+- 최대 {request.maxStrengthCount}개를 선택합니다.
+- 후보군이 비어 있거나 기록에서 확인할 수 있는 강점이 없으면 빈 배열을 반환합니다.
 - 새로운 태그 id를 만들지 않습니다.
 
 응답 JSON 형식:
 {{
   "summary": "string",
   "evidenceSnippets": ["string"],
-  "competencyTags": [
-    {{"competencyTagId": "uuid", "score": 0.9}}
-  ]
+  "strengthTagIds": ["uuid"]
 }}
 
 기록:
@@ -89,67 +92,48 @@ def build_analysis_prompt(request: RecordAnalysisRequest) -> str:
 {memos}
 
 강점 태그 후보군:
-{competency_tags}
+{strength_tags}
 """.strip()
 
 
 def parse_analysis_payload(
     payload: dict,
     request: RecordAnalysisRequest,
-) -> tuple[str, list[str], list[AnalyzedCompetencyTagResponse]]:
+) -> tuple[str, list[str], list[UUID]]:
     if not isinstance(payload, dict):
         raise ValueError("Gemini analysis response must be a JSON object.")
-    required_fields = {"summary", "evidenceSnippets", "competencyTags"}
+    required_fields = {"summary", "evidenceSnippets", "strengthTagIds"}
     if not required_fields.issubset(payload):
         raise ValueError("Gemini analysis response is missing required fields.")
 
     summary = payload["summary"]
     evidence_snippets = payload["evidenceSnippets"]
-    raw_competency_tags = payload["competencyTags"]
+    raw_strength_tag_ids = payload["strengthTagIds"]
     if not isinstance(summary, str):
         raise ValueError("Gemini analysis summary must be a string.")
-    if not isinstance(evidence_snippets, list) or not all(isinstance(item, str) for item in evidence_snippets):
-        raise ValueError("Gemini analysis evidenceSnippets must be a string array.")
-    if not isinstance(raw_competency_tags, list):
-        raise ValueError("Gemini analysis competencyTags must be an array.")
+    if not isinstance(evidence_snippets, list) or not all(
+        isinstance(item, str) and item.strip()
+        for item in evidence_snippets
+    ):
+        raise ValueError("Gemini analysis evidenceSnippets must contain non-blank strings.")
+    if not 1 <= len(evidence_snippets) <= 5:
+        raise ValueError("Gemini analysis evidenceSnippets must contain between 1 and 5 items.")
+    if not isinstance(raw_strength_tag_ids, list):
+        raise ValueError("Gemini analysis strengthTagIds must be an array.")
 
-    candidate_ids = {candidate.id for candidate in request.competencyTagCandidates}
-    seen_ids: set[UUID] = set()
-    competency_tags = [
-        tag
-        for tag in (
-            parse_competency_tag(tag_payload, candidate_ids, seen_ids)
-            for tag_payload in raw_competency_tags
-        )
-        if tag is not None
-    ]
-    return summary, evidence_snippets, competency_tags
-
-
-def parse_competency_tag(
-    payload: object,
-    candidate_ids: set[UUID],
-    seen_ids: set[UUID],
-) -> AnalyzedCompetencyTagResponse | None:
-    if not isinstance(payload, dict):
-        raise ValueError("Gemini analysis competency tag must be an object.")
+    candidate_ids = {candidate.id for candidate in request.strengthTagCandidates}
     try:
-        tag = AnalyzedCompetencyTagResponse(
-            competencyTagId=payload["competencyTagId"],
-            score=payload["score"],
-        )
-    except (KeyError, TypeError, ValidationError) as exception:
-        raise ValueError("Gemini analysis competency tag is malformed.") from exception
+        strength_tag_ids = [UUID(strength_tag_id) for strength_tag_id in raw_strength_tag_ids]
+    except (TypeError, ValueError) as exception:
+        raise ValueError("Gemini analysis strengthTagIds are malformed.") from exception
+    if len(strength_tag_ids) != len(set(strength_tag_ids)):
+        raise ValueError("Gemini analysis strengthTagIds must be unique.")
+    if len(strength_tag_ids) > request.maxStrengthCount:
+        raise ValueError("Gemini analysis selected too many strength tags.")
+    if not set(strength_tag_ids).issubset(candidate_ids):
+        raise ValueError("Gemini analysis selected a strength tag outside the candidates.")
 
-    if tag.competencyTagId not in candidate_ids:
-        return None
-    if tag.competencyTagId in seen_ids:
-        return None
-    if isnan(tag.score) or tag.score < 0.0 or tag.score > 1.0:
-        return None
-
-    seen_ids.add(tag.competencyTagId)
-    return tag
+    return summary, evidence_snippets, strength_tag_ids
 
 
 def extract_embedding_values(result) -> list[float]:

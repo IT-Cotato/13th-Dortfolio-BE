@@ -21,11 +21,8 @@ def analyze_record(request: RecordAnalysisRequest) -> RecordAnalysisResponse:
 
 def analyze_record_with_gemini(request: RecordAnalysisRequest, settings) -> RecordAnalysisResponse:
     client = GeminiRecordAnalysisClient(settings)
-    answer_texts = [answer.answerText.strip() for answer in request.answers if answer.answerText.strip()]
-    source_text = build_embedding_source_text(request, answer_texts)
     try:
-        summary, evidence_snippets, competency_tags = client.analyze_record(request)
-        embedding = client.embed_record(source_text)
+        summary, evidence_snippets, strength_tag_ids = client.analyze_record(request)
     except errors.APIError as exception:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -40,29 +37,5 @@ def analyze_record_with_gemini(request: RecordAnalysisRequest, settings) -> Reco
     return RecordAnalysisResponse(
         summary=summary,
         evidenceSnippets=evidence_snippets,
-        competencyTags=competency_tags,
-        embeddingModel=settings.gemini_embedding_model,
-        embedding=embedding,
+        strengthTagIds=strength_tag_ids,
     )
-
-
-def build_embedding_source_text(request: RecordAnalysisRequest, answer_texts: list[str]) -> str:
-    question_texts = [answer.questionText.strip() for answer in request.answers if answer.questionText.strip()]
-    memo_texts = build_memo_texts(request)
-    return " ".join([
-        request.activity.title,
-        request.activity.description or "",
-        request.title,
-        request.template.title,
-        " ".join(question_texts),
-        " ".join(answer_texts),
-        " ".join(memo_texts),
-    ]).strip()
-
-
-def build_memo_texts(request: RecordAnalysisRequest) -> list[str]:
-    return [
-        " ".join(part for part in [memo.title, memo.content] if part and part.strip()).strip()
-        for memo in request.memos
-        if (memo.title and memo.title.strip()) or memo.content.strip()
-    ]

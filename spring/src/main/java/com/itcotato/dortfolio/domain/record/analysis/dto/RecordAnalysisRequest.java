@@ -1,7 +1,6 @@
 package com.itcotato.dortfolio.domain.record.analysis.dto;
 
 import com.itcotato.dortfolio.domain.memo.entity.Memo;
-import com.itcotato.dortfolio.domain.record.entity.CompetencyTag;
 import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.record.entity.RecordAnswer;
 import com.itcotato.dortfolio.domain.record.entity.RecordMemo;
@@ -15,13 +14,13 @@ public record RecordAnalysisRequest(
 	TemplatePayload template,
 	List<AnswerPayload> answers,
 	List<MemoPayload> memos,
-	List<CompetencyTagCandidatePayload> competencyTagCandidates
+	List<StrengthTagCandidatePayload> strengthTagCandidates,
+	int maxStrengthCount
 ) {
 	public static RecordAnalysisRequest of(
 		Record record,
 		List<RecordAnswer> answers,
-		List<RecordMemo> memos,
-		List<CompetencyTag> competencyTagCandidates
+		List<RecordMemo> memos
 	) {
 		return new RecordAnalysisRequest(
 			record.getId(),
@@ -34,9 +33,26 @@ public record RecordAnalysisRequest(
 			memos.stream()
 				.map(MemoPayload::from)
 				.toList(),
-			competencyTagCandidates.stream()
-				.map(CompetencyTagCandidatePayload::from)
-				.toList()
+			List.of(),
+			0
+		);
+	}
+
+	public RecordAnalysisRequest withStrengthCandidates(
+		List<StrengthMatchCandidate> candidates,
+		int maxStrengthCount
+	) {
+		return new RecordAnalysisRequest(
+			recordId,
+			title,
+			activity,
+			template,
+			answers,
+			memos,
+			candidates.stream()
+				.map(StrengthTagCandidatePayload::from)
+				.toList(),
+			maxStrengthCount
 		);
 	}
 
@@ -79,16 +95,24 @@ public record RecordAnalysisRequest(
 		}
 	}
 
-	public record CompetencyTagCandidatePayload(
+	public record StrengthTagCandidatePayload(
 		UUID id,
 		String name,
-		String description
+		String description,
+		String evaluationCriteria,
+		String positiveExample,
+		String negativeExample,
+		float cosineSimilarity
 	) {
-		public static CompetencyTagCandidatePayload from(CompetencyTag competencyTag) {
-			return new CompetencyTagCandidatePayload(
-				competencyTag.getId(),
-				competencyTag.getName(),
-				competencyTag.getDescription()
+		public static StrengthTagCandidatePayload from(StrengthMatchCandidate candidate) {
+			return new StrengthTagCandidatePayload(
+				candidate.strengthTagId(),
+				candidate.name(),
+				candidate.description(),
+				candidate.evaluationCriteria(),
+				candidate.positiveExample(),
+				candidate.negativeExample(),
+				candidate.cosineSimilarity()
 			);
 		}
 	}

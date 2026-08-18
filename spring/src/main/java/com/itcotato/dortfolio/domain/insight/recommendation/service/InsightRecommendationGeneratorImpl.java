@@ -88,17 +88,33 @@ public class InsightRecommendationGeneratorImpl
             RecommendationResult response
     ) {
         if (response == null
-                || response.jobCompetencyId() == null
-                || response.recordId() == null
-                || !StringUtils.hasText(response.reason())
-                || response.reason().contains("\n")
-                || response.reason().contains("\r")) {
+                || response.jobCompetencyId() == null) {
             throw new InvalidRecommendationResponseException();
         }
 
         if (!request.jobCompetencyId().equals(
                 response.jobCompetencyId()
         )) {
+            throw new InvalidRecommendationResponseException();
+        }
+
+        if (!response.matched()) {
+            if (response.recordId() != null
+                    || response.reason() != null) {
+                throw new InvalidRecommendationResponseException();
+            }
+            return new RecommendationResult(
+                    false,
+                    response.jobCompetencyId(),
+                    null,
+                    null
+            );
+        }
+
+        if (response.recordId() == null
+                || !StringUtils.hasText(response.reason())
+                || response.reason().contains("\n")
+                || response.reason().contains("\r")) {
             throw new InvalidRecommendationResponseException();
         }
 
@@ -113,6 +129,7 @@ public class InsightRecommendationGeneratorImpl
         }
 
         return new RecommendationResult(
+                true,
                 response.jobCompetencyId(),
                 response.recordId(),
                 response.reason().trim()

@@ -9,11 +9,11 @@ import com.itcotato.dortfolio.domain.activity.repository.ActivityTypeRepository;
 import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysis;
 import com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus;
 import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
-import com.itcotato.dortfolio.domain.record.entity.CompetencyTag;
+import com.itcotato.dortfolio.domain.record.entity.StrengthTag;
 import com.itcotato.dortfolio.domain.record.entity.Record;
-import com.itcotato.dortfolio.domain.record.entity.RecordCompetencyTag;
-import com.itcotato.dortfolio.domain.record.repository.CompetencyTagRepository;
-import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagRepository;
+import com.itcotato.dortfolio.domain.record.entity.RecordStrengthTag;
+import com.itcotato.dortfolio.domain.record.repository.StrengthTagRepository;
+import com.itcotato.dortfolio.domain.record.repository.RecordStrengthTagRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.repository.TemplateRepository;
@@ -59,10 +59,10 @@ class InsightRecordQueryRepositoryTest {
     private RecordAnalysisRepository recordAnalysisRepository;
 
     @Autowired
-    private CompetencyTagRepository competencyTagRepository;
+    private StrengthTagRepository strengthTagRepository;
 
     @Autowired
-    private RecordCompetencyTagRepository recordCompetencyTagRepository;
+    private RecordStrengthTagRepository recordStrengthTagRepository;
 
     @Autowired
     private EntityManager entityManager;
@@ -258,33 +258,43 @@ class InsightRecordQueryRepositoryTest {
     void findsStrengthTagsInDeterministicOrder() {
         User user = createUser();
         Record record = createAnalyzedRecord(user, "강점 기록", true, true);
-        CompetencyTag second = competencyTagRepository.save(
-                CompetencyTag.create("TEST_COMP_1", "협업", "협업 역량")
-        );
-        CompetencyTag first = competencyTagRepository.save(
-                CompetencyTag.create("TEST_COMP_2", "문제 해결", "문제 해결 역량")
-        );
-        recordCompetencyTagRepository.saveAll(List.of(
-                RecordCompetencyTag.create(record, second, 0.8f),
-                RecordCompetencyTag.create(record, first, 0.9f)
+        UUID firstId = UUID.fromString("00000000-0000-0000-0000-000000009001");
+        UUID secondId = UUID.fromString("00000000-0000-0000-0000-000000009002");
+        insertStrengthTag(secondId, "TEST_COMP_2", "협업");
+        insertStrengthTag(firstId, "TEST_COMP_1", "문제 해결");
+        StrengthTag second = entityManager.getReference(StrengthTag.class, secondId);
+        StrengthTag first = entityManager.getReference(StrengthTag.class, firstId);
+        recordStrengthTagRepository.saveAll(List.of(
+                RecordStrengthTag.create(record, second, 0.8f),
+                RecordStrengthTag.create(record, first, 0.9f)
         ));
         entityManager.flush();
         entityManager.clear();
 
-        List<UUID> firstResult =
+        List<UUID> result =
                 queryRepository.findStrengthTags(List.of(record.getId()))
                         .stream()
-                        .map(tag -> tag.getCompetencyTag().getId())
-                        .toList();
-        List<UUID> secondResult =
-                queryRepository.findStrengthTags(List.of(record.getId()))
-                        .stream()
-                        .map(tag -> tag.getCompetencyTag().getId())
+                        .map(tag -> tag.getStrengthTag().getId())
                         .toList();
 
-        assertThat(firstResult)
-                .containsExactlyElementsOf(secondResult)
-                .containsExactlyInAnyOrder(first.getId(), second.getId());
+        assertThat(result).containsExactly(firstId, secondId);
+    }
+
+    private void insertStrengthTag(UUID id, String code, String name) {
+        jdbcTemplate.update("""
+                insert into strength_tags (
+                    id, created_at, updated_at, code, name, description,
+                    evaluation_criteria, positive_example, negative_example
+                ) values (?, current_timestamp, current_timestamp, ?, ?, ?, ?, ?, ?)
+                """,
+                id,
+                code,
+                name,
+                name + " 설명",
+                name + " 기준",
+                name + " 적합",
+                name + " 부적합"
+        );
     }
 
     private Record createAnalyzedRecord(

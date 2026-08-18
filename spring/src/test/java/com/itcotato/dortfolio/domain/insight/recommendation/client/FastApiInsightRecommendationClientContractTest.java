@@ -52,6 +52,7 @@ class FastApiInsightRecommendationClientContractTest {
 
             byte[] response = objectMapper.writeValueAsBytes(
                     java.util.Map.of(
+                            "matched", true,
                             "jobCompetencyId", competencyId,
                             "recordId", recordId,
                             "reason", "직무 역량을 잘 보여주는 기록입니다."
@@ -77,7 +78,10 @@ class FastApiInsightRecommendationClientContractTest {
                         new InsightProperties(
                                 10,
                                 Duration.ofHours(24),
+                                0.1,
+                                1,
                                 5,
+                                0.0,
                                 "gemini-embedding-2",
                                 2,
                                 Duration.ofSeconds(2)
@@ -115,6 +119,7 @@ class FastApiInsightRecommendationClientContractTest {
                 .get("evidenceSnippets").get(0).asText())
                 .isEqualTo("쿼리 실행 시간을 단축했습니다.");
         assertThat(result.jobCompetencyId()).isEqualTo(competencyId);
+        assertThat(result.matched()).isTrue();
         assertThat(result.recordId()).isEqualTo(recordId);
         assertThat(result.reason())
                 .isEqualTo("직무 역량을 잘 보여주는 기록입니다.");

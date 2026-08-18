@@ -10,8 +10,25 @@ import org.springframework.core.env.MapPropertySource;
 class EmbeddingBatchApplicationExitTest {
 
     @Test
-    void closesContextAndExitsSuccessfullyWhenBatchIsEnabled() {
-        AnnotationConfigApplicationContext context = applicationContext(true);
+    void closesContextAndExitsSuccessfullyWhenJobCompetencyBatchIsEnabled() {
+        AnnotationConfigApplicationContext context = applicationContext(
+                EmbeddingBatchApplicationExit.JOB_COMPETENCY_BATCH_ENABLED_PROPERTY,
+                true
+        );
+        AtomicInteger exitCode = new AtomicInteger(-1);
+
+        EmbeddingBatchApplicationExit.exitIfEnabled(context, exitCode::set);
+
+        assertThat(context.isActive()).isFalse();
+        assertThat(exitCode).hasValue(0);
+    }
+
+    @Test
+    void closesContextAndExitsSuccessfullyWhenStrengthTagBatchIsEnabled() {
+        AnnotationConfigApplicationContext context = applicationContext(
+                EmbeddingBatchApplicationExit.STRENGTH_TAG_BATCH_ENABLED_PROPERTY,
+                true
+        );
         AtomicInteger exitCode = new AtomicInteger(-1);
 
         EmbeddingBatchApplicationExit.exitIfEnabled(context, exitCode::set);
@@ -22,7 +39,10 @@ class EmbeddingBatchApplicationExitTest {
 
     @Test
     void keepsApplicationRunningWhenBatchIsDisabled() {
-        AnnotationConfigApplicationContext context = applicationContext(false);
+        AnnotationConfigApplicationContext context = applicationContext(
+                EmbeddingBatchApplicationExit.JOB_COMPETENCY_BATCH_ENABLED_PROPERTY,
+                false
+        );
         AtomicInteger exitCode = new AtomicInteger(-1);
 
         EmbeddingBatchApplicationExit.exitIfEnabled(context, exitCode::set);
@@ -34,6 +54,7 @@ class EmbeddingBatchApplicationExitTest {
     }
 
     private AnnotationConfigApplicationContext applicationContext(
+            String property,
             boolean batchEnabled
     ) {
         AnnotationConfigApplicationContext context =
@@ -42,7 +63,7 @@ class EmbeddingBatchApplicationExitTest {
                 new MapPropertySource(
                         "test",
                         java.util.Map.of(
-                                EmbeddingBatchApplicationExit.BATCH_ENABLED_PROPERTY,
+                                property,
                                 batchEnabled
                         )
                 )

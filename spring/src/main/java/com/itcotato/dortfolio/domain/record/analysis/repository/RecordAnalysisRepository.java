@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface RecordAnalysisRepository
         extends JpaRepository<RecordAnalysis, UUID> {
@@ -24,6 +25,22 @@ public interface RecordAnalysisRepository
               and record.activity.deletedAt is null
             """)
     List<UUID> findRetryableRecordIds();
+
+    @Query("""
+            select recordAnalysis.record.id
+            from RecordAnalysis recordAnalysis
+            join recordAnalysis.record record
+            where recordAnalysis.lastAttemptFailed = true
+              and recordAnalysis.lastFailureRetryable = true
+              and recordAnalysis.lastFailureReason like concat(:failureCode, ' %')
+              and record.status =
+                  com.itcotato.dortfolio.domain.record.entity.RecordStatus.COMPLETED
+              and record.deletedAt is null
+              and record.activity.deletedAt is null
+            """)
+    List<UUID> findRetryableRecordIdsByFailureCode(
+            @Param("failureCode") String failureCode
+    );
 
     void deleteByRecord_Id(UUID recordId);
 }

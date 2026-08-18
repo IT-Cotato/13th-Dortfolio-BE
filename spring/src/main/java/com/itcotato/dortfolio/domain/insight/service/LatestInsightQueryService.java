@@ -27,6 +27,7 @@ import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -194,7 +195,8 @@ public class LatestInsightQueryService {
                         .map(
                                 InsightJobRecommendation
                                         ::getRecordIdSnapshot
-                        );
+                        )
+                        .filter(Objects::nonNull);
 
         return Stream.concat(
                         strengthRecordIds,
@@ -249,17 +251,18 @@ public class LatestInsightQueryService {
             InsightJobRecommendation recommendation,
             Set<UUID> availableRecordIds
     ) {
+        UUID recordId = recommendation.getRecordIdSnapshot();
+
         return new JobRecommendationResponse(
                 recommendation.getJobCompetencyIdSnapshot(),
                 recommendation.getCompetencyNameSnapshot(),
-                recommendation.getRecordIdSnapshot(),
+                recommendation.getMatchStatus(),
+                recordId,
                 recommendation.getRecordTitleSnapshot(),
                 recommendation.getTemplateNameSnapshot(),
                 recommendation.getReason(),
                 recommendation.getSimilarity(),
-                availableRecordIds.contains(
-                        recommendation.getRecordIdSnapshot()
-                )
+                recordId != null && availableRecordIds.contains(recordId)
         );
     }
 

@@ -7,7 +7,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record InsightProperties(
         int minimumAnalyzedRecordCount,
         Duration regenerationCooldown,
-        int recommendationCandidateLimit,
+        double recommendationCandidateRatio,
+        int recommendationCandidateMin,
+        int recommendationCandidateMax,
+        double recommendationMinSimilarity,
         String embeddingModel,
         int recommendationMaxAttempts,
         Duration recommendationTimeout
@@ -28,9 +31,31 @@ public record InsightProperties(
             );
         }
 
-        if (recommendationCandidateLimit <= 0) {
+        if (!Double.isFinite(recommendationCandidateRatio)
+                || recommendationCandidateRatio <= 0.0
+                || recommendationCandidateRatio > 1.0) {
             throw new IllegalArgumentException(
-                    "recommendationCandidateLimit must be positive"
+                    "recommendationCandidateRatio must be in (0, 1]"
+            );
+        }
+
+        if (recommendationCandidateMin <= 0) {
+            throw new IllegalArgumentException(
+                    "recommendationCandidateMin must be positive"
+            );
+        }
+
+        if (recommendationCandidateMax < recommendationCandidateMin) {
+            throw new IllegalArgumentException(
+                    "recommendationCandidateMax must be greater than or equal to recommendationCandidateMin"
+            );
+        }
+
+        if (!Double.isFinite(recommendationMinSimilarity)
+                || recommendationMinSimilarity < 0.0
+                || recommendationMinSimilarity > 1.0) {
+            throw new IllegalArgumentException(
+                    "recommendationMinSimilarity must be in [0, 1]"
             );
         }
 

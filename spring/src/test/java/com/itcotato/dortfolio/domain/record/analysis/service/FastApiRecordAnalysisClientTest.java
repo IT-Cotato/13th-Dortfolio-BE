@@ -6,7 +6,7 @@ import com.itcotato.dortfolio.domain.record.analysis.config.AiServiceProperties;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.ActivityPayload;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.AnswerPayload;
-import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.CompetencyTagCandidatePayload;
+import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.StrengthTagCandidatePayload;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.TemplatePayload;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisResponse;
 import com.sun.net.httpserver.HttpExchange;
@@ -57,16 +57,30 @@ class FastApiRecordAnalysisClientTest {
 			new TemplatePayload("템플릿"),
 			List.of(new AnswerPayload("질문", "답변")),
 			List.of(),
-			List.of(new CompetencyTagCandidatePayload(UUID.randomUUID(), "문제 해결", "문제를 정의하고 해결합니다."))
+			List.of(new StrengthTagCandidatePayload(
+				UUID.randomUUID(),
+				"문제 해결",
+				"문제를 정의하고 해결합니다.",
+				"원인을 찾아 적절한 해결책을 실행합니다.",
+				"병목을 찾아 응답 시간을 줄였습니다.",
+				"문제를 다른 사람에게 넘기고 끝냈습니다.",
+				0.82f
+			)),
+			2
 		));
 
 		assertThat(requestBody.get())
 			.contains("\"recordId\":\"" + recordId + "\"")
 			.contains("\"answers\"")
-			.contains("\"competencyTagCandidates\"");
+			.contains("\"strengthTagCandidates\"")
+			.contains("\"evaluationCriteria\":\"원인을 찾아 적절한 해결책을 실행합니다.\"")
+			.contains("\"positiveExample\":\"병목을 찾아 응답 시간을 줄였습니다.\"")
+			.contains("\"negativeExample\":\"문제를 다른 사람에게 넘기고 끝냈습니다.\"")
+			.contains("\"cosineSimilarity\":0.82")
+			.contains("\"maxStrengthCount\":2");
 		assertThat(response.summary()).isEqualTo("요약");
 		assertThat(response.evidenceSnippets()).containsExactly("근거");
-		assertThat(response.embedding()).containsExactly(0.1f, 0.2f, 0.3f);
+		assertThat(response.strengthTagIds()).isEmpty();
 	}
 
 	private void handleAnalyze(HttpExchange exchange) throws IOException {
@@ -75,9 +89,7 @@ class FastApiRecordAnalysisClientTest {
 			{
 			  "summary": "요약",
 			  "evidenceSnippets": ["근거"],
-			  "competencyTags": [],
-			  "embeddingModel": "test",
-			  "embedding": [0.1, 0.2, 0.3]
+			  "strengthTagIds": []
 			}
 			""".getBytes(StandardCharsets.UTF_8);
 

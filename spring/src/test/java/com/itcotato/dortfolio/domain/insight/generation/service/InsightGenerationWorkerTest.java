@@ -83,7 +83,10 @@ class InsightGenerationWorkerTest {
         InsightProperties properties = new InsightProperties(
                 10,
                 Duration.ofHours(24),
+                0.1,
+                1,
                 5,
+                0.0,
                 "gemini-embedding-2",
                 2,
                 Duration.ofSeconds(10)
@@ -101,6 +104,13 @@ class InsightGenerationWorkerTest {
                 generationLock,
                 properties
         );
+    }
+
+    @Test
+    void calculatesCandidateCountWithRatioAndBounds() {
+        assertThat(worker.calculateCandidateCount(1)).isEqualTo(1);
+        assertThat(worker.calculateCandidateCount(30)).isEqualTo(3);
+        assertThat(worker.calculateCandidateCount(100)).isEqualTo(5);
     }
 
     @Test
@@ -174,7 +184,8 @@ class InsightGenerationWorkerTest {
                 USER_ID,
                 competencyId,
                 SNAPSHOT_AT,
-                5
+                1,
+                 0.0
         )).thenReturn(List.of(candidate));
 
         when(recommendationGenerator.generate(
@@ -280,7 +291,8 @@ class InsightGenerationWorkerTest {
                 USER_ID,
                 competencyId,
                 SNAPSHOT_AT,
-                5
+                1,
+                 0.0
         )).thenReturn(List.of(candidate));
 
         when(recommendationGenerator.generate(any()))
@@ -303,7 +315,8 @@ class InsightGenerationWorkerTest {
                 USER_ID,
                 competencyId,
                 SNAPSHOT_AT,
-                5
+                1,
+                 0.0
         );
     }
 
@@ -370,7 +383,8 @@ class InsightGenerationWorkerTest {
                 eq(USER_ID),
                 any(UUID.class),
                 eq(SNAPSHOT_AT),
-                eq(5)
+                 eq(1),
+                 eq(0.0)
         )).thenReturn(List.of(candidate));
 
         when(recommendationGenerator.generate(
@@ -395,7 +409,8 @@ class InsightGenerationWorkerTest {
                         eq(USER_ID),
                         any(UUID.class),
                         eq(SNAPSHOT_AT),
-                        eq(5)
+                         eq(1),
+                         eq(0.0)
                 );
 
         verify(recommendationGenerator, times(5))
@@ -465,7 +480,7 @@ class InsightGenerationWorkerTest {
     }
 
     @Test
-    void marksInsightAsFailedWhenCandidatesAreEmpty() {
+    void storesNoMatchWithoutCallingAiWhenCandidatesAreEmpty() {
         // given
         UUID competencyId = UUID.randomUUID();
 
@@ -499,22 +514,25 @@ class InsightGenerationWorkerTest {
                 USER_ID,
                 competencyId,
                 SNAPSHOT_AT,
-                5
+                1,
+                 0.0
         )).thenReturn(List.of());
 
         // when
         worker.generate(command, "token");
 
         // then
-        verify(resultWriter, never()).complete(any());
+        ArgumentCaptor<InsightGenerationResult> resultCaptor =
+                ArgumentCaptor.forClass(InsightGenerationResult.class);
+        verify(resultWriter).complete(resultCaptor.capture());
+        assertThat(resultCaptor.getValue().recommendations())
+                .singleElement()
+                .satisfies(recommendation -> {
+                    assertThat(recommendation.matched()).isFalse();
+                    assertThat(recommendation.recordId()).isNull();
+                });
 
-        verify(failureWriter).fail(
-                eq(INSIGHT_ID),
-                eq(InsightErrorCode
-                        .INSIGHT_RECOMMENDATION_CANDIDATES_EMPTY
-                        .getCode()),
-                any()
-        );
+        verify(failureWriter, never()).fail(any(), any(), any());
 
         verify(recommendationGenerator, never())
                 .generate(any());
@@ -565,7 +583,8 @@ class InsightGenerationWorkerTest {
                 USER_ID,
                 competencyId,
                 SNAPSHOT_AT,
-                5
+                1,
+                 0.0
         )).thenReturn(List.of(candidate));
         when(recommendationGenerator.generate(any()))
                 .thenThrow(new CustomException(

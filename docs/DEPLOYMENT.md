@@ -288,13 +288,14 @@ docker exec dortfolio-postgres pg_dump -U dortfolio dortfolio > backup_$(date +%
 
 ---
 
-## 6. 직무 역량 임베딩 배치 실행
+## 6. 직무 역량·강점 태그 임베딩 배치 실행
 
 `develop` 배포 워크플로는 Spring과 FastAPI의 기동을 확인한 뒤
-`GENERATE_MISSING` 배치를 자동 실행합니다. 따라서 새 직무·핵심 역량 기준 데이터가
+`GENERATE_MISSING` 배치를 자동 실행합니다. 따라서 새 직무·핵심 역량 또는 강점 태그 기준 데이터가
 추가되어도 현재 모델의 누락 임베딩이 배포 과정에서 생성됩니다.
 
-일반 서버 시작에서는 `JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED`의 기본값이 `false`이므로
+일반 서버 시작에서는 `JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED`와
+`STRENGTH_TAG_EMBEDDING_BATCH_ENABLED`의 기본값이 `false`이므로
 임베딩을 자동 생성하지 않습니다. 자동 배포 외 환경이나 장애 복구 상황에서는 아래 명령으로
 배치를 직접 실행할 수 있습니다.
 
@@ -302,7 +303,7 @@ docker exec dortfolio-postgres pg_dump -U dortfolio dortfolio > backup_$(date +%
 
 | 명령 | 동작 |
 |---|---|
-| `GENERATE_MISSING` | 현재 `INSIGHT_EMBEDDING_MODEL`을 기준으로 누락된 임베딩만 생성한 뒤 전체 완료 상태를 검증합니다. |
+| `GENERATE_MISSING` | Spring의 `insight.embedding-model`을 기준으로 누락된 임베딩만 생성한 뒤 전체 완료 상태를 검증합니다. 운영 Compose는 Spring의 `INSIGHT_EMBEDDING_MODEL`에 FastAPI와 같은 `GEMINI_EMBEDDING_MODEL` 값을 전달합니다. |
 | `VERIFY` | 외부 AI API를 호출하지 않고 전체 개수, 생성 개수, 누락 개수와 누락 ID를 검증합니다. |
 
 ### 로컬 실행
@@ -316,6 +317,8 @@ PostgreSQL과 FastAPI가 실행 중인 상태에서 PowerShell로 실행합니�
 cd spring
 $env:JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED = "true"
 $env:JOB_COMPETENCY_EMBEDDING_BATCH_COMMAND = "GENERATE_MISSING"
+$env:STRENGTH_TAG_EMBEDDING_BATCH_ENABLED = "true"
+$env:STRENGTH_TAG_EMBEDDING_BATCH_COMMAND = "GENERATE_MISSING"
 $env:SPRING_MAIN_WEB_APPLICATION_TYPE = "none"
 .\gradlew.bat bootRun
 ```
@@ -326,6 +329,8 @@ $env:SPRING_MAIN_WEB_APPLICATION_TYPE = "none"
 cd spring
 $env:JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED = "true"
 $env:JOB_COMPETENCY_EMBEDDING_BATCH_COMMAND = "VERIFY"
+$env:STRENGTH_TAG_EMBEDDING_BATCH_ENABLED = "true"
+$env:STRENGTH_TAG_EMBEDDING_BATCH_COMMAND = "VERIFY"
 $env:SPRING_MAIN_WEB_APPLICATION_TYPE = "none"
 .\gradlew.bat bootRun
 ```
@@ -335,6 +340,8 @@ $env:SPRING_MAIN_WEB_APPLICATION_TYPE = "none"
 ```powershell
 Remove-Item Env:JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED -ErrorAction SilentlyContinue
 Remove-Item Env:JOB_COMPETENCY_EMBEDDING_BATCH_COMMAND -ErrorAction SilentlyContinue
+Remove-Item Env:STRENGTH_TAG_EMBEDDING_BATCH_ENABLED -ErrorAction SilentlyContinue
+Remove-Item Env:STRENGTH_TAG_EMBEDDING_BATCH_COMMAND -ErrorAction SilentlyContinue
 Remove-Item Env:SPRING_MAIN_WEB_APPLICATION_TYPE -ErrorAction SilentlyContinue
 ```
 
@@ -352,6 +359,8 @@ docker compose -f docker-compose.prod.yml ps postgres fastapi
 docker compose -f docker-compose.prod.yml run --rm \
   -e JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED=true \
   -e JOB_COMPETENCY_EMBEDDING_BATCH_COMMAND=GENERATE_MISSING \
+  -e STRENGTH_TAG_EMBEDDING_BATCH_ENABLED=true \
+  -e STRENGTH_TAG_EMBEDDING_BATCH_COMMAND=GENERATE_MISSING \
   -e SPRING_MAIN_WEB_APPLICATION_TYPE=none \
   spring
 ```
@@ -362,14 +371,18 @@ docker compose -f docker-compose.prod.yml run --rm \
 docker compose -f docker-compose.prod.yml run --rm \
   -e JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED=true \
   -e JOB_COMPETENCY_EMBEDDING_BATCH_COMMAND=VERIFY \
+  -e STRENGTH_TAG_EMBEDDING_BATCH_ENABLED=true \
+  -e STRENGTH_TAG_EMBEDDING_BATCH_COMMAND=VERIFY \
   -e SPRING_MAIN_WEB_APPLICATION_TYPE=none \
   spring
 ```
 
 생성 결과에는 전체 대상, 신규 생성, 기존 데이터 건너뜀, 실패 건수가 기록됩니다.
-항목별 실패가 발생하면 해당 `jobCompetencyId`와 원인이 로그에 남고, 나머지 항목은 계속 처리됩니다.
+항목별 실패가 발생하면 해당 `jobCompetencyId` 또는 `strengthTagId`와 원인이 로그에 남고,
+나머지 항목은 계속 처리됩니다.
 실패 또는 누락이 하나라도 남으면 명령이 실패하므로 원인을 해결한 뒤 같은 명령을 다시 실행합니다.
 이미 생성된 현재 모델의 임베딩은 건너뛰므로 재실행해도 중복 저장되지 않습니다.
+자동 배포에서는 임베딩 생성이 끝난 뒤 준비 전 상태(`RA008`)로 실패했던 기록만 한 번 재분석합니다.
 
 ---
 

@@ -25,6 +25,8 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RecordEmbedding extends BaseEntity {
 
+	public static final int EMBEDDING_DIMENSION = 3072;
+
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "record_id", nullable = false)
 	private Record record;

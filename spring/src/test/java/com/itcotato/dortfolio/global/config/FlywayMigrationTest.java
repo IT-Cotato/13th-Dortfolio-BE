@@ -29,8 +29,8 @@ class FlywayMigrationTest {
 	void migratesFreshSchemaThroughLatestVersion() {
 		MigrateResult result = flyway().migrate();
 
-		assertThat(result.migrationsExecuted).isEqualTo(15);
-		assertThat(result.targetSchemaVersion).isEqualTo("15");
+		assertThat(result.migrationsExecuted).isEqualTo(19);
+		assertThat(result.targetSchemaVersion).isEqualTo("19");
 		assertMatchingIndexesCreated();
 		assertRunningInsightStatusAllowed();
 		assertUserOwnedDataCascadesOnDelete();
@@ -39,6 +39,61 @@ class FlywayMigrationTest {
 		assertTemplateDescriptionsExtended();
 		assertBuiltinTemplatesSeeded();
 		assertJobCatalogSeeded();
+		assertRecordStrengthTablesCreated();
+		assertStrengthTagCatalogSeeded();
+		assertRecommendationNoMatchSupported();
+	}
+
+	private void assertRecordStrengthTablesCreated() {
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from information_schema.tables
+				where table_name in ('strength_tags', 'strength_tag_embeddings', 'record_strength_tags')
+				""", Integer.class)).isEqualTo(3);
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from information_schema.columns
+				where table_name = 'record_strength_tags'
+				  and column_name = 'cosine_similarity'
+				""", Integer.class)).isEqualTo(1);
+	}
+
+	private void assertStrengthTagCatalogSeeded() {
+		assertThat(jdbcTemplate().queryForObject(
+			"select count(*) from strength_tags",
+			Integer.class
+		)).isEqualTo(30);
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from strength_tags
+				where description is not null
+				  and evaluation_criteria is not null
+				  and positive_example is not null
+				  and negative_example is not null
+				""", Integer.class)).isEqualTo(30);
+	}
+
+	private void assertRecommendationNoMatchSupported() {
+		assertThat(jdbcTemplate().queryForObject("""
+				select is_nullable
+				from information_schema.columns
+				where table_name = 'insight_job_recommendations'
+				  and column_name = 'match_status'
+				""", String.class)).isEqualTo("NO");
+		assertThat(jdbcTemplate().queryForObject("""
+				select is_nullable
+				from information_schema.columns
+				where table_name = 'insight_job_recommendations'
+				  and column_name = 'record_id_snapshot'
+				""", String.class)).isEqualTo("YES");
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from pg_constraint
+				where conname in (
+				    'ck_insight_job_recommendation_match_status',
+				    'ck_insight_job_recommendation_match_result'
+				)
+				""", Integer.class)).isEqualTo(2);
 	}
 
 	@Test

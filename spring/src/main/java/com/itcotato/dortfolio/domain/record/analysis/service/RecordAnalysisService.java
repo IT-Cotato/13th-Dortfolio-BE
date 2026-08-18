@@ -3,25 +3,33 @@ package com.itcotato.dortfolio.domain.record.analysis.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.itcotato.dortfolio.domain.record.analysis.dto.AnalyzedCompetencyTagResponse;
+import com.itcotato.dortfolio.domain.record.analysis.config.RecordAnalysisProperties;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisResponse;
+import com.itcotato.dortfolio.domain.record.analysis.dto.StrengthMatchCandidate;
 import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysis;
 import com.itcotato.dortfolio.domain.record.analysis.exception.RecordAnalysisErrorCode;
 import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
-import com.itcotato.dortfolio.domain.record.entity.CompetencyTag;
+import com.itcotato.dortfolio.domain.record.analysis.repository.StrengthMatchCandidateQuery;
 import com.itcotato.dortfolio.domain.record.entity.Record;
-import com.itcotato.dortfolio.domain.record.entity.RecordCompetencyTag;
+import com.itcotato.dortfolio.domain.record.entity.RecordEmbedding;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
-import com.itcotato.dortfolio.domain.record.repository.CompetencyTagRepository;
-import com.itcotato.dortfolio.domain.record.repository.RecordCompetencyTagRepository;
+import com.itcotato.dortfolio.domain.record.entity.RecordStrengthTag;
+import com.itcotato.dortfolio.domain.record.entity.StrengthTag;
 import com.itcotato.dortfolio.domain.record.repository.RecordEmbeddingRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
+import com.itcotato.dortfolio.domain.record.repository.RecordStrengthTagRepository;
+import com.itcotato.dortfolio.domain.record.repository.StrengthTagRepository;
+import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingRequest;
+import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingResponse;
+import com.itcotato.dortfolio.global.ai.embedding.service.EmbeddingClient;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -32,6 +40,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 @Slf4j
@@ -42,12 +51,16 @@ public class RecordAnalysisService {
 	private final RecordRepository recordRepository;
 	private final RecordAnalysisRepository recordAnalysisRepository;
 	private final RecordEmbeddingRepository recordEmbeddingRepository;
-	private final RecordCompetencyTagRepository recordCompetencyTagRepository;
-	private final CompetencyTagRepository competencyTagRepository;
+	private final RecordStrengthTagRepository recordStrengthTagRepository;
+	private final StrengthTagRepository strengthTagRepository;
 	private final RecordAnalysisLockManager recordAnalysisLockManager;
 	private final RecordAnalysisRequestBuilder recordAnalysisRequestBuilder;
 	private final RecordAnalysisClient recordAnalysisClient;
+	private final EmbeddingClient embeddingClient;
+	private final RecordEmbeddingTextBuilder recordEmbeddingTextBuilder;
+	private final StrengthMatchCandidateQuery strengthMatchCandidateQuery;
 	private final RecordEmbeddingWriter recordEmbeddingWriter;
+	private final RecordAnalysisProperties recordAnalysisProperties;
 	private final TransactionTemplate transactionTemplate;
 	private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
@@ -58,12 +71,7 @@ public class RecordAnalysisService {
 		try {
 			snapshotOptional = transactionTemplate.execute(status -> prepareRequest(recordId));
 		} catch (Exception exception) {
-			recordAnalysisLockManager.executeWithLock(recordId, () -> markFailed(
-				recordId,
-				toFailureReason(new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED)),
-				RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED.isRetryable()
-			));
-			log.warn("Record AI analysis prepare failed. recordId={}", recordId, exception);
+			markPersistenceFailure(recordId, "prepare", exception);
 			return;
 		}
 		if (snapshotOptional == null || snapshotOptional.isEmpty()) {
@@ -71,13 +79,9 @@ public class RecordAnalysisService {
 			return;
 		}
 
-		RecordAnalysisResponse response;
-		String evidenceSnippetsJson;
+		AnalysisExecutionResult result;
 		try {
-			RecordAnalysisRequest request = snapshotOptional.get().request();
-			response = requestAnalysis(request);
-			validate(response, request);
-			evidenceSnippetsJson = toJson(response.evidenceSnippets());
+			result = executeAnalysis(snapshotOptional.get().request());
 		} catch (CustomException exception) {
 			recordAnalysisLockManager.executeWithLock(
 				recordId,
@@ -90,24 +94,53 @@ public class RecordAnalysisService {
 				toRetryable(exception)
 			);
 			return;
+		} catch (Exception exception) {
+			markPersistenceFailure(recordId, "execute", exception);
+			return;
 		}
 
 		try {
 			recordAnalysisLockManager.executeWithLock(recordId, () ->
 				transactionTemplate.executeWithoutResult(status ->
-					saveSuccessfulAnalysis(snapshotOptional.get(), response, evidenceSnippetsJson)
+					saveSuccessfulAnalysis(snapshotOptional.get(), result)
 				)
 			);
-		} catch (Exception exception) {
-			recordAnalysisLockManager.executeWithLock(recordId, () -> markFailed(
+		} catch (CustomException exception) {
+			recordAnalysisLockManager.executeWithLock(
 				recordId,
-				toFailureReason(new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED)),
-				RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED.isRetryable()
-			));
-			log.warn("Record AI analysis persistence failed. recordId={}", recordId, exception);
+				() -> markFailed(recordId, toFailureReason(exception), toRetryable(exception))
+			);
+			log.warn(
+				"Record AI analysis persistence rejected. recordId={}, errorCode={}",
+				recordId,
+				exception.getErrorCode().getCode()
+			);
+			return;
+		} catch (Exception exception) {
+			markPersistenceFailure(recordId, "persistence", exception);
 			return;
 		}
 		log.info("Record AI analysis completed. recordId={}", recordId);
+	}
+
+	private AnalysisExecutionResult executeAnalysis(RecordAnalysisRequest baseRequest) {
+		EmbeddingResponse embedding = requestEmbedding(baseRequest);
+		validateEmbedding(embedding);
+
+		List<StrengthMatchCandidate> candidates = findStrengthCandidates(embedding);
+		RecordAnalysisRequest analysisRequest = baseRequest.withStrengthCandidates(
+			candidates,
+			recordAnalysisProperties.strengthMaxCount()
+		);
+		RecordAnalysisResponse response = requestAnalysis(analysisRequest);
+		validateAnalysisResponse(response, analysisRequest);
+
+		return new AnalysisExecutionResult(
+			response,
+			embedding,
+			candidates,
+			toJson(response.evidenceSnippets())
+		);
 	}
 
 	private Optional<AnalysisSnapshot> prepareRequest(UUID recordId) {
@@ -116,52 +149,38 @@ public class RecordAnalysisService {
 			return Optional.empty();
 		}
 		Record record = recordOptional.get();
-
 		return Optional.of(new AnalysisSnapshot(
 			recordAnalysisRequestBuilder.build(record),
 			record.getUpdatedAt()
 		));
 	}
 
-	private void saveSuccessfulAnalysis(AnalysisSnapshot snapshot, RecordAnalysisResponse response, String evidenceSnippetsJson) {
-		UUID recordId = snapshot.request().recordId();
-		Optional<Record> recordOptional = recordRepository.findById(recordId);
-		if (recordOptional.isEmpty() || !isAnalyzable(recordOptional.get())) {
-			return;
+	private EmbeddingResponse requestEmbedding(RecordAnalysisRequest request) {
+		try {
+			return embeddingClient.embed(new EmbeddingRequest(recordEmbeddingTextBuilder.build(request)));
+		} catch (RestClientException exception) {
+			log.warn("Record embedding request failed. recordId={}", request.recordId(), exception);
+			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_FAILED);
 		}
-		Record record = recordOptional.get();
-		if (!record.getUpdatedAt().equals(snapshot.recordUpdatedAt())) {
-			log.info("Record AI analysis result skipped because record changed. recordId={}", recordId);
-			return;
+	}
+
+	private List<StrengthMatchCandidate> findStrengthCandidates(EmbeddingResponse embedding) {
+		try {
+			return strengthMatchCandidateQuery.findTopCandidates(
+				embedding.embeddingModel(),
+				embedding.embedding(),
+				recordAnalysisProperties.strengthCandidateLimit(),
+				recordAnalysisProperties.strengthMinSimilarity()
+			);
+		} catch (CustomException exception) {
+			throw exception;
+		} catch (IllegalArgumentException exception) {
+			log.warn("Strength match candidate arguments are invalid.", exception);
+			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
+		} catch (Exception exception) {
+			log.warn("Strength match candidate query failed.", exception);
+			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED);
 		}
-		RecordAnalysis recordAnalysis = getOrCreate(record);
-
-		recordEmbeddingRepository.deleteAllByRecord_Id(recordId);
-		recordCompetencyTagRepository.deleteAllByRecord_Id(recordId);
-		recordAnalysis.complete(response.summary(), evidenceSnippetsJson, snapshot.recordUpdatedAt());
-		saveCompetencyTags(record, response.competencyTags());
-		recordEmbeddingWriter.save(record, response.embeddingModel(), response.embedding());
-		recordAnalysisRepository.flush();
-		recordCompetencyTagRepository.flush();
-	}
-
-	private void markFailed(UUID recordId, String failureReason, boolean retryable) {
-		transactionTemplate.executeWithoutResult(status ->
-			recordRepository.findById(recordId)
-				.filter(this::isAnalyzable)
-				.ifPresent(record -> getOrCreate(record).fail(failureReason, retryable))
-		);
-	}
-
-	private RecordAnalysis getOrCreate(Record record) {
-		return recordAnalysisRepository.findByRecord_Id(record.getId())
-			.orElseGet(() -> recordAnalysisRepository.save(RecordAnalysis.pending(record)));
-	}
-
-	private boolean isAnalyzable(Record record) {
-		return record.getStatus() == RecordStatus.COMPLETED
-			&& !record.isDeleted()
-			&& !record.getActivity().isDeleted();
 	}
 
 	private RecordAnalysisResponse requestAnalysis(RecordAnalysisRequest request) {
@@ -184,83 +203,147 @@ public class RecordAnalysisService {
 		}
 	}
 
-	private boolean isRetryableAiServiceStatus(HttpStatusCode statusCode) {
-		return statusCode.is5xxServerError() || statusCode.value() == 429;
+	private void validateEmbedding(EmbeddingResponse response) {
+		if (response == null
+			|| !StringUtils.hasText(response.embeddingModel())
+			|| response.embedding() == null
+			|| response.embedding().length != RecordEmbedding.EMBEDDING_DIMENSION) {
+			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
+		}
+		boolean hasMagnitude = false;
+		for (float value : response.embedding()) {
+			if (!Float.isFinite(value)) {
+				throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
+			}
+			hasMagnitude |= value != 0.0f;
+		}
+		if (!hasMagnitude) {
+			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
+		}
 	}
 
-	private void validate(RecordAnalysisResponse response, RecordAnalysisRequest request) {
-		if (response == null) {
-			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
-		}
-		if (!StringUtils.hasText(response.summary())) {
-			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
-		}
-		if (response.evidenceSnippets() == null || response.evidenceSnippets().isEmpty()) {
-			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
-		}
-		if (!StringUtils.hasText(response.embeddingModel())) {
-			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
-		}
-		if (response.embedding() == null || response.embedding().length == 0) {
-			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
-		}
-		validateCompetencyTags(response.competencyTags(), request.competencyTagCandidates());
-	}
-
-	private void validateCompetencyTags(
-		List<AnalyzedCompetencyTagResponse> competencyTags,
-		List<RecordAnalysisRequest.CompetencyTagCandidatePayload> candidates
+	private void validateAnalysisResponse(
+		RecordAnalysisResponse response,
+		RecordAnalysisRequest request
 	) {
-		if (competencyTags == null) {
-			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
-		}
-		Map<UUID, RecordAnalysisRequest.CompetencyTagCandidatePayload> candidateMap = candidates.stream()
-			.collect(Collectors.toMap(RecordAnalysisRequest.CompetencyTagCandidatePayload::id, Function.identity()));
-		Set<UUID> analyzedTagIds = competencyTags.stream()
-			.map(AnalyzedCompetencyTagResponse::competencyTagId)
-			.collect(Collectors.toSet());
-		if (analyzedTagIds.size() != competencyTags.size()) {
+		if (response == null
+			|| !StringUtils.hasText(response.summary())
+			|| response.evidenceSnippets() == null
+			|| response.evidenceSnippets().isEmpty()
+			|| response.evidenceSnippets().size() > 5
+			|| response.evidenceSnippets().stream()
+				.anyMatch(snippet -> !StringUtils.hasText(snippet))
+			|| response.strengthTagIds() == null) {
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 		}
 
-		for (AnalyzedCompetencyTagResponse competencyTag : competencyTags) {
-			if (!candidateMap.containsKey(competencyTag.competencyTagId())) {
-				throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
-			}
-			if (competencyTag.score() < 0.0f || competencyTag.score() > 1.0f) {
-				throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
-			}
-			if (Float.isNaN(competencyTag.score())) {
-				throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
-			}
+		Set<UUID> candidateIds = request.strengthTagCandidates().stream()
+			.map(RecordAnalysisRequest.StrengthTagCandidatePayload::id)
+			.collect(Collectors.toSet());
+		if (response.strengthTagIds().stream().anyMatch(Objects::isNull)) {
+			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
+		}
+		Set<UUID> selectedIds = new HashSet<>(response.strengthTagIds());
+		if (selectedIds.size() != response.strengthTagIds().size()
+			|| selectedIds.size() > request.maxStrengthCount()
+			|| !candidateIds.containsAll(selectedIds)) {
+			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 		}
 	}
 
-	private void saveCompetencyTags(Record record, List<AnalyzedCompetencyTagResponse> analyzedTags) {
-		if (analyzedTags.isEmpty()) {
+	private void saveSuccessfulAnalysis(
+		AnalysisSnapshot snapshot,
+		AnalysisExecutionResult result
+	) {
+		UUID recordId = snapshot.request().recordId();
+		Optional<Record> recordOptional = recordRepository.findById(recordId);
+		if (recordOptional.isEmpty() || !isAnalyzable(recordOptional.get())) {
+			return;
+		}
+		Record record = recordOptional.get();
+		if (!record.getUpdatedAt().equals(snapshot.recordUpdatedAt())) {
+			log.info("Record AI analysis result skipped because record changed. recordId={}", recordId);
 			return;
 		}
 
-		Map<UUID, CompetencyTag> competencyTagMap = competencyTagRepository.findAllById(
-				analyzedTags.stream()
-					.map(AnalyzedCompetencyTagResponse::competencyTagId)
-					.toList()
-			)
-			.stream()
-			.collect(Collectors.toMap(CompetencyTag::getId, Function.identity()));
+		RecordAnalysis recordAnalysis = getOrCreate(record);
+		recordEmbeddingRepository.deleteAllByRecord_Id(recordId);
+		recordStrengthTagRepository.deleteAllByRecord_Id(recordId);
+		recordAnalysis.complete(
+			result.response().summary(),
+			result.evidenceSnippetsJson(),
+			snapshot.recordUpdatedAt()
+		);
+		saveStrengthTags(record, result.response().strengthTagIds(), result.candidates());
+		recordEmbeddingWriter.save(
+			record,
+			result.embedding().embeddingModel(),
+			result.embedding().embedding()
+		);
+		recordAnalysisRepository.flush();
+		recordStrengthTagRepository.flush();
+	}
 
-		if (competencyTagMap.size() != analyzedTags.stream()
-			.map(AnalyzedCompetencyTagResponse::competencyTagId)
-			.collect(Collectors.toSet())
-			.size()) {
+	private void saveStrengthTags(
+		Record record,
+		List<UUID> selectedIds,
+		List<StrengthMatchCandidate> candidates
+	) {
+		if (selectedIds.isEmpty()) {
+			return;
+		}
+
+		Map<UUID, StrengthMatchCandidate> candidateMap = candidates.stream()
+			.collect(Collectors.toMap(StrengthMatchCandidate::strengthTagId, Function.identity()));
+		Map<UUID, StrengthTag> strengthTagMap = strengthTagRepository.findAllById(selectedIds)
+			.stream()
+			.collect(Collectors.toMap(StrengthTag::getId, Function.identity()));
+		if (strengthTagMap.size() != selectedIds.size()) {
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 		}
 
-		List<RecordCompetencyTag> recordCompetencyTags = analyzedTags.stream()
-			.map(tag -> RecordCompetencyTag.create(record, competencyTagMap.get(tag.competencyTagId()), tag.score()))
+		List<RecordStrengthTag> recordStrengthTags = selectedIds.stream()
+			.map(strengthTagId -> RecordStrengthTag.create(
+				record,
+				strengthTagMap.get(strengthTagId),
+				candidateMap.get(strengthTagId).cosineSimilarity()
+			))
 			.toList();
+		recordStrengthTagRepository.saveAll(recordStrengthTags);
+	}
 
-		recordCompetencyTagRepository.saveAll(recordCompetencyTags);
+	private void markPersistenceFailure(UUID recordId, String phase, Exception exception) {
+		CustomException persistenceException =
+			new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED);
+		recordAnalysisLockManager.executeWithLock(recordId, () -> markFailed(
+			recordId,
+			toFailureReason(persistenceException),
+			RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED.isRetryable()
+		));
+		log.warn("Record AI analysis {} failed. recordId={}", phase, recordId, exception);
+	}
+
+	private void markFailed(UUID recordId, String failureReason, boolean retryable) {
+		transactionTemplate.executeWithoutResult(status ->
+			recordRepository.findById(recordId)
+				.filter(this::isAnalyzable)
+				.ifPresent(record -> getOrCreate(record).fail(failureReason, retryable))
+		);
+	}
+
+	private RecordAnalysis getOrCreate(Record record) {
+		return recordAnalysisRepository.findByRecord_Id(record.getId())
+			.orElseGet(() -> recordAnalysisRepository.save(RecordAnalysis.pending(record)));
+	}
+
+	private boolean isAnalyzable(Record record) {
+		return record.getStatus() == RecordStatus.COMPLETED
+			&& !record.isDeleted()
+			&& !record.getActivity().isDeleted();
+	}
+
+	private boolean isRetryableAiServiceStatus(HttpStatusCode statusCode) {
+		return statusCode.is5xxServerError() || statusCode.value() == 429;
 	}
 
 	private String toJson(List<String> evidenceSnippets) {
@@ -275,7 +358,9 @@ public class RecordAnalysisService {
 		if (exception instanceof CustomException customException) {
 			return customException.getErrorCode().getCode() + " " + customException.getErrorCode().getMessage();
 		}
-		return exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
+		return exception.getMessage() == null
+			? exception.getClass().getSimpleName()
+			: exception.getMessage();
 	}
 
 	private boolean toRetryable(CustomException exception) {
@@ -288,6 +373,14 @@ public class RecordAnalysisService {
 	private record AnalysisSnapshot(
 		RecordAnalysisRequest request,
 		LocalDateTime recordUpdatedAt
+	) {
+	}
+
+	private record AnalysisExecutionResult(
+		RecordAnalysisResponse response,
+		EmbeddingResponse embedding,
+		List<StrengthMatchCandidate> candidates,
+		String evidenceSnippetsJson
 	) {
 	}
 }

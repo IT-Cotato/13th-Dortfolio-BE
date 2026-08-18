@@ -15,7 +15,6 @@ import com.itcotato.dortfolio.domain.job.repository.JobRepository;
 import com.itcotato.dortfolio.domain.memo.entity.Memo;
 import com.itcotato.dortfolio.domain.memo.repository.MemoRepository;
 import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysis;
-import com.itcotato.dortfolio.domain.record.analysis.exception.RecordAnalysisErrorCode;
 import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordAnswerRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
@@ -228,22 +227,21 @@ class RecordServiceTest {
 	}
 
 	@Test
-	void createCompleteRecordRejectsUserWithoutPrimaryJob() {
+	void createCompleteRecordAllowsUserWithoutPrimaryJob() {
 		User user = createUserWithoutPrimaryJob();
 		Activity activity = createActivity(user, "도트폴리오");
 		Template template = createTemplate(user, "문제 해결", false);
 
-		assertThatThrownBy(() -> recordService.createRecord(user.getId(), new RecordCreateRequest(
+		RecordResponse completed = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(), template.getId(), "완료 기록", List.of(), List.of(), RecordStatus.COMPLETED
-		)))
-			.isInstanceOf(CustomException.class)
-			.extracting("errorCode")
-			.isEqualTo(RecordAnalysisErrorCode.RECORD_ANALYSIS_PRIMARY_JOB_REQUIRED);
-		assertThat(recordRepository.findAll()).isEmpty();
+		));
+
+		assertThat(completed.status()).isEqualTo(RecordStatus.COMPLETED.name());
+		assertThat(recordRepository.findById(completed.id())).isPresent();
 	}
 
 	@Test
-	void updateRecordKeepsDraftWhenPrimaryJobCompetenciesAreIncomplete() {
+	void updateRecordCompletesWhenPrimaryJobCompetenciesAreIncomplete() {
 		User user = createUserWithoutPrimaryJob();
 		createPrimaryJobWithCompetencies(user, 4);
 		Activity activity = createActivity(user, "도트폴리오");
@@ -252,14 +250,12 @@ class RecordServiceTest {
 			activity.getId(), template.getId(), "작성 중 기록", List.of(), List.of(), RecordStatus.DRAFT
 		));
 
-		assertThatThrownBy(() -> recordService.updateRecord(user.getId(), draft.id(), new RecordUpdateRequest(
+		RecordResponse completed = recordService.updateRecord(user.getId(), draft.id(), new RecordUpdateRequest(
 			"완료 시도 기록", List.of(), List.of(), RecordStatus.COMPLETED
-		)))
-			.isInstanceOf(CustomException.class)
-			.extracting("errorCode")
-			.isEqualTo(RecordAnalysisErrorCode.RECORD_ANALYSIS_JOB_COMPETENCIES_INVALID);
-		assertThat(recordService.getRecord(user.getId(), draft.id()).status()).isEqualTo(RecordStatus.DRAFT.name());
-		assertThat(recordService.getRecord(user.getId(), draft.id()).title()).isEqualTo("작성 중 기록");
+		));
+
+		assertThat(completed.status()).isEqualTo(RecordStatus.COMPLETED.name());
+		assertThat(completed.title()).isEqualTo("완료 시도 기록");
 	}
 
 	@Test
