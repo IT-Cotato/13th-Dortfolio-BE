@@ -57,37 +57,51 @@ public class AuthService {
     @Transactional
     public void signUp(SignUpRequest request) {
 
-        // 이메일 중복 체크
-        if (userRepository.existsByEmail(request.email())) {
-            throw new CustomException(UserErrorCode.EMAIL_ALREADY_EXISTS);
-        }
+        userRepository.findByEmail(request.email())
+                .ifPresent(existingUser -> {
+                    if ("GOOGLE".equalsIgnoreCase(existingUser.getProvider())) {
+                        throw new CustomException(
+                                UserErrorCode.GOOGLE_ACCOUNT_ALREADY_EXISTS
+                        );
+                    }
 
-        // 비밀번호 암호화 (BCrypt 해싱)
+                    throw new CustomException(
+                            UserErrorCode.EMAIL_ALREADY_EXISTS
+                    );
+                });
+
         String encodedPassword = passwordEncoder.encode(request.password());
 
-        // 유저 객체 생성
         User user = User.of(
                 request.email(),
                 encodedPassword,
                 request.nickname()
         );
 
-        // DB 저장 및 동시성 중복 가입 예외 처리
         try {
             userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
-            throw new CustomException(UserErrorCode.EMAIL_ALREADY_EXISTS);
+            throw new CustomException(
+                    UserErrorCode.EMAIL_ALREADY_EXISTS
+            );
         }
 
-        // 개별 동의 내역 저장
         userTermAgreementRepository.save(
-                UserTermAgreement.create(user, "PRIVACY_POLICY", request.isPrivacyAgreed())
-        );
-        userTermAgreementRepository.save(
-                UserTermAgreement.create(user, "MARKETING", request.isMarketingAgreed())
+                UserTermAgreement.create(
+                        user,
+                        "PRIVACY_POLICY",
+                        request.isPrivacyAgreed()
+                )
         );
 
-        // 활동 생성 화면에서 바로 고를 수 있도록 기본 활동 종류를 만들어준다
+        userTermAgreementRepository.save(
+                UserTermAgreement.create(
+                        user,
+                        "MARKETING",
+                        request.isMarketingAgreed()
+                )
+        );
+
         activityTypeService.createDefaultTypes(user);
     }
 
