@@ -11,63 +11,114 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.util.Objects;
+
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 프로젝트 커스텀 비즈니스 예외 처리
     @ExceptionHandler(CustomException.class)
-    protected ResponseEntity<ApiResponse<Void>> handleCustomException(CustomException e) {
-        log.error("CustomException: {}", e.getErrorCode().getMessage());
+    protected ResponseEntity<ApiResponse<Void>> handleCustomException(
+            CustomException e
+    ) {
         ErrorCode errorCode = e.getErrorCode();
+
+        log.error(
+                "CustomException: code={}, message={}",
+                errorCode.getCode(),
+                errorCode.getMessage()
+        );
+
         return ResponseEntity
                 .status(errorCode.getStatus())
-                .body(ApiResponse.fail(errorCode.getMessage()));
+                .body(ApiResponse.fail(
+                        errorCode.getCode(),
+                        errorCode.getMessage()
+                ));
     }
 
-    // @Valid 유효성 검증 실패 시 발생(DTO validation 에러 처리)
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    protected ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
+    protected ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValidException(
+            MethodArgumentNotValidException e
+    ) {
         log.error("MethodArgumentNotValidException", e);
-        String bindingMessage = e.getBindingResult().getFieldError().getDefaultMessage();
+
+        GlobalErrorCode errorCode = GlobalErrorCode.INVALID_INPUT_VALUE;
+        String bindingMessage = e.getBindingResult()
+                .getAllErrors()
+                .stream()
+                .map(error -> error.getDefaultMessage())
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(errorCode.getMessage());
+
         return ResponseEntity
-                .status(GlobalErrorCode.INVALID_INPUT_VALUE.getStatus())
-                .body(ApiResponse.fail(bindingMessage != null ? bindingMessage : GlobalErrorCode.INVALID_INPUT_VALUE.getMessage()));
+                .status(errorCode.getStatus())
+                .body(ApiResponse.fail(
+                        errorCode.getCode(),
+                        bindingMessage
+                ));
     }
 
-    // 지원하지 않는 HTTP Method 호출 시 발생
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    protected ResponseEntity<ApiResponse<Void>> handleHttpRequestMethodNotSupportedException(HttpRequestMethodNotSupportedException e) {
+    protected ResponseEntity<ApiResponse<Void>> handleHttpRequestMethodNotSupportedException(
+            HttpRequestMethodNotSupportedException e
+    ) {
         log.error("HttpRequestMethodNotSupportedException", e);
+
+        GlobalErrorCode errorCode = GlobalErrorCode.METHOD_NOT_ALLOWED;
+
         return ResponseEntity
-                .status(GlobalErrorCode.METHOD_NOT_ALLOWED.getStatus())
-                .body(ApiResponse.fail(GlobalErrorCode.METHOD_NOT_ALLOWED.getMessage()));
+                .status(errorCode.getStatus())
+                .body(ApiResponse.fail(
+                        errorCode.getCode(),
+                        errorCode.getMessage()
+                ));
     }
 
-    // 시큐리티 인증 실패 예외 처리
     @ExceptionHandler(AuthenticationException.class)
-    protected ResponseEntity<ApiResponse<Void>> handleAuthenticationException(AuthenticationException e) {
+    protected ResponseEntity<ApiResponse<Void>> handleAuthenticationException(
+            AuthenticationException e
+    ) {
         log.warn("AuthenticationException: {}", e.getMessage());
+
+        GlobalErrorCode errorCode = GlobalErrorCode.UNAUTHORIZED;
+
         return ResponseEntity
-                .status(GlobalErrorCode.UNAUTHORIZED.getStatus())
-                .body(ApiResponse.fail(GlobalErrorCode.UNAUTHORIZED.getMessage()));
+                .status(errorCode.getStatus())
+                .body(ApiResponse.fail(
+                        errorCode.getCode(),
+                        errorCode.getMessage()
+                ));
     }
 
-    // 정적 리소스 요청 시 발생
     @ExceptionHandler(NoResourceFoundException.class)
-    protected ResponseEntity<ApiResponse<Void>> handleNoResourceFoundException(NoResourceFoundException e) {
+    protected ResponseEntity<ApiResponse<Void>> handleNoResourceFoundException(
+            NoResourceFoundException e
+    ) {
         log.warn("No resource found: {}", e.getResourcePath());
+
+        GlobalErrorCode errorCode = GlobalErrorCode.NOT_FOUND;
+
         return ResponseEntity
-                .status(GlobalErrorCode.NOT_FOUND.getStatus())
-                .body(ApiResponse.fail(GlobalErrorCode.NOT_FOUND.getMessage()));
+                .status(errorCode.getStatus())
+                .body(ApiResponse.fail(
+                        errorCode.getCode(),
+                        errorCode.getMessage()
+                ));
     }
 
-    // 그 외 예상치 못한 모든 서버 내부 예외 처리
     @ExceptionHandler(Exception.class)
     protected ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
         log.error("Internal Server Exception", e);
+
+        GlobalErrorCode errorCode = GlobalErrorCode.INTERNAL_SERVER_ERROR;
+
         return ResponseEntity
-                .status(GlobalErrorCode.INTERNAL_SERVER_ERROR.getStatus())
-                .body(ApiResponse.fail(GlobalErrorCode.INTERNAL_SERVER_ERROR.getMessage()));
+                .status(errorCode.getStatus())
+                .body(ApiResponse.fail(
+                        errorCode.getCode(),
+                        errorCode.getMessage()
+                ));
     }
 }

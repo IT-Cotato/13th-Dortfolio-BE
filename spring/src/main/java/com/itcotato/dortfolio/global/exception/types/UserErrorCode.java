@@ -26,8 +26,8 @@ public enum UserErrorCode implements ErrorCode {
     EMPTY_TOKEN(HttpStatus.BAD_REQUEST, "U014", "JWT 토큰이 비어있거나 잘못되었습니다."),
     INVALID_PROFILE_IMAGE_KEY(HttpStatus.BAD_REQUEST, "U015", "유효하지 않은 프로필 이미지 경로입니다."),
     REFRESH_TOKEN_NOT_FOUND(HttpStatus.UNAUTHORIZED, "U016", "Refresh Token이 존재하지 않습니다."),
-    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "U017", "만료되었거나 유효하지 않은 Refresh Token입니다.");
-
+    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "U017", "만료되었거나 유효하지 않은 Refresh Token입니다."),
+    GOOGLE_ACCOUNT_ALREADY_EXISTS(HttpStatus.CONFLICT, "U018", "이미 구글로 가입된 이메일입니다. 구글 로그인을 이용해주세요.");
 
     private final HttpStatus status;
     private final String code;
