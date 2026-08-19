@@ -64,7 +64,11 @@ class InsightControllerTest {
                         null,
                         13,
                         12,
-                        10
+                        10,
+                        13,
+                        5,
+                        7,
+                        1
                 ));
 
         // when
@@ -80,6 +84,14 @@ class InsightControllerTest {
                 .isEqualTo(12);
         assertThat(response.getBody().getData().requiredRecordCount())
                 .isEqualTo(10);
+        assertThat(response.getBody().getData().totalRecordCount())
+                .isEqualTo(13);
+        assertThat(response.getBody().getData().analysisCompletedCount())
+                .isEqualTo(5);
+        assertThat(response.getBody().getData().analysisFailedCount())
+                .isEqualTo(7);
+        assertThat(response.getBody().getData().analysisInProgressCount())
+                .isEqualTo(1);
         verify(eligibilityService).check(USER_ID);
     }
 

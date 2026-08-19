@@ -35,7 +35,31 @@ public record InsightEligibilityApiResponse(
                 description = "Insight 생성에 필요한 최소 기록 수",
                 example = "10"
         )
-        int requiredRecordCount
+        int requiredRecordCount,
+
+        @Schema(
+                description = "Insight 분석 대상인 작성 완료 기록 수",
+                example = "13"
+        )
+        long totalRecordCount,
+
+        @Schema(
+                description = "AI 분석 완료 기록 수",
+                example = "5"
+        )
+        long analysisCompletedCount,
+
+        @Schema(
+                description = "AI 분석 실패 기록 수",
+                example = "7"
+        )
+        long analysisFailedCount,
+
+        @Schema(
+                description = "AI 분석 대기 또는 진행 중인 기록 수",
+                example = "1"
+        )
+        long analysisInProgressCount
 ) {
 
     public static InsightEligibilityApiResponse from(
@@ -46,7 +70,11 @@ public record InsightEligibilityApiResponse(
                 response.reason(),
                 response.nextAvailableAt(),
                 response.analyzedRecordCount(),
-                response.requiredRecordCount()
+                response.requiredRecordCount(),
+                response.totalRecordCount(),
+                response.analysisCompletedCount(),
+                response.analysisFailedCount(),
+                response.analysisInProgressCount()
         );
     }
 }
