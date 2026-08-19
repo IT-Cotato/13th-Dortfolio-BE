@@ -307,7 +307,7 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
-	void failedReanalysisKeepsPreviousAnalysisDataAndStoresRetryMetadata() {
+	void failedReanalysisClearsStaleAnalysisDataAndStoresRetryMetadata() {
 		User user = createUser();
 		Activity activity = createActivity(user);
 		Template template = createTemplate(user, false);
@@ -333,16 +333,16 @@ class RecordAnalysisServiceTest {
 
 		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow())
 			.satisfies(recordAnalysis -> {
-				assertThat(recordAnalysis.getAiAnalysisStatus()).isEqualTo(AiAnalysisStatus.COMPLETED);
-				assertThat(recordAnalysis.getSummary()).isEqualTo("기존 요약");
-				assertThat(recordAnalysis.getEvidenceSnippets()).contains("기존 근거");
+				assertThat(recordAnalysis.getAiAnalysisStatus()).isEqualTo(AiAnalysisStatus.FAILED);
+				assertThat(recordAnalysis.getSummary()).isNull();
+				assertThat(recordAnalysis.getEvidenceSnippets()).isNull();
 				assertThat(recordAnalysis.isLastAttemptFailed()).isTrue();
 				assertThat(recordAnalysis.isLastFailureRetryable()).isTrue();
 				assertThat(recordAnalysis.getLastFailureReason())
 					.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_FAILED.getCode());
 			});
 		assertThat(recordAnalysisRepository.findRetryableRecordIds()).contains(record.id());
-		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id())).hasSize(1);
+		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id())).isEmpty();
 	}
 
 	@Test

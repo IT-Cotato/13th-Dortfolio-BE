@@ -3,6 +3,7 @@ package com.itcotato.dortfolio.domain.record.controller.docs;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordUpdateRequest;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordPageResponse;
+import com.itcotato.dortfolio.domain.record.dto.res.RecordAnalysisRetryResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordSummaryResponse;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
@@ -77,6 +78,14 @@ public interface RecordControllerDocs {
 
 	@Operation(summary = "최근 작성 기록 조회", description = "최근 작성한 기록을 최대 5개까지 최신 작성순으로 조회합니다.")
 	ResponseEntity<ApiResponse<List<RecordSummaryResponse>>> getRecentRecords(
+		@Parameter(hidden = true) @AuthenticationPrincipal UUID userId
+	);
+
+	@Operation(
+		summary = "실패한 기록 AI 분석 재시도",
+		description = "현재 사용자의 재시도 가능한 분석 실패 기록을 다시 분석하도록 요청합니다. 작업은 비동기로 처리됩니다."
+	)
+	ResponseEntity<ApiResponse<RecordAnalysisRetryResponse>> retryFailedAnalyses(
 		@Parameter(hidden = true) @AuthenticationPrincipal UUID userId
 	);
 

@@ -112,12 +112,10 @@ public class RecordAnalysis extends BaseEntity {
 		this.lastAttemptFailed = true;
 		this.lastFailureReason = failureReason;
 		this.lastFailureRetryable = retryable;
-		if (this.aiAnalysisStatus != AiAnalysisStatus.COMPLETED) {
-			this.aiAnalysisStatus = AiAnalysisStatus.FAILED;
-			this.summary = null;
-			this.evidenceSnippets = null;
-			this.analyzedAt = null;
-			this.analyzedRecordUpdatedAt = null;
-		}
+		this.aiAnalysisStatus = AiAnalysisStatus.FAILED;
+		this.summary = null;
+		this.evidenceSnippets = null;
+		this.analyzedAt = null;
+		this.analyzedRecordUpdatedAt = null;
 	}
 }

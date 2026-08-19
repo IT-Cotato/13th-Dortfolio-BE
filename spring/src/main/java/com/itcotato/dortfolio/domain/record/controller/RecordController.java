@@ -1,9 +1,11 @@
 package com.itcotato.dortfolio.domain.record.controller;
 
 import com.itcotato.dortfolio.domain.record.controller.docs.RecordControllerDocs;
+import com.itcotato.dortfolio.domain.record.analysis.service.RecordAnalysisRetryService;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordUpdateRequest;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordPageResponse;
+import com.itcotato.dortfolio.domain.record.dto.res.RecordAnalysisRetryResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordResponse;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordSummaryResponse;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
@@ -34,6 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class RecordController implements RecordControllerDocs {
 
 	private final RecordService recordService;
+	private final RecordAnalysisRetryService recordAnalysisRetryService;
 
 	@PostMapping("/records")
 	public ResponseEntity<ApiResponse<RecordResponse>> createRecord(
@@ -135,6 +138,17 @@ public class RecordController implements RecordControllerDocs {
 	) {
 		recordService.restoreRecord(userId, recordId);
 		return ResponseEntity.ok(ApiResponse.success("기록을 복구했습니다."));
+	}
+
+	@PostMapping("/records/analysis/retry-failed")
+	public ResponseEntity<ApiResponse<RecordAnalysisRetryResponse>> retryFailedAnalyses(
+		@AuthenticationPrincipal UUID userId
+	) {
+		int requestedCount = recordAnalysisRetryService.retryFailed(userId);
+		return ResponseEntity.accepted().body(ApiResponse.success(
+			"실패한 기록 AI 분석 재시도를 요청했습니다.",
+			new RecordAnalysisRetryResponse(requestedCount)
+		));
 	}
 
 	@DeleteMapping("/records/{recordId}/permanent")

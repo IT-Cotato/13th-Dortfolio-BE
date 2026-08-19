@@ -327,7 +327,10 @@ public class RecordAnalysisService {
 		transactionTemplate.executeWithoutResult(status ->
 			recordRepository.findById(recordId)
 				.filter(this::isAnalyzable)
-				.ifPresent(record -> getOrCreate(record).fail(failureReason, retryable))
+				.ifPresent(record -> {
+					getOrCreate(record).fail(failureReason, retryable);
+					recordStrengthTagRepository.deleteAllByRecord_Id(recordId);
+				})
 		);
 	}
 
