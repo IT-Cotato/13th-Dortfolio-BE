@@ -21,6 +21,22 @@ class GeminiRecordAnalysisClient:
 
     def analyze_record(self, request: RecordAnalysisRequest) -> tuple[str, list[str], list[UUID]]:
         prompt = build_analysis_prompt(request)
+        answers = "\n".join(
+            f"- 질문: {answer.questionText}\n  답변: {answer.answerText}"
+            for answer in request.answers
+        )
+        strength_tags = build_strength_tags(request)
+        logger.info(
+            "Gemini record analysis prompt prepared. recordId=%s, promptChars=%s, "
+            "answerCount=%s, answerChars=%s, strengthCandidateCount=%s, "
+            "strengthCandidateChars=%s",
+            request.recordId,
+            len(prompt),
+            len(request.answers),
+            len(answers),
+            len(request.strengthTagCandidates),
+            len(strength_tags),
+        )
         response = self.client.models.generate_content(
             model=self.settings.gemini_generation_model,
             contents=prompt,
@@ -51,18 +67,7 @@ def build_analysis_prompt(request: RecordAnalysisRequest) -> str:
         f"- 질문: {answer.questionText}\n  답변: {answer.answerText}"
         for answer in request.answers
     )
-    strength_tags = "\n".join(
-        (
-            f"- id: {candidate.id}\n"
-            f"  name: {candidate.name}\n"
-            f"  description: {candidate.description}\n"
-            f"  evaluationCriteria: {candidate.evaluationCriteria}\n"
-            f"  positiveExample: {candidate.positiveExample}\n"
-            f"  negativeExample: {candidate.negativeExample}\n"
-            f"  cosineSimilarity: {candidate.cosineSimilarity}"
-        )
-        for candidate in request.strengthTagCandidates
-    )
+    strength_tags = build_strength_tags(request)
 
     return f"""
 아래 기록을 분석해서 JSON만 반환해 주세요.
@@ -97,6 +102,21 @@ def build_analysis_prompt(request: RecordAnalysisRequest) -> str:
 강점 태그 후보군:
 {strength_tags}
 """.strip()
+
+
+def build_strength_tags(request: RecordAnalysisRequest) -> str:
+    return "\n".join(
+        (
+            f"- id: {candidate.id}\n"
+            f"  name: {candidate.name}\n"
+            f"  description: {candidate.description}\n"
+            f"  evaluationCriteria: {candidate.evaluationCriteria}\n"
+            f"  positiveExample: {candidate.positiveExample}\n"
+            f"  negativeExample: {candidate.negativeExample}\n"
+            f"  cosineSimilarity: {candidate.cosineSimilarity}"
+        )
+        for candidate in request.strengthTagCandidates
+    )
 
 
 def parse_analysis_payload(
