@@ -8,6 +8,7 @@ CREATE TABLE record_analysis_jobs (
     started_at timestamp(6),
     claim_token uuid,
     lease_expires_at timestamp(6),
+    analysis_generation bigint NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT fk_record_analysis_jobs_record
         FOREIGN KEY (record_id) REFERENCES records ON DELETE CASCADE
@@ -19,13 +20,5 @@ CREATE INDEX idx_record_analysis_jobs_ready
 CREATE UNIQUE INDEX uk_record_analysis_jobs_record
     ON record_analysis_jobs (record_id);
 
-UPDATE record_analysis
-SET ai_analysis_status = 'FAILED',
-    summary = NULL,
-    evidence_snippets = NULL,
-    analyzed_at = NULL,
-    analyzed_record_updated_at = NULL,
-    failure_reason = COALESCE(last_failure_reason, failure_reason),
-    failure_retryable = last_failure_retryable
-WHERE ai_analysis_status = 'COMPLETED'
-  AND last_attempt_failed = true;
+ALTER TABLE record_analysis
+    ADD COLUMN analysis_generation bigint NOT NULL DEFAULT 0;

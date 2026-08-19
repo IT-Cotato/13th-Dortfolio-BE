@@ -41,7 +41,8 @@ public class RecordAnalysisJobWorker {
 			.map(job -> {
 				LocalDateTime now = LocalDateTime.now(clock);
 				UUID claimToken = job.start(now, now.plus(properties.jobStaleRunningTimeout()));
-				return new JobTarget(job.getId(), job.getRecord().getId(), claimToken);
+				return new JobTarget(job.getId(), job.getRecord().getId(), claimToken,
+					job.getAnalysisGeneration());
 			}));
 
 		if (target == null || target.isEmpty()) {
@@ -54,18 +55,16 @@ public class RecordAnalysisJobWorker {
 		heartbeatInterval()
 		);
 		try {
-			if (shouldAnalyze(jobTarget.recordId())) {
-				recordAnalysisService.analyze(jobTarget.recordId());
+			if (shouldAnalyze(jobTarget.recordId(), jobTarget.analysisGeneration())) {
+				recordAnalysisService.analyze(jobTarget.recordId(), jobTarget.analysisGeneration());
 			}
 			transactionTemplate.executeWithoutResult(status -> jobRepository
-				.findById(jobTarget.jobId())
-				.ifPresent(job -> job.complete(jobTarget.claimToken())));
+				.completeClaim(jobTarget.jobId(), jobTarget.claimToken()));
 		} catch (RuntimeException exception) {
 			log.error("Record analysis job execution failed. jobId={}, recordId={}",
 				jobTarget.jobId(), jobTarget.recordId(), exception);
 			transactionTemplate.executeWithoutResult(status -> jobRepository
-				.findById(jobTarget.jobId())
-				.ifPresent(job -> job.requeue(jobTarget.claimToken())));
+				.requeueClaim(jobTarget.jobId(), jobTarget.claimToken()));
 		} finally {
 			heartbeat.cancel(false);
 		}
@@ -73,11 +72,8 @@ public class RecordAnalysisJobWorker {
 
 	private void renewLease(JobTarget jobTarget) {
 		transactionTemplate.executeWithoutResult(status -> jobRepository
-			.findById(jobTarget.jobId())
-			.ifPresent(job -> job.renewLease(
-				jobTarget.claimToken(),
-				LocalDateTime.now(clock).plus(properties.jobStaleRunningTimeout())
-			)));
+			.renewLease(jobTarget.jobId(), jobTarget.claimToken(),
+				LocalDateTime.now(clock).plus(properties.jobStaleRunningTimeout())));
 	}
 
 	private Duration heartbeatInterval() {
@@ -85,9 +81,10 @@ public class RecordAnalysisJobWorker {
 		return Duration.ofSeconds(seconds);
 	}
 
-	private boolean shouldAnalyze(UUID recordId) {
+	private boolean shouldAnalyze(UUID recordId, long generation) {
 		return recordAnalysisRepository.findByRecord_Id(recordId)
-			.map(analysis -> analysis.getAiAnalysisStatus() == AiAnalysisStatus.PENDING)
+			.map(analysis -> analysis.getAiAnalysisStatus() == AiAnalysisStatus.PENDING
+				&& analysis.isCurrentGeneration(generation))
 			.orElse(false);
 	}
 
@@ -95,11 +92,10 @@ public class RecordAnalysisJobWorker {
 	public void recoverStaleRunningJobs() {
 		transactionTemplate.executeWithoutResult(status -> {
 			LocalDateTime now = LocalDateTime.now(clock);
-			jobRepository.findAllRunningBefore(RecordAnalysisJobStatus.RUNNING, now)
-				.forEach(RecordAnalysisJob::reschedule);
+			jobRepository.recoverExpiredClaims(now);
 		});
 	}
 
-	private record JobTarget(UUID jobId, UUID recordId, UUID claimToken) {
+	private record JobTarget(UUID jobId, UUID recordId, UUID claimToken, long analysisGeneration) {
 	}
 }

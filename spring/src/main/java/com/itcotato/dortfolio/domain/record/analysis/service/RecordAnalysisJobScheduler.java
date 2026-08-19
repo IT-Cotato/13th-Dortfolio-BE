@@ -26,10 +26,10 @@ public class RecordAnalysisJobScheduler {
 
 		RecordAnalysis analysis = recordAnalysisRepository.findByRecord_Id(record.getId())
 			.orElseGet(() -> recordAnalysisRepository.save(RecordAnalysis.pending(record)));
-		analysis.markPending();
+		long generation = analysis.markPending();
 		recordAnalysisJobRepository.findByRecord_Id(record.getId())
-			.ifPresentOrElse(RecordAnalysisJob::reschedule,
-				() -> recordAnalysisJobRepository.save(RecordAnalysisJob.ready(record)));
+			.ifPresentOrElse(job -> job.reschedule(generation),
+				() -> recordAnalysisJobRepository.save(RecordAnalysisJob.ready(record, generation)));
 		return true;
 	}
 

@@ -42,13 +42,18 @@ public class RecordAnalysisJob extends BaseEntity {
 	@Column
 	private LocalDateTime leaseExpiresAt;
 
+	@Column(nullable = false)
+	private long analysisGeneration;
+
 	private RecordAnalysisJob(Record record) {
 		this.record = record;
 		this.status = RecordAnalysisJobStatus.READY;
 	}
 
-	public static RecordAnalysisJob ready(Record record) {
-		return new RecordAnalysisJob(record);
+	public static RecordAnalysisJob ready(Record record, long analysisGeneration) {
+		RecordAnalysisJob job = new RecordAnalysisJob(record);
+		job.analysisGeneration = analysisGeneration;
+		return job;
 	}
 
 	public UUID start(LocalDateTime now, LocalDateTime leaseExpiresAt) {
@@ -89,7 +94,8 @@ public class RecordAnalysisJob extends BaseEntity {
 		return true;
 	}
 
-	public void reschedule() {
+	public void reschedule(long analysisGeneration) {
+		this.analysisGeneration = analysisGeneration;
 		this.status = RecordAnalysisJobStatus.READY;
 		this.startedAt = null;
 		this.claimToken = null;
