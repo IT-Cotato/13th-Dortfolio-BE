@@ -4,6 +4,7 @@ import com.itcotato.dortfolio.domain.insight.dto.res.InsightEligibilityReason;
 import com.itcotato.dortfolio.domain.insight.dto.res.InsightEligibilityResponse;
 import com.itcotato.dortfolio.domain.insight.query.AnalyzedRecordSnapshot;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCandidate;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCompetency;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 import com.itcotato.dortfolio.domain.insight.statistics.StrengthStatistic;
@@ -113,10 +114,21 @@ public final class InsightTestFixture {
         return new RecommendationRequest(
                 JOB_ID,
                 "백엔드 개발자",
-                JOB_COMPETENCY_ID,
-                "문제 해결",
-                "문제의 원인을 분석하고 해결 방법을 적용하는 역량",
-                List.of(recommendationCandidate())
+                java.util.stream.IntStream.range(0, 5)
+                        .mapToObj(index -> new RecommendationCompetency(
+                                index == 0
+                                        ? JOB_COMPETENCY_ID
+                                        : UUID.fromString(
+                                                "00000000-0000-0000-0000-00000000000"
+                                                        + index
+                                        ),
+                                "역량 " + index,
+                                "역량 설명 " + index,
+                                index == 0
+                                        ? List.of(recommendationCandidate())
+                                        : List.of()
+                        ))
+                        .toList()
         );
     }
 

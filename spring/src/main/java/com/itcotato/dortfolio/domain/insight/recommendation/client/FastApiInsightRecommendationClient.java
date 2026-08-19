@@ -2,8 +2,10 @@ package com.itcotato.dortfolio.domain.insight.recommendation.client;
 
 import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResponse;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 import com.itcotato.dortfolio.domain.record.analysis.config.AiServiceProperties;
+import java.util.List;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -40,15 +42,17 @@ public class FastApiInsightRecommendationClient implements InsightRecommendation
     }
 
     @Override
-    public RecommendationResult generate(
+    public List<RecommendationResult> generate(
             RecommendationRequest request
     ) {
-        return restClient.post()
+        RecommendationResponse response = restClient.post()
                 .uri("/ai/insights/recommendation")
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
                 .body(request)
                 .retrieve()
-                .body(RecommendationResult.class);
+                .body(RecommendationResponse.class);
+
+        return response == null ? null : response.recommendations();
     }
 }

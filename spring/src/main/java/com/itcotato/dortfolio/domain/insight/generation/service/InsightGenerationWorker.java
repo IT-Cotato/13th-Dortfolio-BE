@@ -13,6 +13,7 @@ import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationR
 import com.itcotato.dortfolio.domain.insight.query.AnalyzedRecordQuery;
 import com.itcotato.dortfolio.domain.insight.query.AnalyzedRecordSnapshot;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCandidate;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCompetency;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 import com.itcotato.dortfolio.domain.insight.recommendation.repository.RecommendationCandidateQuery;
@@ -25,7 +26,10 @@ import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -193,15 +197,40 @@ public class InsightGenerationWorker {
     ) {
         int candidateCount = calculateCandidateCount(totalEligibleRecordCount);
 
-        return command.jobCompetencies()
+        List<RecommendationCompetency> competencies = command.jobCompetencies()
                 .stream()
-                .map(competency ->
-                        generateRecommendation(
-                                command,
-                                competency,
-                                candidateCount
+                .map(competency -> new RecommendationCompetency(
+                        competency.jobCompetencyId(),
+                        competency.competencyName(),
+                        competency.competencyDescription(),
+                        candidateQuery.findTopCandidates(
+                                command.userId(),
+                                competency.jobCompetencyId(),
+                                command.snapshotAt(),
+                                candidateCount,
+                                insightProperties.recommendationMinSimilarity()
                         )
-                )
+                ))
+                .toList();
+
+        RecommendationRequest request = new RecommendationRequest(
+                command.jobId(),
+                command.jobName(),
+                competencies
+        );
+        List<RecommendationResult> recommendations =
+                recommendationGenerator.generate(request);
+        Map<UUID, RecommendationCompetency> competenciesById =
+                competencies.stream().collect(Collectors.toMap(
+                        RecommendationCompetency::jobCompetencyId,
+                        Function.identity()
+                ));
+
+        return recommendations.stream()
+                .map(recommendation -> toRecommendationResult(
+                        competenciesById.get(recommendation.jobCompetencyId()),
+                        recommendation
+                ))
                 .toList();
     }
 
@@ -209,40 +238,10 @@ public class InsightGenerationWorker {
         return Math.min(insightProperties.recommendationCandidateMax(), Math.max(insightProperties.recommendationCandidateMin(), (int) Math.ceil(totalEligibleRecordCount * insightProperties.recommendationCandidateRatio())));
     }
 
-    private JobRecommendationResult generateRecommendation(
-            InsightGenerationCommand command,
-            JobCompetencySnapshot competency,
-            int candidateCount
+    private JobRecommendationResult toRecommendationResult(
+            RecommendationCompetency competency,
+            RecommendationResult recommendation
     ) {
-        List<RecommendationCandidate> candidates =
-                candidateQuery.findTopCandidates(
-                        command.userId(),
-                        competency.jobCompetencyId(),
-                        command.snapshotAt(),
-                        candidateCount,
-                        insightProperties.recommendationMinSimilarity()
-                );
-
-        if (candidates.isEmpty()) {
-            return JobRecommendationResult.noMatch(
-                    competency.jobCompetencyId(),
-                    competency.competencyName()
-            );
-        }
-
-        RecommendationRequest request =
-                new RecommendationRequest(
-                        command.jobId(),
-                        command.jobName(),
-                        competency.jobCompetencyId(),
-                        competency.competencyName(),
-                        competency.competencyDescription(),
-                        candidates
-                );
-
-        RecommendationResult recommendation =
-                recommendationGenerator.generate(request);
-
         if (!recommendation.matched()) {
             return JobRecommendationResult.noMatch(
                     competency.jobCompetencyId(),
@@ -251,7 +250,7 @@ public class InsightGenerationWorker {
         }
 
         RecommendationCandidate selectedCandidate =
-                candidates.stream()
+                competency.candidates().stream()
                         .filter(candidate ->
                                 candidate.recordId().equals(
                                         recommendation.recordId()
