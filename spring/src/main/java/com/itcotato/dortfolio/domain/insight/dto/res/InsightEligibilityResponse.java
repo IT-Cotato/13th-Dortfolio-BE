@@ -8,6 +8,31 @@ public record InsightEligibilityResponse(
         LocalDateTime nextAvailableAt,
         long completedRecordCount,
         long analyzedRecordCount,
-        int requiredRecordCount
+        int requiredRecordCount,
+        long totalRecordCount,
+        long analysisCompletedCount,
+        long analysisFailedCount,
+        long analysisInProgressCount
 ) {
+    public InsightEligibilityResponse(
+            boolean eligible,
+            InsightEligibilityReason reason,
+            LocalDateTime nextAvailableAt,
+            long completedRecordCount,
+            long analyzedRecordCount,
+            int requiredRecordCount
+    ) {
+        this(
+                eligible,
+                reason,
+                nextAvailableAt,
+                completedRecordCount,
+                analyzedRecordCount,
+                requiredRecordCount,
+                completedRecordCount,
+                0,
+                0,
+                0
+        );
+    }
 }
