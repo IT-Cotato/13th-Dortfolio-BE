@@ -45,5 +45,5 @@ class RecordAnalysisRequest(BaseModel):
 
 class RecordAnalysisResponse(BaseModel):
     summary: str
-    evidenceSnippets: list[str]
+    evidenceSnippets: list[str] = Field(min_length=1, max_length=5)
     strengthTagIds: list[UUID]

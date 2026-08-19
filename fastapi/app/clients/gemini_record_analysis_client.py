@@ -1,10 +1,14 @@
 import json
+import logging
 from uuid import UUID
 
 from google import genai
 from google.genai import types
 from app.core.config import Settings
-from app.schemas.record_analysis import RecordAnalysisRequest
+from app.schemas.record_analysis import RecordAnalysisRequest, RecordAnalysisResponse
+
+
+logger = logging.getLogger(__name__)
 
 
 class GeminiRecordAnalysisClient:
@@ -22,8 +26,14 @@ class GeminiRecordAnalysisClient:
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
+                response_schema=RecordAnalysisResponse,
                 http_options=types.HttpOptions(timeout=int(self.settings.gemini_http_timeout_seconds * 1000)),
             ),
+        )
+        logger.info(
+            "Temporary Gemini record analysis response. recordId=%s, response=%s",
+            request.recordId,
+            response.text,
         )
         payload = json.loads(response.text or "{}")
         return parse_analysis_payload(payload, request)
