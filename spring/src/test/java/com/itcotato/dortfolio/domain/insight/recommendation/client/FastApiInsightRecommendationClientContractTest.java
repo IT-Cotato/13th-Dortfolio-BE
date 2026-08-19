@@ -84,6 +84,7 @@ class FastApiInsightRecommendationClientContractTest {
                                 0.0,
                                 "gemini-embedding-2",
                                 2,
+                                Duration.ZERO,
                                 Duration.ofSeconds(2)
                         )
                 );

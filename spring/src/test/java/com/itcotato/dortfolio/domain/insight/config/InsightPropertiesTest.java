@@ -18,6 +18,7 @@ class InsightPropertiesTest {
                 0.0,
                 "gemini-embedding-2",
                 2,
+                Duration.ZERO,
                 Duration.ofSeconds(10)
         ))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -35,6 +36,7 @@ class InsightPropertiesTest {
                 0.0,
                 "gemini-embedding-2",
                 2,
+                Duration.ZERO,
                 Duration.ofSeconds(10)
         ))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -52,6 +54,7 @@ class InsightPropertiesTest {
                 0.0,
                 "gemini-embedding-2",
                 2,
+                Duration.ZERO,
                 Duration.ofSeconds(10)
         ))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -69,6 +72,7 @@ class InsightPropertiesTest {
                 1.1,
                 "gemini-embedding-2",
                 2,
+                Duration.ZERO,
                 Duration.ofSeconds(10)
         ))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -86,6 +90,7 @@ class InsightPropertiesTest {
                 Double.NaN,
                 "gemini-embedding-2",
                 2,
+                Duration.ZERO,
                 Duration.ofSeconds(10)
         ))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -103,6 +108,7 @@ class InsightPropertiesTest {
                 0.0,
                 "gemini-embedding-2",
                 2,
+                Duration.ZERO,
                 Duration.ofSeconds(10)
         ))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -120,6 +126,7 @@ class InsightPropertiesTest {
                 0.0,
                 " ",
                 2,
+                Duration.ZERO,
                 Duration.ofSeconds(10)
         ))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -137,6 +144,7 @@ class InsightPropertiesTest {
                 0.0,
                 "gemini-embedding-2",
                 0,
+                Duration.ZERO,
                 Duration.ofSeconds(10)
         ))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -154,9 +162,28 @@ class InsightPropertiesTest {
                 0.0,
                 "gemini-embedding-2",
                 2,
+                Duration.ZERO,
                 Duration.ZERO
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("recommendationTimeout");
+    }
+
+    @Test
+    void rejectsNegativeRecommendationInitialBackoff() {
+        assertThatThrownBy(() -> new InsightProperties(
+                10,
+                Duration.ofHours(24),
+                0.1,
+                1,
+                5,
+                0.0,
+                "gemini-embedding-2",
+                2,
+                Duration.ofSeconds(-1),
+                Duration.ofSeconds(10)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("recommendationInitialBackoff");
     }
 }

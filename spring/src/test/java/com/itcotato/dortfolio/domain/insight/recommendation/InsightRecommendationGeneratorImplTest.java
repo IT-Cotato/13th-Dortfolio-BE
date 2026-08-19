@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.any;
 
 import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
 import com.itcotato.dortfolio.domain.insight.recommendation.client.InsightRecommendationClient;
@@ -12,6 +14,7 @@ import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCa
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 import com.itcotato.dortfolio.domain.insight.recommendation.service.InsightRecommendationGeneratorImpl;
+import com.itcotato.dortfolio.domain.insight.recommendation.service.InsightRecommendationRetrySleeper;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import java.time.Duration;
 import java.util.List;
@@ -22,7 +25,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClientException;
 
 @ExtendWith(MockitoExtension.class)
@@ -30,6 +38,9 @@ class InsightRecommendationGeneratorImplTest {
 
     @Mock
     private InsightRecommendationClient client;
+
+    @Mock
+    private InsightRecommendationRetrySleeper retrySleeper;
 
     private InsightRecommendationGeneratorImpl generator;
 
@@ -50,8 +61,10 @@ class InsightRecommendationGeneratorImplTest {
                         0.0,
                         "gemini-embedding-2",
                         2,
+                        Duration.ZERO,
                         Duration.ofSeconds(10)
-                )
+                ),
+                retrySleeper
         );
 
         jobCompetencyId = UUID.randomUUID();
@@ -216,6 +229,29 @@ class InsightRecommendationGeneratorImplTest {
     }
 
     @Test
+    void doesNotRetryInvalidRecommendationResponse() {
+        when(client.generate(request))
+                .thenReturn(new RecommendationResult(
+                        jobCompetencyId,
+                        UUID.randomUUID(),
+                        "후보에 없는 기록입니다."
+                ));
+
+        assertThatThrownBy(() -> generator.generate(request))
+                .isInstanceOf(CustomException.class)
+                .extracting(error ->
+                        ((CustomException) error).getErrorCode()
+                )
+                .isEqualTo(
+                        InsightErrorCode
+                                .INSIGHT_RECOMMENDATION_INVALID_RESPONSE
+                );
+
+        verify(client).generate(request);
+        verify(retrySleeper, never()).sleep(any());
+    }
+
+    @Test
     void succeedsOnSecondAttempt() {
         when(client.generate(request))
                 .thenThrow(new RestClientException("timeout"))
@@ -231,6 +267,84 @@ class InsightRecommendationGeneratorImplTest {
         assertThat(result.recordId())
                 .isEqualTo(candidateRecordId);
         verify(client, times(2)).generate(request);
+        verify(retrySleeper).sleep(Duration.ZERO);
+    }
+
+    @Test
+    void retriesRateLimitResponse() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.RETRY_AFTER, "30");
+        when(client.generate(request))
+                .thenThrow(HttpClientErrorException.create(
+                        HttpStatus.TOO_MANY_REQUESTS,
+                        "Too Many Requests",
+                        headers,
+                        new byte[0],
+                        null
+                ))
+                .thenReturn(new RecommendationResult(
+                        jobCompetencyId,
+                        candidateRecordId,
+                        "재시도 후 생성됐습니다."
+                ));
+
+        RecommendationResult result = generator.generate(request);
+
+        assertThat(result.recordId()).isEqualTo(candidateRecordId);
+        verify(client, times(2)).generate(request);
+        ArgumentCaptor<Duration> backoffCaptor =
+                ArgumentCaptor.forClass(Duration.class);
+        verify(retrySleeper).sleep(backoffCaptor.capture());
+        assertThat(backoffCaptor.getValue())
+                .isGreaterThanOrEqualTo(Duration.ofSeconds(30))
+                .isLessThanOrEqualTo(Duration.ofSeconds(45));
+    }
+
+    @Test
+    void retriesServerErrorResponse() {
+        when(client.generate(request))
+                .thenThrow(HttpServerErrorException.create(
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        "Service Unavailable",
+                        HttpHeaders.EMPTY,
+                        new byte[0],
+                        null
+                ))
+                .thenReturn(new RecommendationResult(
+                        jobCompetencyId,
+                        candidateRecordId,
+                        "재시도 후 생성됐습니다."
+                ));
+
+        RecommendationResult result = generator.generate(request);
+
+        assertThat(result.recordId()).isEqualTo(candidateRecordId);
+        verify(client, times(2)).generate(request);
+    }
+
+    @Test
+    void doesNotRetryNonRetryableClientError() {
+        when(client.generate(request))
+                .thenThrow(HttpClientErrorException.create(
+                        HttpStatus.FORBIDDEN,
+                        "Forbidden",
+                        HttpHeaders.EMPTY,
+                        new byte[0],
+                        null
+                ));
+
+        assertThatThrownBy(() -> generator.generate(request))
+                .isInstanceOf(CustomException.class)
+                .extracting(error ->
+                        ((CustomException) error).getErrorCode()
+                )
+                .isEqualTo(
+                        InsightErrorCode
+                                .INSIGHT_RECOMMENDATION_AI_SERVICE_FAILED
+                );
+
+        verify(client).generate(request);
+        verify(retrySleeper, never()).sleep(any());
     }
 
     @Test

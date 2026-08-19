@@ -38,11 +38,39 @@ def generate_insight_recommendation(
             },
         )
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
+            status_code=gemini_error_status(exception),
             detail="Gemini recommendation request failed.",
+            headers=gemini_retry_headers(exception),
         ) from exception
     except ValueError as exception:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(exception),
         ) from exception
+
+
+def gemini_error_status(exception: errors.APIError) -> int:
+    """Preserve actionable Gemini statuses for the Spring retry policy."""
+    code = getattr(exception, "code", None)
+
+    if isinstance(code, int) and 400 <= code <= 599:
+        return code
+
+    return status.HTTP_502_BAD_GATEWAY
+
+
+def gemini_retry_headers(
+    exception: errors.APIError,
+) -> dict[str, str] | None:
+    response = getattr(exception, "response", None)
+    response_headers = getattr(response, "headers", None)
+
+    if response_headers is None:
+        return None
+
+    retry_after = response_headers.get("retry-after")
+
+    if not retry_after:
+        return None
+
+    return {"Retry-After": str(retry_after)}
