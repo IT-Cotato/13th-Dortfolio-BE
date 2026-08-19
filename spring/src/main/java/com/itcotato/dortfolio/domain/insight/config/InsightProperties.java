@@ -13,6 +13,7 @@ public record InsightProperties(
         double recommendationMinSimilarity,
         String embeddingModel,
         int recommendationMaxAttempts,
+        Duration recommendationInitialBackoff,
         Duration recommendationTimeout
 ) {
 
@@ -68,6 +69,13 @@ public record InsightProperties(
         if (recommendationMaxAttempts <= 0) {
             throw new IllegalArgumentException(
                     "recommendationMaxAttempts must be positive"
+            );
+        }
+
+        if (recommendationInitialBackoff == null
+                || recommendationInitialBackoff.isNegative()) {
+            throw new IllegalArgumentException(
+                    "recommendationInitialBackoff must not be negative"
             );
         }
 

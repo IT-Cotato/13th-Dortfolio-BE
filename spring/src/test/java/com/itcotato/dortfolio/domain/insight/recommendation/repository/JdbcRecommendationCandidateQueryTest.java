@@ -80,6 +80,7 @@ class JdbcRecommendationCandidateQueryTest {
                 0.0,
                 "gemini-embedding-2",
                 2,
+                Duration.ZERO,
                 Duration.ofSeconds(10)
         );
     }

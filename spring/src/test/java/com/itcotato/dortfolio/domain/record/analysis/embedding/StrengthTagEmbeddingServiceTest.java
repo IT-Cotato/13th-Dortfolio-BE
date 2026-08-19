@@ -51,6 +51,7 @@ class StrengthTagEmbeddingServiceTest {
 			0.0,
 			MODEL,
 			2,
+			Duration.ZERO,
 			Duration.ofSeconds(10)
 		);
 		service = new StrengthTagEmbeddingService(

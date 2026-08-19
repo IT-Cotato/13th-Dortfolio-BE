@@ -5,6 +5,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from fastapi import HTTPException
+from google.genai import errors
 
 from app.schemas.insight import (
     InsightRecommendationCandidate,
@@ -70,6 +71,54 @@ class InsightServiceTest(unittest.TestCase):
         )
 
         self.assertEqual(response.recordId, candidate_id)
+
+    @patch("app.services.insight_service.GeminiInsightClient")
+    @patch("app.services.insight_service.get_settings")
+    def test_preserves_gemini_rate_limit_status(
+        self,
+        get_settings,
+        client_type,
+    ):
+        get_settings.return_value = SimpleNamespace(
+            gemini_api_key="test-key",
+            gemini_generation_model="gemini-3.6-flash",
+        )
+        client_type.return_value.generate_recommendation.side_effect = (
+            errors.APIError(
+                429,
+                {"error": {"message": "Resource exhausted"}},
+                SimpleNamespace(headers={"retry-after": "30"}),
+            )
+        )
+
+        with self.assertRaises(HTTPException) as context:
+            generate_insight_recommendation(self.request())
+
+        self.assertEqual(context.exception.status_code, 429)
+        self.assertEqual(context.exception.headers, {"Retry-After": "30"})
+
+    @patch("app.services.insight_service.GeminiInsightClient")
+    @patch("app.services.insight_service.get_settings")
+    def test_preserves_non_retryable_gemini_status(
+        self,
+        get_settings,
+        client_type,
+    ):
+        get_settings.return_value = SimpleNamespace(
+            gemini_api_key="test-key",
+            gemini_generation_model="gemini-3.6-flash",
+        )
+        client_type.return_value.generate_recommendation.side_effect = (
+            errors.APIError(
+                403,
+                {"error": {"message": "Permission denied"}},
+            )
+        )
+
+        with self.assertRaises(HTTPException) as context:
+            generate_insight_recommendation(self.request())
+
+        self.assertEqual(context.exception.status_code, 403)
 
     def test_rejects_record_outside_candidates(self):
         request = self.request()

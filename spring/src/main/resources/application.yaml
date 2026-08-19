@@ -134,6 +134,7 @@ insight:
   recommendation-min-similarity: ${INSIGHT_RECOMMENDATION_MIN_SIMILARITY:0.0}
   embedding-model: ${INSIGHT_EMBEDDING_MODEL:${GEMINI_EMBEDDING_MODEL:gemini-embedding-2}}
   recommendation-max-attempts: ${INSIGHT_RECOMMENDATION_MAX_ATTEMPTS:2}
+  recommendation-initial-backoff: ${INSIGHT_RECOMMENDATION_INITIAL_BACKOFF:2s}
   # FastAPI의 Gemini 제한(기본 25초)보다 길어야 재시도 요청이 겹치지 않는다.
   recommendation-timeout: ${INSIGHT_RECOMMENDATION_TIMEOUT:30s}
 
