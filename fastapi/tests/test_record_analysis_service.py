@@ -10,7 +10,7 @@ from app.clients.gemini_record_analysis_client import (
     build_analysis_prompt,
     parse_analysis_payload,
 )
-from app.schemas.record_analysis import RecordAnalysisRequest
+from app.schemas.record_analysis import RecordAnalysisRequest, RecordAnalysisResponse
 from app.services.record_analysis_service import analyze_record
 
 
@@ -75,6 +75,14 @@ class RecordAnalysisServiceTest(unittest.TestCase):
         self.assertNotIn("메모:", prompt)
         self.assertNotIn("메모에만 있는 민감한 내용", prompt)
         self.assertIn("evidenceSnippets는 답변 원문에서", prompt)
+
+    def test_response_schema_requires_one_to_five_evidence_snippets(self):
+        evidence_schema = RecordAnalysisResponse.model_json_schema()["properties"][
+            "evidenceSnippets"
+        ]
+
+        self.assertEqual(evidence_schema["minItems"], 1)
+        self.assertEqual(evidence_schema["maxItems"], 5)
 
     def test_parse_analysis_payload_accepts_up_to_two_candidate_ids(self):
         request, candidate_ids = analysis_request()
