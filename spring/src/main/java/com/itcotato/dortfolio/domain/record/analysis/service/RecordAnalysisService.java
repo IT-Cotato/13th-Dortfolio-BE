@@ -71,7 +71,7 @@ public class RecordAnalysisService {
 		try {
 			snapshotOptional = transactionTemplate.execute(status -> prepareRequest(recordId));
 		} catch (Exception exception) {
-			markPersistenceFailure(recordId, "prepare", exception);
+			markPersistenceFailure(recordId, "prepare", exception, null);
 			return;
 		}
 		if (snapshotOptional == null || snapshotOptional.isEmpty()) {
@@ -85,7 +85,8 @@ public class RecordAnalysisService {
 		} catch (CustomException exception) {
 			recordAnalysisLockManager.executeWithLock(
 				recordId,
-				() -> markFailed(recordId, toFailureReason(exception), toRetryable(exception))
+				() -> markFailed(recordId, toFailureReason(exception), toRetryable(exception),
+					snapshotOptional.get().recordUpdatedAt())
 			);
 			log.warn(
 				"Record AI analysis failed. recordId={}, errorCode={}, retryable={}",
@@ -95,7 +96,8 @@ public class RecordAnalysisService {
 			);
 			return;
 		} catch (Exception exception) {
-			markPersistenceFailure(recordId, "execute", exception);
+			markPersistenceFailure(recordId, "execute", exception,
+				snapshotOptional.get().recordUpdatedAt());
 			return;
 		}
 
@@ -108,7 +110,8 @@ public class RecordAnalysisService {
 		} catch (CustomException exception) {
 			recordAnalysisLockManager.executeWithLock(
 				recordId,
-				() -> markFailed(recordId, toFailureReason(exception), toRetryable(exception))
+				() -> markFailed(recordId, toFailureReason(exception), toRetryable(exception),
+					snapshotOptional.get().recordUpdatedAt())
 			);
 			log.warn(
 				"Record AI analysis persistence rejected. recordId={}, errorCode={}",
@@ -117,7 +120,8 @@ public class RecordAnalysisService {
 			);
 			return;
 		} catch (Exception exception) {
-			markPersistenceFailure(recordId, "persistence", exception);
+			markPersistenceFailure(recordId, "persistence", exception,
+				snapshotOptional.get().recordUpdatedAt());
 			return;
 		}
 		log.info("Record AI analysis completed. recordId={}", recordId);
@@ -312,23 +316,39 @@ public class RecordAnalysisService {
 		recordStrengthTagRepository.saveAll(recordStrengthTags);
 	}
 
-	private void markPersistenceFailure(UUID recordId, String phase, Exception exception) {
+	private void markPersistenceFailure(
+		UUID recordId,
+		String phase,
+		Exception exception,
+		LocalDateTime expectedRecordUpdatedAt
+	) {
 		CustomException persistenceException =
 			new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED);
 		recordAnalysisLockManager.executeWithLock(recordId, () -> markFailed(
 			recordId,
 			toFailureReason(persistenceException),
-			RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED.isRetryable()
+			RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED.isRetryable(),
+			expectedRecordUpdatedAt
 		));
 		log.warn("Record AI analysis {} failed. recordId={}", phase, recordId, exception);
 	}
 
-	private void markFailed(UUID recordId, String failureReason, boolean retryable) {
+	private void markFailed(
+		UUID recordId,
+		String failureReason,
+		boolean retryable,
+		LocalDateTime expectedRecordUpdatedAt
+	) {
 		transactionTemplate.executeWithoutResult(status ->
 			recordRepository.findById(recordId)
 				.filter(this::isAnalyzable)
 				.ifPresent(record -> {
+					if (expectedRecordUpdatedAt != null
+						&& !record.getUpdatedAt().equals(expectedRecordUpdatedAt)) {
+						return;
+					}
 					getOrCreate(record).fail(failureReason, retryable);
+					recordEmbeddingRepository.deleteAllByRecord_Id(recordId);
 					recordStrengthTagRepository.deleteAllByRecord_Id(recordId);
 				})
 		);

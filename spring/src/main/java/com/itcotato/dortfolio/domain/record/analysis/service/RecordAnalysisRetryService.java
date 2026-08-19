@@ -15,15 +15,20 @@ public class RecordAnalysisRetryService {
 	private final RecordAnalysisRepository recordAnalysisRepository;
 	private final RecordRepository recordRepository;
 	private final RecordAnalysisJobScheduler jobScheduler;
+	private final RecordAnalysisLockManager lockManager;
 
 	@Transactional
 	public int retryFailed(UUID userId) {
 		List<UUID> recordIds = recordAnalysisRepository
 			.findRetryableFailedRecordIdsByUserId(userId);
 
-		recordIds.forEach(recordId -> recordRepository.findById(recordId)
-			.ifPresent(jobScheduler::schedule));
+		long requestedCount = recordIds.stream()
+			.filter(recordId -> lockManager.executeWithLock(
+				recordId,
+				() -> jobScheduler.scheduleRetry(recordId)
+			))
+			.count();
 
-		return recordIds.size();
+		return Math.toIntExact(requestedCount);
 	}
 }

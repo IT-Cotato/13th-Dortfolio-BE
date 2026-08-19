@@ -19,20 +19,35 @@ public class RecordAnalysisJobScheduler {
 	private final RecordAnalysisJobRepository recordAnalysisJobRepository;
 	private final RecordRepository recordRepository;
 
-	public void schedule(Record record) {
+	public boolean schedule(Record record) {
 		if (!isAnalyzable(record)) {
-			return;
+			return false;
 		}
 
 		RecordAnalysis analysis = recordAnalysisRepository.findByRecord_Id(record.getId())
 			.orElseGet(() -> recordAnalysisRepository.save(RecordAnalysis.pending(record)));
 		analysis.markPending();
-		recordAnalysisJobRepository.save(RecordAnalysisJob.ready(record));
+		recordAnalysisJobRepository.findByRecord_Id(record.getId())
+			.ifPresentOrElse(RecordAnalysisJob::reschedule,
+				() -> recordAnalysisJobRepository.save(RecordAnalysisJob.ready(record)));
+		return true;
 	}
 
-	public void schedule(UUID recordId) {
-		recordRepository.findById(recordId)
-			.ifPresent(this::schedule);
+	public boolean schedule(UUID recordId) {
+		return recordRepository.findById(recordId)
+			.map(this::schedule)
+			.orElse(false);
+	}
+
+	public boolean scheduleRetry(UUID recordId) {
+		return recordRepository.findById(recordId)
+			.filter(record -> recordAnalysisRepository.findByRecord_Id(recordId)
+				.map(analysis -> analysis.getAiAnalysisStatus()
+					== com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus.FAILED
+					&& analysis.isFailureRetryable())
+				.orElse(false))
+			.map(this::schedule)
+			.orElse(false);
 	}
 
 	private boolean isAnalyzable(Record record) {

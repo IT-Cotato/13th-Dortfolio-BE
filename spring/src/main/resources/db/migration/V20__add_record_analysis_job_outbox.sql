@@ -6,6 +6,8 @@ CREATE TABLE record_analysis_jobs (
     status varchar(255) NOT NULL CHECK (status IN ('READY', 'RUNNING', 'COMPLETED')),
     attempt_count integer NOT NULL,
     started_at timestamp(6),
+    claim_token uuid,
+    lease_expires_at timestamp(6),
     PRIMARY KEY (id),
     CONSTRAINT fk_record_analysis_jobs_record
         FOREIGN KEY (record_id) REFERENCES records ON DELETE CASCADE
@@ -13,6 +15,9 @@ CREATE TABLE record_analysis_jobs (
 
 CREATE INDEX idx_record_analysis_jobs_ready
     ON record_analysis_jobs (status, created_at);
+
+CREATE UNIQUE INDEX uk_record_analysis_jobs_record
+    ON record_analysis_jobs (record_id);
 
 UPDATE record_analysis
 SET ai_analysis_status = 'FAILED',

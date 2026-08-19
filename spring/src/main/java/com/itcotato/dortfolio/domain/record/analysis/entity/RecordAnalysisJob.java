@@ -11,6 +11,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -35,6 +36,12 @@ public class RecordAnalysisJob extends BaseEntity {
 	@Column
 	private LocalDateTime startedAt;
 
+	@Column
+	private UUID claimToken;
+
+	@Column
+	private LocalDateTime leaseExpiresAt;
+
 	private RecordAnalysisJob(Record record) {
 		this.record = record;
 		this.status = RecordAnalysisJobStatus.READY;
@@ -44,18 +51,54 @@ public class RecordAnalysisJob extends BaseEntity {
 		return new RecordAnalysisJob(record);
 	}
 
-	public void start() {
+	public UUID start(LocalDateTime now, LocalDateTime leaseExpiresAt) {
 		this.status = RecordAnalysisJobStatus.RUNNING;
-		this.startedAt = LocalDateTime.now();
+		this.startedAt = now;
+		this.claimToken = UUID.randomUUID();
+		this.leaseExpiresAt = leaseExpiresAt;
 		this.attemptCount++;
+		return claimToken;
 	}
 
-	public void complete() {
+	public boolean complete(UUID claimToken) {
+		if (!isClaimedBy(claimToken)) {
+			return false;
+		}
 		this.status = RecordAnalysisJobStatus.COMPLETED;
+		this.claimToken = null;
+		this.leaseExpiresAt = null;
+		return true;
 	}
 
-	public void requeue() {
+	public boolean renewLease(UUID claimToken, LocalDateTime leaseExpiresAt) {
+		if (!isClaimedBy(claimToken)) {
+			return false;
+		}
+		this.leaseExpiresAt = leaseExpiresAt;
+		return true;
+	}
+
+	public boolean requeue(UUID claimToken) {
+		if (!isClaimedBy(claimToken)) {
+			return false;
+		}
 		this.status = RecordAnalysisJobStatus.READY;
 		this.startedAt = null;
+		this.claimToken = null;
+		this.leaseExpiresAt = null;
+		return true;
+	}
+
+	public void reschedule() {
+		this.status = RecordAnalysisJobStatus.READY;
+		this.startedAt = null;
+		this.claimToken = null;
+		this.leaseExpiresAt = null;
+	}
+
+	private boolean isClaimedBy(UUID token) {
+		return status == RecordAnalysisJobStatus.RUNNING
+			&& claimToken != null
+			&& claimToken.equals(token);
 	}
 }

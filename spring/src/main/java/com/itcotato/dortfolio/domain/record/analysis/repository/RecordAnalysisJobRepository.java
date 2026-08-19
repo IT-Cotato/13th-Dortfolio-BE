@@ -4,6 +4,7 @@ import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysisJob;
 import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysisJobStatus;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,14 +20,17 @@ public interface RecordAnalysisJobRepository
 			RecordAnalysisJobStatus status
 	);
 
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	Optional<RecordAnalysisJob> findByRecord_Id(UUID recordId);
+
 	@Query("""
 			select job
 			from RecordAnalysisJob job
 			where job.status = :status
-			and job.startedAt < :startedBefore
+	and job.leaseExpiresAt < :leaseExpiresAt
 			""")
 	java.util.List<RecordAnalysisJob> findAllRunningBefore(
 			@Param("status") RecordAnalysisJobStatus status,
-			@Param("startedBefore") LocalDateTime startedBefore
+			@Param("leaseExpiresAt") LocalDateTime leaseExpiresAt
 	);
 }
