@@ -42,5 +42,22 @@ public interface RecordAnalysisRepository
             @Param("failureCode") String failureCode
     );
 
+    @Query("""
+            select recordAnalysis.record.id
+            from RecordAnalysis recordAnalysis
+            join recordAnalysis.record record
+            where record.user.id = :userId
+              and recordAnalysis.aiAnalysisStatus =
+                  com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus.FAILED
+              and recordAnalysis.failureRetryable = true
+              and record.status =
+                  com.itcotato.dortfolio.domain.record.entity.RecordStatus.COMPLETED
+              and record.deletedAt is null
+              and record.activity.deletedAt is null
+            """)
+    List<UUID> findRetryableFailedRecordIdsByUserId(
+            @Param("userId") UUID userId
+    );
+
     void deleteByRecord_Id(UUID recordId);
 }

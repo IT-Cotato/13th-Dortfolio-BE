@@ -10,6 +10,8 @@ import com.itcotato.dortfolio.domain.record.analysis.dto.StrengthMatchCandidate;
 import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysis;
 import com.itcotato.dortfolio.domain.record.analysis.exception.RecordAnalysisErrorCode;
 import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
+import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisJobRepository;
+import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysisJobStatus;
 import com.itcotato.dortfolio.domain.record.analysis.repository.StrengthMatchCandidateQuery;
 import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.record.entity.RecordEmbedding;
@@ -50,6 +52,7 @@ public class RecordAnalysisService {
 
 	private final RecordRepository recordRepository;
 	private final RecordAnalysisRepository recordAnalysisRepository;
+	private final RecordAnalysisJobRepository recordAnalysisJobRepository;
 	private final RecordEmbeddingRepository recordEmbeddingRepository;
 	private final RecordStrengthTagRepository recordStrengthTagRepository;
 	private final StrengthTagRepository strengthTagRepository;
@@ -65,13 +68,21 @@ public class RecordAnalysisService {
 	private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
 	public void analyze(UUID recordId) {
+		analyze(recordId, -1);
+	}
+
+	public void analyze(UUID recordId, long analysisGeneration) {
+		analyze(recordId, analysisGeneration, null, null);
+	}
+
+	public void analyze(UUID recordId, long analysisGeneration, UUID jobId, UUID claimToken) {
 		log.info("Record AI analysis started. recordId={}", recordId);
 
 		Optional<AnalysisSnapshot> snapshotOptional;
 		try {
-			snapshotOptional = transactionTemplate.execute(status -> prepareRequest(recordId));
+			snapshotOptional = transactionTemplate.execute(status -> prepareRequest(recordId, analysisGeneration, jobId, claimToken));
 		} catch (Exception exception) {
-			markPersistenceFailure(recordId, "prepare", exception);
+			markPersistenceFailure(recordId, "prepare", exception, null, analysisGeneration, jobId, claimToken);
 			return;
 		}
 		if (snapshotOptional == null || snapshotOptional.isEmpty()) {
@@ -85,7 +96,9 @@ public class RecordAnalysisService {
 		} catch (CustomException exception) {
 			recordAnalysisLockManager.executeWithLock(
 				recordId,
-				() -> markFailed(recordId, toFailureReason(exception), toRetryable(exception))
+				() -> markFailed(recordId, toFailureReason(exception), toRetryable(exception),
+					snapshotOptional.get().recordUpdatedAt(), snapshotOptional.get().analysisGeneration(),
+					snapshotOptional.get().jobId(), snapshotOptional.get().claimToken())
 			);
 			log.warn(
 				"Record AI analysis failed. recordId={}, errorCode={}, retryable={}",
@@ -95,7 +108,9 @@ public class RecordAnalysisService {
 			);
 			return;
 		} catch (Exception exception) {
-			markPersistenceFailure(recordId, "execute", exception);
+			markPersistenceFailure(recordId, "execute", exception,
+				snapshotOptional.get().recordUpdatedAt(), snapshotOptional.get().analysisGeneration(),
+				snapshotOptional.get().jobId(), snapshotOptional.get().claimToken());
 			return;
 		}
 
@@ -108,7 +123,9 @@ public class RecordAnalysisService {
 		} catch (CustomException exception) {
 			recordAnalysisLockManager.executeWithLock(
 				recordId,
-				() -> markFailed(recordId, toFailureReason(exception), toRetryable(exception))
+				() -> markFailed(recordId, toFailureReason(exception), toRetryable(exception),
+					snapshotOptional.get().recordUpdatedAt(), snapshotOptional.get().analysisGeneration(),
+					snapshotOptional.get().jobId(), snapshotOptional.get().claimToken())
 			);
 			log.warn(
 				"Record AI analysis persistence rejected. recordId={}, errorCode={}",
@@ -117,7 +134,9 @@ public class RecordAnalysisService {
 			);
 			return;
 		} catch (Exception exception) {
-			markPersistenceFailure(recordId, "persistence", exception);
+			markPersistenceFailure(recordId, "persistence", exception,
+				snapshotOptional.get().recordUpdatedAt(), snapshotOptional.get().analysisGeneration(),
+				snapshotOptional.get().jobId(), snapshotOptional.get().claimToken());
 			return;
 		}
 		log.info("Record AI analysis completed. recordId={}", recordId);
@@ -143,15 +162,22 @@ public class RecordAnalysisService {
 		);
 	}
 
-	private Optional<AnalysisSnapshot> prepareRequest(UUID recordId) {
+	private Optional<AnalysisSnapshot> prepareRequest(
+		UUID recordId, long analysisGeneration, UUID jobId, UUID claimToken
+	) {
 		Optional<Record> recordOptional = recordRepository.findById(recordId);
 		if (recordOptional.isEmpty() || !isAnalyzable(recordOptional.get())) {
 			return Optional.empty();
 		}
 		Record record = recordOptional.get();
+		if (analysisGeneration >= 0 && recordAnalysisRepository.findByRecord_Id(recordId)
+			.map(analysis -> !analysis.isCurrentGeneration(analysisGeneration))
+			.orElse(true)) {
+			return Optional.empty();
+		}
 		return Optional.of(new AnalysisSnapshot(
 			recordAnalysisRequestBuilder.build(record),
-			record.getUpdatedAt()
+			record.getUpdatedAt(), analysisGeneration, jobId, claimToken
 		));
 	}
 
@@ -267,6 +293,13 @@ public class RecordAnalysisService {
 		}
 
 		RecordAnalysis recordAnalysis = getOrCreate(record);
+		if (!ownsClaim(snapshot.jobId(), snapshot.claimToken())) {
+			return;
+		}
+		if (snapshot.analysisGeneration() >= 0
+			&& !recordAnalysis.isCurrentGeneration(snapshot.analysisGeneration())) {
+			return;
+		}
 		recordEmbeddingRepository.deleteAllByRecord_Id(recordId);
 		recordStrengthTagRepository.deleteAllByRecord_Id(recordId);
 		recordAnalysis.complete(
@@ -312,28 +345,67 @@ public class RecordAnalysisService {
 		recordStrengthTagRepository.saveAll(recordStrengthTags);
 	}
 
-	private void markPersistenceFailure(UUID recordId, String phase, Exception exception) {
+	private void markPersistenceFailure(
+		UUID recordId,
+		String phase,
+		Exception exception,
+		LocalDateTime expectedRecordUpdatedAt,
+		long expectedGeneration,
+		UUID jobId,
+		UUID claimToken
+	) {
 		CustomException persistenceException =
 			new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED);
 		recordAnalysisLockManager.executeWithLock(recordId, () -> markFailed(
 			recordId,
 			toFailureReason(persistenceException),
-			RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED.isRetryable()
+			RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED.isRetryable(),
+			expectedRecordUpdatedAt,
+			expectedGeneration, jobId, claimToken
 		));
 		log.warn("Record AI analysis {} failed. recordId={}", phase, recordId, exception);
 	}
 
-	private void markFailed(UUID recordId, String failureReason, boolean retryable) {
+	private void markFailed(
+		UUID recordId,
+		String failureReason,
+		boolean retryable,
+		LocalDateTime expectedRecordUpdatedAt,
+		long expectedGeneration,
+		UUID jobId,
+		UUID claimToken
+	) {
 		transactionTemplate.executeWithoutResult(status ->
 			recordRepository.findById(recordId)
 				.filter(this::isAnalyzable)
-				.ifPresent(record -> getOrCreate(record).fail(failureReason, retryable))
+				.ifPresent(record -> {
+					if (!ownsClaim(jobId, claimToken)) {
+						return;
+					}
+					if (expectedRecordUpdatedAt != null
+						&& !record.getUpdatedAt().equals(expectedRecordUpdatedAt)) {
+						return;
+					}
+					RecordAnalysis analysis = getOrCreate(record);
+					if (expectedGeneration >= 0 && !analysis.isCurrentGeneration(expectedGeneration)) {
+						return;
+					}
+					analysis.fail(failureReason, retryable);
+					recordEmbeddingRepository.deleteAllByRecord_Id(recordId);
+					recordStrengthTagRepository.deleteAllByRecord_Id(recordId);
+				})
 		);
 	}
 
 	private RecordAnalysis getOrCreate(Record record) {
 		return recordAnalysisRepository.findByRecord_Id(record.getId())
 			.orElseGet(() -> recordAnalysisRepository.save(RecordAnalysis.pending(record)));
+	}
+
+	private boolean ownsClaim(UUID jobId, UUID claimToken) {
+		return jobId == null || claimToken == null || recordAnalysisJobRepository
+			.findByIdAndStatusAndClaimToken(jobId, RecordAnalysisJobStatus.RUNNING, claimToken)
+			.isPresent();
 	}
 
 	private boolean isAnalyzable(Record record) {
@@ -372,7 +444,10 @@ public class RecordAnalysisService {
 
 	private record AnalysisSnapshot(
 		RecordAnalysisRequest request,
-		LocalDateTime recordUpdatedAt
+		LocalDateTime recordUpdatedAt,
+		long analysisGeneration,
+		UUID jobId,
+		UUID claimToken
 	) {
 	}
 

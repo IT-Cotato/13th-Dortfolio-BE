@@ -4,6 +4,7 @@ import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
@@ -25,7 +26,16 @@ public record RecordAnalysisProperties(
 	int strengthMaxCount,
 	double strengthMinSimilarity,
 	@Min(1)
-	int embeddingMaxCharacters
+	int embeddingMaxCharacters,
+	@NotNull
+	@DefaultValue("1s")
+	Duration jobPollInterval,
+	@NotNull
+	@DefaultValue("1m")
+	Duration jobRecoveryInterval,
+	@NotNull
+	@DefaultValue("90s")
+	Duration jobStaleRunningTimeout
 ) {
 
 	@AssertTrue(message = "asyncMaxPoolSize must be greater than or equal to asyncCorePoolSize")
@@ -48,5 +58,16 @@ public record RecordAnalysisProperties(
 		return Double.isFinite(strengthMinSimilarity)
 			&& strengthMinSimilarity >= -1.0
 			&& strengthMinSimilarity <= 1.0;
+	}
+
+	@AssertTrue(message = "record analysis job durations must be positive")
+	public boolean areJobDurationsValid() {
+		return isPositive(jobPollInterval)
+			&& isPositive(jobRecoveryInterval)
+			&& isPositive(jobStaleRunningTimeout);
+	}
+
+	private boolean isPositive(Duration duration) {
+		return duration != null && !duration.isZero() && !duration.isNegative();
 	}
 }

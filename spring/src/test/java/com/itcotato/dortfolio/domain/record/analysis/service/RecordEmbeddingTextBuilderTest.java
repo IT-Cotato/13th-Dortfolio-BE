@@ -86,7 +86,10 @@ class RecordEmbeddingTextBuilderTest {
 			5,
 			2,
 			0.4,
-			maximumCharacters
+			maximumCharacters,
+			Duration.ofSeconds(1),
+			Duration.ofMinutes(1),
+			Duration.ofSeconds(90)
 		);
 	}
 }

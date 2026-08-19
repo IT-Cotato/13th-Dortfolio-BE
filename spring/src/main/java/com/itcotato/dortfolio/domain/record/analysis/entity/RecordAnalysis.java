@@ -68,6 +68,9 @@ public class RecordAnalysis extends BaseEntity {
 	@Column(nullable = false)
 	private boolean lastFailureRetryable;
 
+	@Column(nullable = false)
+	private long analysisGeneration;
+
 	private RecordAnalysis(Record record) {
 		this.record = record;
 		this.aiAnalysisStatus = AiAnalysisStatus.PENDING;
@@ -77,7 +80,8 @@ public class RecordAnalysis extends BaseEntity {
 		return new RecordAnalysis(record);
 	}
 
-	public void markPending() {
+	public long markPending() {
+		this.analysisGeneration++;
 		this.aiAnalysisStatus = AiAnalysisStatus.PENDING;
 		this.summary = null;
 		this.evidenceSnippets = null;
@@ -89,6 +93,7 @@ public class RecordAnalysis extends BaseEntity {
 		this.lastAttemptFailed = false;
 		this.lastFailureReason = null;
 		this.lastFailureRetryable = false;
+		return analysisGeneration;
 	}
 
 	public void complete(String summary, String evidenceSnippets, LocalDateTime recordUpdatedAt) {
@@ -112,12 +117,14 @@ public class RecordAnalysis extends BaseEntity {
 		this.lastAttemptFailed = true;
 		this.lastFailureReason = failureReason;
 		this.lastFailureRetryable = retryable;
-		if (this.aiAnalysisStatus != AiAnalysisStatus.COMPLETED) {
-			this.aiAnalysisStatus = AiAnalysisStatus.FAILED;
-			this.summary = null;
-			this.evidenceSnippets = null;
-			this.analyzedAt = null;
-			this.analyzedRecordUpdatedAt = null;
-		}
+		this.aiAnalysisStatus = AiAnalysisStatus.FAILED;
+		this.summary = null;
+		this.evidenceSnippets = null;
+		this.analyzedAt = null;
+		this.analyzedRecordUpdatedAt = null;
+	}
+
+	public boolean isCurrentGeneration(long generation) {
+		return analysisGeneration == generation;
 	}
 }
