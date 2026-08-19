@@ -75,7 +75,7 @@ public record InsightProperties(
         if (recommendationInitialBackoff == null
                 || recommendationInitialBackoff.isNegative()) {
             throw new IllegalArgumentException(
-                    "recommendationInitialBackoff must not be negative"
+                    "recommendationInitialBackoff must not be null or negative"
             );
         }
 

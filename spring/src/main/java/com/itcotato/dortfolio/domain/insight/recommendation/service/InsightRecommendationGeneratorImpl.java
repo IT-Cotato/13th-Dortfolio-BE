@@ -52,6 +52,7 @@ public class InsightRecommendationGeneratorImpl
                 );
             } catch (InvalidRecommendationResponseException exception) {
                 lastFailure = FailureType.INVALID_RESPONSE;
+                break;
             } catch (RestClientResponseException exception) {
                 lastFailure = FailureType.AI_SERVICE;
 

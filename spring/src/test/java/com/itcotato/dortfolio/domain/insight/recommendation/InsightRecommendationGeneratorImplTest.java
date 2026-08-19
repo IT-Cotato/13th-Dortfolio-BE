@@ -229,6 +229,29 @@ class InsightRecommendationGeneratorImplTest {
     }
 
     @Test
+    void doesNotRetryInvalidRecommendationResponse() {
+        when(client.generate(request))
+                .thenReturn(new RecommendationResult(
+                        jobCompetencyId,
+                        UUID.randomUUID(),
+                        "후보에 없는 기록입니다."
+                ));
+
+        assertThatThrownBy(() -> generator.generate(request))
+                .isInstanceOf(CustomException.class)
+                .extracting(error ->
+                        ((CustomException) error).getErrorCode()
+                )
+                .isEqualTo(
+                        InsightErrorCode
+                                .INSIGHT_RECOMMENDATION_INVALID_RESPONSE
+                );
+
+        verify(client).generate(request);
+        verify(retrySleeper, never()).sleep(any());
+    }
+
+    @Test
     void succeedsOnSecondAttempt() {
         when(client.generate(request))
                 .thenThrow(new RestClientException("timeout"))
