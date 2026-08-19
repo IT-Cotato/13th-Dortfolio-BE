@@ -26,7 +26,7 @@ class GeminiRecordAnalysisClient:
             for answer in request.answers
         )
         strength_tags = build_strength_tags(request)
-        logger.info(
+        logger.warning(
             "Gemini record analysis prompt prepared. recordId=%s, promptChars=%s, "
             "answerCount=%s, answerChars=%s, strengthCandidateCount=%s, "
             "strengthCandidateChars=%s",
