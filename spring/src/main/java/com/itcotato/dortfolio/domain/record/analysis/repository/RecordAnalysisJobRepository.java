@@ -24,6 +24,13 @@ public interface RecordAnalysisJobRepository
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	Optional<RecordAnalysisJob> findByRecord_Id(UUID recordId);
 
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	Optional<RecordAnalysisJob> findByIdAndStatusAndClaimToken(
+			UUID id,
+			RecordAnalysisJobStatus status,
+			UUID claimToken
+	);
+
 	@Query("""
 			select job
 			from RecordAnalysisJob job

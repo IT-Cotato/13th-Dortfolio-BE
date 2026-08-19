@@ -56,7 +56,8 @@ public class RecordAnalysisJobWorker {
 		);
 		try {
 			if (shouldAnalyze(jobTarget.recordId(), jobTarget.analysisGeneration())) {
-				recordAnalysisService.analyze(jobTarget.recordId(), jobTarget.analysisGeneration());
+				recordAnalysisService.analyze(jobTarget.recordId(), jobTarget.analysisGeneration(),
+					jobTarget.jobId(), jobTarget.claimToken());
 			}
 			transactionTemplate.executeWithoutResult(status -> jobRepository
 				.completeClaim(jobTarget.jobId(), jobTarget.claimToken()));
