@@ -4,6 +4,7 @@ from unittest.mock import patch
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
+from google.genai import errors
 
 from app.clients.gemini_record_analysis_client import (
     build_analysis_prompt,
@@ -22,6 +23,37 @@ class RecordAnalysisServiceTest(unittest.TestCase):
             analyze_record(None)
 
         self.assertEqual(context.exception.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    @patch("app.services.record_analysis_service.GeminiRecordAnalysisClient")
+    @patch("app.services.record_analysis_service.get_settings")
+    def test_analyze_record_logs_original_gemini_error(
+        self,
+        get_settings,
+        client_type,
+    ):
+        request, _ = analysis_request()
+        get_settings.return_value = SimpleNamespace(
+            gemini_api_key="test-key",
+            gemini_generation_model="gemini-3.6-flash",
+        )
+        client_type.return_value.analyze_record.side_effect = errors.APIError(
+            504,
+            {"error": {"message": "Gateway timeout"}},
+        )
+
+        with self.assertLogs(
+            "app.core.gemini_error_logging",
+            level="WARNING",
+        ) as logs:
+            with self.assertRaises(HTTPException) as context:
+                analyze_record(request)
+
+        self.assertEqual(context.exception.status_code, status.HTTP_502_BAD_GATEWAY)
+        self.assertEqual(context.exception.detail, "Gemini analysis request failed.")
+        self.assertIn("operation=record_analysis", logs.output[0])
+        self.assertIn("model=gemini-3.6-flash", logs.output[0])
+        self.assertIn("status=504", logs.output[0])
+        self.assertIn(f"recordId={request.recordId}", logs.output[0])
 
     def test_prompt_includes_strength_judgement_context_and_maximum_count(self):
         request, candidate_ids = analysis_request()
