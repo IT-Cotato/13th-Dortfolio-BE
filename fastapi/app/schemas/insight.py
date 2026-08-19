@@ -12,18 +12,37 @@ class InsightRecommendationCandidate(BaseModel):
     similarity: float
 
 
-class InsightRecommendationRequest(BaseModel):
-    jobId: UUID
-    jobName: str
+class InsightRecommendationCompetency(BaseModel):
     jobCompetencyId: UUID
     competencyName: str
     competencyDescription: str | None = None
-    candidates: list[InsightRecommendationCandidate] = Field(
-        min_length=1
+    candidates: list[InsightRecommendationCandidate]
+
+
+class InsightRecommendationRequest(BaseModel):
+    jobId: UUID
+    jobName: str
+    competencies: list[InsightRecommendationCompetency] = Field(
+        min_length=5,
+        max_length=5,
     )
 
+    @model_validator(mode="after")
+    def validate_unique_competencies(self):
+        competency_ids = [
+            competency.jobCompetencyId
+            for competency in self.competencies
+        ]
 
-class InsightRecommendationResponse(BaseModel):
+        if len(competency_ids) != len(set(competency_ids)):
+            raise ValueError(
+                "Recommendation competencies must be unique."
+            )
+
+        return self
+
+
+class InsightRecommendationResult(BaseModel):
     matched: bool
     jobCompetencyId: UUID
     recordId: UUID | None = None
@@ -60,3 +79,10 @@ class InsightRecommendationResponse(BaseModel):
                 "Unmatched recommendation must not contain recordId or reason."
             )
         return self
+
+
+class InsightRecommendationResponse(BaseModel):
+    recommendations: list[InsightRecommendationResult] = Field(
+        min_length=5,
+        max_length=5,
+    )

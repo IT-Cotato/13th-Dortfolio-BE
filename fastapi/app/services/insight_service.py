@@ -34,7 +34,7 @@ def generate_insight_recommendation(
             exception=exception,
             context={
                 "jobId": request.jobId,
-                "jobCompetencyId": request.jobCompetencyId,
+                "competencyCount": len(request.competencies),
             },
         )
         raise HTTPException(
