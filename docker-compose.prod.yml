@@ -48,6 +48,7 @@ services:
     environment:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-2}
+      GEMINI_HTTP_TIMEOUT_SECONDS: ${GEMINI_HTTP_TIMEOUT_SECONDS:-60}
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
       interval: 30s
@@ -82,6 +83,7 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       FASTAPI_BASE_URL: http://fastapi:8000
+      FASTAPI_READ_TIMEOUT: ${FASTAPI_READ_TIMEOUT:-70s}
       FRONTEND_URL: ${FRONTEND_URL}
       # 프론트(Vercel 등) 주소. 없으면 로컬 개발 주소만 허용된다
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
