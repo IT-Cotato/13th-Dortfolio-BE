@@ -2,35 +2,31 @@ package com.itcotato.dortfolio.domain.insight.recommendation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.never;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
 import com.itcotato.dortfolio.domain.insight.recommendation.client.InsightRecommendationClient;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCandidate;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCompetency;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 import com.itcotato.dortfolio.domain.insight.recommendation.service.InsightRecommendationGeneratorImpl;
 import com.itcotato.dortfolio.domain.insight.recommendation.service.InsightRecommendationRetrySleeper;
 import com.itcotato.dortfolio.global.exception.CustomException;
+import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
-
-import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClientException;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,329 +34,173 @@ class InsightRecommendationGeneratorImplTest {
 
     @Mock
     private InsightRecommendationClient client;
-
     @Mock
     private InsightRecommendationRetrySleeper retrySleeper;
 
     private InsightRecommendationGeneratorImpl generator;
-
-    private UUID jobCompetencyId;
-    private UUID candidateRecordId;
     private RecommendationRequest request;
+    private List<UUID> competencyIds;
+    private List<UUID> recordIds;
 
     @BeforeEach
     void setUp() {
         generator = new InsightRecommendationGeneratorImpl(
                 client,
                 new InsightProperties(
-                        10,
-                        Duration.ofHours(24),
-                        0.1,
-                        1,
-                        5,
-                        0.0,
-                        "gemini-embedding-2",
-                        2,
-                        Duration.ZERO,
+                        10, Duration.ofHours(24), 0.1, 1, 5, 0.0,
+                        "gemini-embedding-2", 2, Duration.ZERO,
                         Duration.ofSeconds(10)
                 ),
                 retrySleeper
         );
-
-        jobCompetencyId = UUID.randomUUID();
-        candidateRecordId = UUID.randomUUID();
-
+        competencyIds = ids();
+        recordIds = ids();
         request = new RecommendationRequest(
                 UUID.randomUUID(),
                 "백엔드 개발자",
-                jobCompetencyId,
-                "문제 해결",
-                "복잡한 문제를 분석하고 해결하는 역량",
-                List.of(new RecommendationCandidate(
-                        candidateRecordId,
-                        "성능 문제 해결",
-                        "문제 해결",
-                        "API 성능 문제를 해결했습니다.",
-                        List.of("쿼리 실행 시간을 단축했습니다."),
-                        0.91
-                ))
+                IntStream.range(0, 5)
+                        .mapToObj(index -> new RecommendationCompetency(
+                                competencyIds.get(index),
+                                "역량 " + index,
+                                "역량 설명 " + index,
+                                List.of(candidate(recordIds.get(index)))
+                        ))
+                        .toList()
         );
     }
 
     @Test
-    void generatesRecommendationFromCandidate() {
-        when(client.generate(request))
-                .thenReturn(new RecommendationResult(
-                        jobCompetencyId,
-                        candidateRecordId,
-                        "성능 문제를 분석하고 해결한 경험입니다."
-                ));
+    void generatesFiveRecommendationsInRequestOrder() {
+        when(client.generate(request)).thenReturn(
+                IntStream.range(0, 5)
+                        .map(index -> 4 - index)
+                        .mapToObj(this::matched)
+                        .toList()
+        );
 
-        RecommendationResult result =
-                generator.generate(request);
-
-        assertThat(result.recordId())
-                .isEqualTo(candidateRecordId);
+        assertThat(generator.generate(request))
+                .extracting(RecommendationResult::jobCompetencyId)
+                .containsExactlyElementsOf(competencyIds);
+        verify(client).generate(request);
     }
 
     @Test
-    void acceptsNoMatchResponse() {
-        when(client.generate(request))
-                .thenReturn(new RecommendationResult(
-                        false,
-                        jobCompetencyId,
-                        null,
-                        null
-                ));
+    void acceptsNoMatchForCompetencyWithoutCandidates() {
+        request = new RecommendationRequest(
+                request.jobId(),
+                request.jobName(),
+                IntStream.range(0, 5)
+                        .mapToObj(index -> new RecommendationCompetency(
+                                competencyIds.get(index),
+                                "역량 " + index,
+                                "설명",
+                                index == 0
+                                        ? List.of()
+                                        : List.of(candidate(recordIds.get(index)))
+                        ))
+                        .toList()
+        );
+        when(client.generate(request)).thenReturn(
+                IntStream.range(0, 5)
+                        .mapToObj(index -> index == 0
+                                ? new RecommendationResult(
+                                        false, competencyIds.get(0), null, null
+                                )
+                                : matched(index))
+                        .toList()
+        );
 
-        RecommendationResult result = generator.generate(request);
-
-        assertThat(result.matched()).isFalse();
-        assertThat(result.recordId()).isNull();
+        assertThat(generator.generate(request).get(0).matched()).isFalse();
     }
 
     @Test
-    void rejectsNoMatchResponseContainingRecord() {
-        when(client.generate(request))
-                .thenReturn(new RecommendationResult(
-                        false,
-                        jobCompetencyId,
-                        candidateRecordId,
-                        "추천 이유"
-                ));
+    void rejectsMissingCompetencyResultWithoutRetry() {
+        when(client.generate(request)).thenReturn(
+                IntStream.range(0, 4).mapToObj(this::matched).toList()
+        );
 
-        assertThatThrownBy(() -> generator.generate(request))
-                .isInstanceOf(CustomException.class)
-                .extracting(error ->
-                        ((CustomException) error).getErrorCode()
-                )
-                .isEqualTo(
-                        InsightErrorCode
-                                .INSIGHT_RECOMMENDATION_INVALID_RESPONSE
-                );
-    }
-
-    @Test
-    void rejectsNoMatchResponseContainingEmptyReason() {
-        when(client.generate(request))
-                .thenReturn(new RecommendationResult(
-                        false,
-                        jobCompetencyId,
-                        null,
-                        ""
-                ));
-
-        assertThatThrownBy(() -> generator.generate(request))
-                .isInstanceOf(CustomException.class)
-                .extracting(error ->
-                        ((CustomException) error).getErrorCode()
-                )
-                .isEqualTo(
-                        InsightErrorCode
-                                .INSIGHT_RECOMMENDATION_INVALID_RESPONSE
-                );
-    }
-
-    @Test
-    void rejectsNoMatchResponseContainingWhitespaceReason() {
-        when(client.generate(request))
-                .thenReturn(new RecommendationResult(
-                        false,
-                        jobCompetencyId,
-                        null,
-                        " "
-                ));
-
-        assertThatThrownBy(() -> generator.generate(request))
-                .isInstanceOf(CustomException.class)
-                .extracting(error ->
-                        ((CustomException) error).getErrorCode()
-                )
-                .isEqualTo(
-                        InsightErrorCode
-                                .INSIGHT_RECOMMENDATION_INVALID_RESPONSE
-                );
-    }
-
-    @Test
-    void rejectsRecordOutsideCandidates() {
-        when(client.generate(request))
-                .thenReturn(new RecommendationResult(
-                        jobCompetencyId,
-                        UUID.randomUUID(),
-                        "추천 이유"
-                ));
-
-        assertThatThrownBy(() -> generator.generate(request))
-                .isInstanceOf(CustomException.class)
-                .extracting(error ->
-                        ((CustomException) error).getErrorCode()
-                )
-                .isEqualTo(
-                        InsightErrorCode
-                                .INSIGHT_RECOMMENDATION_INVALID_RESPONSE
-                );
-    }
-
-    @Test
-    void rejectsAnotherCompetencyId() {
-        when(client.generate(request))
-                .thenReturn(new RecommendationResult(
-                        UUID.randomUUID(),
-                        candidateRecordId,
-                        "추천 이유"
-                ));
-
-        assertThatThrownBy(() -> generator.generate(request))
-                .isInstanceOf(CustomException.class);
-    }
-
-    @Test
-    void rejectsBlankReason() {
-        when(client.generate(request))
-                .thenReturn(new RecommendationResult(
-                        jobCompetencyId,
-                        candidateRecordId,
-                        " "
-                ));
-
-        assertThatThrownBy(() -> generator.generate(request))
-                .isInstanceOf(CustomException.class);
-    }
-
-    @Test
-    void doesNotRetryInvalidRecommendationResponse() {
-        when(client.generate(request))
-                .thenReturn(new RecommendationResult(
-                        jobCompetencyId,
-                        UUID.randomUUID(),
-                        "후보에 없는 기록입니다."
-                ));
-
-        assertThatThrownBy(() -> generator.generate(request))
-                .isInstanceOf(CustomException.class)
-                .extracting(error ->
-                        ((CustomException) error).getErrorCode()
-                )
-                .isEqualTo(
-                        InsightErrorCode
-                                .INSIGHT_RECOMMENDATION_INVALID_RESPONSE
-                );
-
+        assertInvalidResponse();
         verify(client).generate(request);
         verify(retrySleeper, never()).sleep(any());
     }
 
     @Test
-    void succeedsOnSecondAttempt() {
+    void rejectsDuplicateCompetencyResult() {
+        when(client.generate(request)).thenReturn(List.of(
+                matched(0), matched(0), matched(1), matched(2), matched(3)
+        ));
+
+        assertInvalidResponse();
+    }
+
+    @Test
+    void rejectsRecordOutsideItsCompetencyCandidates() {
+        when(client.generate(request)).thenReturn(
+                IntStream.range(0, 5)
+                        .mapToObj(index -> index == 0
+                                ? new RecommendationResult(
+                                        competencyIds.get(0),
+                                        recordIds.get(1),
+                                        "다른 역량 후보 기록"
+                                )
+                                : matched(index))
+                        .toList()
+        );
+
+        assertInvalidResponse();
+    }
+
+    @Test
+    void retriesTransientFailureAndReturnsBatch() {
+        List<RecommendationResult> response =
+                IntStream.range(0, 5).mapToObj(this::matched).toList();
         when(client.generate(request))
                 .thenThrow(new RestClientException("timeout"))
-                .thenReturn(new RecommendationResult(
-                        jobCompetencyId,
-                        candidateRecordId,
-                        "두 번째 시도에서 생성됐습니다."
-                ));
+                .thenReturn(response);
 
-        RecommendationResult result =
-                generator.generate(request);
-
-        assertThat(result.recordId())
-                .isEqualTo(candidateRecordId);
+        assertThat(generator.generate(request)).hasSize(5);
         verify(client, times(2)).generate(request);
         verify(retrySleeper).sleep(Duration.ZERO);
     }
 
     @Test
-    void retriesRateLimitResponse() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set(HttpHeaders.RETRY_AFTER, "30");
-        when(client.generate(request))
-                .thenThrow(HttpClientErrorException.create(
-                        HttpStatus.TOO_MANY_REQUESTS,
-                        "Too Many Requests",
-                        headers,
-                        new byte[0],
-                        null
-                ))
-                .thenReturn(new RecommendationResult(
-                        jobCompetencyId,
-                        candidateRecordId,
-                        "재시도 후 생성됐습니다."
-                ));
+    void rejectsRequestThatDoesNotContainFiveCompetencies() {
+        RecommendationRequest invalid = new RecommendationRequest(
+                request.jobId(),
+                request.jobName(),
+                request.competencies().subList(0, 4)
+        );
 
-        RecommendationResult result = generator.generate(request);
-
-        assertThat(result.recordId()).isEqualTo(candidateRecordId);
-        verify(client, times(2)).generate(request);
-        ArgumentCaptor<Duration> backoffCaptor =
-                ArgumentCaptor.forClass(Duration.class);
-        verify(retrySleeper).sleep(backoffCaptor.capture());
-        assertThat(backoffCaptor.getValue())
-                .isGreaterThanOrEqualTo(Duration.ofSeconds(30))
-                .isLessThanOrEqualTo(Duration.ofSeconds(45));
+        assertThatThrownBy(() -> generator.generate(invalid))
+                .isInstanceOf(CustomException.class);
+        verify(client, never()).generate(any());
     }
 
-    @Test
-    void retriesServerErrorResponse() {
-        when(client.generate(request))
-                .thenThrow(HttpServerErrorException.create(
-                        HttpStatus.SERVICE_UNAVAILABLE,
-                        "Service Unavailable",
-                        HttpHeaders.EMPTY,
-                        new byte[0],
-                        null
-                ))
-                .thenReturn(new RecommendationResult(
-                        jobCompetencyId,
-                        candidateRecordId,
-                        "재시도 후 생성됐습니다."
-                ));
-
-        RecommendationResult result = generator.generate(request);
-
-        assertThat(result.recordId()).isEqualTo(candidateRecordId);
-        verify(client, times(2)).generate(request);
+    private List<UUID> ids() {
+        return IntStream.range(0, 5)
+                .mapToObj(index -> UUID.randomUUID())
+                .toList();
     }
 
-    @Test
-    void doesNotRetryNonRetryableClientError() {
-        when(client.generate(request))
-                .thenThrow(HttpClientErrorException.create(
-                        HttpStatus.FORBIDDEN,
-                        "Forbidden",
-                        HttpHeaders.EMPTY,
-                        new byte[0],
-                        null
-                ));
+    private RecommendationCandidate candidate(UUID recordId) {
+        return new RecommendationCandidate(
+                recordId, "기록", "템플릿", "요약", List.of("근거"), 0.9
+        );
+    }
 
+    private RecommendationResult matched(int index) {
+        return new RecommendationResult(
+                competencyIds.get(index),
+                recordIds.get(index),
+                "추천 이유 " + index
+        );
+    }
+
+    private void assertInvalidResponse() {
         assertThatThrownBy(() -> generator.generate(request))
                 .isInstanceOf(CustomException.class)
-                .extracting(error ->
-                        ((CustomException) error).getErrorCode()
-                )
-                .isEqualTo(
-                        InsightErrorCode
-                                .INSIGHT_RECOMMENDATION_AI_SERVICE_FAILED
-                );
-
-        verify(client).generate(request);
-        verify(retrySleeper, never()).sleep(any());
-    }
-
-    @Test
-    void failsAfterMaximumAttempts() {
-        when(client.generate(request))
-                .thenThrow(new RestClientException("timeout"));
-
-        assertThatThrownBy(() -> generator.generate(request))
-                .isInstanceOf(CustomException.class)
-                .extracting(error ->
-                        ((CustomException) error).getErrorCode()
-                )
-                .isEqualTo(
-                        InsightErrorCode
-                                .INSIGHT_RECOMMENDATION_AI_SERVICE_FAILED
-                );
-        verify(client, times(2)).generate(request);
+                .extracting(error -> ((CustomException) error).getErrorCode())
+                .isEqualTo(InsightErrorCode
+                        .INSIGHT_RECOMMENDATION_INVALID_RESPONSE);
     }
 }

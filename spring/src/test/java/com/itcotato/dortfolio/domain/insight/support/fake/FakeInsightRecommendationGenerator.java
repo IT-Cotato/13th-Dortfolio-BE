@@ -5,14 +5,15 @@ import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRe
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 
 import java.util.Objects;
+import java.util.List;
 
 public class FakeInsightRecommendationGenerator implements InsightRecommendationGenerator {
 
-    private RecommendationResult result;
+    private List<RecommendationResult> result;
     private RecommendationRequest requestedRequest;
 
     public void setResult(RecommendationResult result) {
-        this.result = result;
+        this.result = List.of(result);
     }
 
     public RecommendationRequest getRequestedRequest() {
@@ -20,7 +21,7 @@ public class FakeInsightRecommendationGenerator implements InsightRecommendation
     }
 
     @Override
-    public RecommendationResult generate(
+    public List<RecommendationResult> generate(
             RecommendationRequest request
     ) {
         this.requestedRequest = request;

@@ -191,11 +191,11 @@ class InsightGenerationWorkerTest {
 
         when(recommendationGenerator.generate(
                 any(RecommendationRequest.class)
-        )).thenReturn(new RecommendationResult(
+        )).thenReturn(List.of(new RecommendationResult(
                 competencyId,
                 recordId,
                 "문제 해결 과정이 구체적으로 드러납니다."
-        ));
+        )));
 
         // when
         worker.generate(command, "lock-token");
@@ -297,11 +297,11 @@ class InsightGenerationWorkerTest {
         )).thenReturn(List.of(candidate));
 
         when(recommendationGenerator.generate(any()))
-                .thenReturn(new RecommendationResult(
+                .thenReturn(List.of(new RecommendationResult(
                         competencyId,
                         recordId,
                         "추천 이유"
-                ));
+                )));
 
         // when
         worker.generate(command, "token");
@@ -394,11 +394,13 @@ class InsightGenerationWorkerTest {
             RecommendationRequest request =
                     invocation.getArgument(0);
 
-            return new RecommendationResult(
-                    request.jobCompetencyId(),
-                    recordId,
-                    "recommendation-reason"
-            );
+            return request.competencies().stream()
+                    .map(competency -> new RecommendationResult(
+                            competency.jobCompetencyId(),
+                            recordId,
+                            "recommendation-reason"
+                    ))
+                    .toList();
         });
 
         // when
@@ -414,7 +416,7 @@ class InsightGenerationWorkerTest {
                          eq(0.0)
                 );
 
-        verify(recommendationGenerator, times(5))
+        verify(recommendationGenerator, times(1))
                 .generate(any(RecommendationRequest.class));
 
         ArgumentCaptor<InsightGenerationResult> resultCaptor =
@@ -481,7 +483,7 @@ class InsightGenerationWorkerTest {
     }
 
     @Test
-    void storesNoMatchWithoutCallingAiWhenCandidatesAreEmpty() {
+    void includesEmptyCandidatesInBatchRequest() {
         // given
         UUID competencyId = UUID.randomUUID();
 
@@ -519,6 +521,14 @@ class InsightGenerationWorkerTest {
                  0.0
         )).thenReturn(List.of());
 
+        when(recommendationGenerator.generate(any()))
+                .thenReturn(List.of(new RecommendationResult(
+                        false,
+                        competencyId,
+                        null,
+                        null
+                )));
+
         // when
         worker.generate(command, "token");
 
@@ -535,8 +545,14 @@ class InsightGenerationWorkerTest {
 
         verify(failureWriter, never()).fail(any(), any(), any());
 
-        verify(recommendationGenerator, never())
-                .generate(any());
+        ArgumentCaptor<RecommendationRequest> requestCaptor =
+                ArgumentCaptor.forClass(RecommendationRequest.class);
+        verify(recommendationGenerator).generate(requestCaptor.capture());
+        assertThat(requestCaptor.getValue().competencies())
+                .singleElement()
+                .satisfies(competency ->
+                        assertThat(competency.candidates()).isEmpty()
+                );
 
         verify(generationLock).release(
                 USER_ID,
