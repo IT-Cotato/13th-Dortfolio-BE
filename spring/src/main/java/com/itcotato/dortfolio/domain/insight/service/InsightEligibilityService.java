@@ -7,6 +7,7 @@ import com.itcotato.dortfolio.domain.insight.entity.Insight;
 import com.itcotato.dortfolio.domain.insight.entity.InsightGenerationStatus;
 import com.itcotato.dortfolio.domain.insight.repository.InsightRecordQueryRepository;
 import com.itcotato.dortfolio.domain.insight.repository.InsightRepository;
+import com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.user.entity.UserJob;
 import com.itcotato.dortfolio.domain.user.repository.UserJobRepository;
@@ -59,16 +60,6 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
                 .findByUserIdAndIsPrimaryTrue(userId)
                 .orElse(null);
 
-        if (primaryUserJob == null) {
-            return unavailable(
-                    InsightEligibilityReason.JOB_NOT_CONFIGURED,
-                    null,
-                    0,
-                    0,
-                    requiredCount
-            );
-        }
-
         long completedRecordCount = snapshotBounded
                 ? recordRepository.countAvailableCompletedByUserIdAt(
                 userId,
@@ -83,13 +74,28 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
         )
                 : insightRecordQueryRepository.countEligibleRecords(userId);
 
+        AnalysisStatusCounts analysisStatusCounts =
+                countAnalysisStatuses(userId);
+
+        if (primaryUserJob == null) {
+            return unavailable(
+                    InsightEligibilityReason.JOB_NOT_CONFIGURED,
+                    null,
+                    completedRecordCount,
+                    analyzedRecordCount,
+                    requiredCount,
+                    analysisStatusCounts
+            );
+        }
+
         if (completedRecordCount < requiredCount) {
             return unavailable(
                     InsightEligibilityReason.NOT_ENOUGH_COMPLETED_RECORDS,
                     null,
                     completedRecordCount,
                     analyzedRecordCount,
-                    requiredCount
+                    requiredCount,
+                    analysisStatusCounts
             );
         }
 
@@ -99,7 +105,8 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
                     null,
                     completedRecordCount,
                     analyzedRecordCount,
-                    requiredCount
+                    requiredCount,
+                    analysisStatusCounts
             );
         }
 
@@ -125,7 +132,8 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
                     null,
                     completedRecordCount,
                     analyzedRecordCount,
-                    requiredCount
+                    requiredCount,
+                    analysisStatusCounts
             );
         }
 
@@ -138,7 +146,8 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
             return available(
                     completedRecordCount,
                     analyzedRecordCount,
-                    requiredCount
+                    requiredCount,
+                    analysisStatusCounts
             );
         }
 
@@ -154,7 +163,8 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
                     nextAvailableAt,
                     completedRecordCount,
                     analyzedRecordCount,
-                    requiredCount
+                    requiredCount,
+                    analysisStatusCounts
             );
         }
 
@@ -184,21 +194,41 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
                     null,
                     completedRecordCount,
                     analyzedRecordCount,
-                    requiredCount
+                    requiredCount,
+                    analysisStatusCounts
             );
         }
 
         return available(
                 completedRecordCount,
                 analyzedRecordCount,
-                requiredCount
+                requiredCount,
+                analysisStatusCounts
+        );
+    }
+
+    private AnalysisStatusCounts countAnalysisStatuses(UUID userId) {
+        return new AnalysisStatusCounts(
+                insightRecordQueryRepository.countRecordsByAnalysisStatus(
+                        userId,
+                        AiAnalysisStatus.COMPLETED
+                ),
+                insightRecordQueryRepository.countRecordsByAnalysisStatus(
+                        userId,
+                        AiAnalysisStatus.FAILED
+                ),
+                insightRecordQueryRepository.countRecordsByAnalysisStatus(
+                        userId,
+                        AiAnalysisStatus.PENDING
+                )
         );
     }
 
     private InsightEligibilityResponse available(
             long completedRecordCount,
             long analyzedRecordCount,
-            int requiredRecordCount
+            int requiredRecordCount,
+            AnalysisStatusCounts analysisStatusCounts
     ) {
         return new InsightEligibilityResponse(
                 true,
@@ -206,7 +236,11 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
                 null,
                 completedRecordCount,
                 analyzedRecordCount,
-                requiredRecordCount
+                requiredRecordCount,
+                completedRecordCount,
+                analysisStatusCounts.completedCount(),
+                analysisStatusCounts.failedCount(),
+                analysisStatusCounts.inProgressCount()
         );
     }
 
@@ -215,7 +249,8 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
             LocalDateTime nextAvailableAt,
             long completedRecordCount,
             long analyzedRecordCount,
-            int requiredRecordCount
+            int requiredRecordCount,
+            AnalysisStatusCounts analysisStatusCounts
     ) {
         return new InsightEligibilityResponse(
                 false,
@@ -223,7 +258,18 @@ public class InsightEligibilityService implements InsightEligibilityChecker {
                 nextAvailableAt,
                 completedRecordCount,
                 analyzedRecordCount,
-                requiredRecordCount
+                requiredRecordCount,
+                completedRecordCount,
+                analysisStatusCounts.completedCount(),
+                analysisStatusCounts.failedCount(),
+                analysisStatusCounts.inProgressCount()
         );
+    }
+
+    private record AnalysisStatusCounts(
+            long completedCount,
+            long failedCount,
+            long inProgressCount
+    ) {
     }
 }

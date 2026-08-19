@@ -11,6 +11,7 @@ import com.itcotato.dortfolio.domain.insight.entity.InsightGenerationStatus;
 import com.itcotato.dortfolio.domain.insight.repository.InsightRecordQueryRepository;
 import com.itcotato.dortfolio.domain.insight.repository.InsightRepository;
 import com.itcotato.dortfolio.domain.job.entity.Job;
+import com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
 import com.itcotato.dortfolio.domain.user.entity.UserJob;
 import com.itcotato.dortfolio.domain.user.repository.UserJobRepository;
@@ -96,12 +97,20 @@ class InsightEligibilityServiceTest {
     void rejectsWhenPrimaryJobIsNotConfigured() {
         given(userJobRepository.findByUserIdAndIsPrimaryTrue(USER_ID))
                 .willReturn(Optional.empty());
+        given(recordRepository.countAvailableCompletedByUserId(USER_ID))
+                .willReturn(3L);
+        given(insightRecordQueryRepository.countRecordsByAnalysisStatus(
+                USER_ID,
+                AiAnalysisStatus.FAILED
+        )).willReturn(2L);
 
         InsightEligibilityResponse result = eligibilityService.check(USER_ID);
 
         assertThat(result.eligible()).isFalse();
         assertThat(result.reason())
                 .isEqualTo(InsightEligibilityReason.JOB_NOT_CONFIGURED);
+        assertThat(result.totalRecordCount()).isEqualTo(3);
+        assertThat(result.analysisFailedCount()).isEqualTo(2);
     }
 
     @Test
@@ -148,6 +157,35 @@ class InsightEligibilityServiceTest {
         assertThat(result.reason()).isEqualTo(InsightEligibilityReason.AVAILABLE);
         assertThat(result.completedRecordCount()).isEqualTo(10);
         assertThat(result.analyzedRecordCount()).isEqualTo(10);
+    }
+
+    @Test
+    void returnsRecordAnalysisStatusCounts() {
+        givenBaseEligibilityConditions();
+        given(recordRepository.countAvailableCompletedByUserId(USER_ID))
+                .willReturn(13L);
+        given(insightRecordQueryRepository.countEligibleRecords(USER_ID))
+                .willReturn(5L);
+        given(insightRecordQueryRepository.countRecordsByAnalysisStatus(
+                USER_ID,
+                AiAnalysisStatus.COMPLETED
+        )).willReturn(5L);
+        given(insightRecordQueryRepository.countRecordsByAnalysisStatus(
+                USER_ID,
+                AiAnalysisStatus.FAILED
+        )).willReturn(7L);
+        given(insightRecordQueryRepository.countRecordsByAnalysisStatus(
+                USER_ID,
+                AiAnalysisStatus.PENDING
+        )).willReturn(1L);
+
+        InsightEligibilityResponse result = eligibilityService.check(USER_ID);
+
+        assertThat(result.totalRecordCount()).isEqualTo(13);
+        assertThat(result.analysisCompletedCount()).isEqualTo(5);
+        assertThat(result.analysisFailedCount()).isEqualTo(7);
+        assertThat(result.analysisInProgressCount()).isEqualTo(1);
+        assertThat(result.analyzedRecordCount()).isEqualTo(5);
     }
 
     @Test
