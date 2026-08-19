@@ -3,6 +3,7 @@ from google.genai import errors
 
 from app.clients.gemini_record_analysis_client import GeminiRecordAnalysisClient
 from app.core.config import get_settings
+from app.core.gemini_error_logging import log_gemini_api_error
 from app.schemas.record_analysis import (
     RecordAnalysisRequest,
     RecordAnalysisResponse,
@@ -24,6 +25,12 @@ def analyze_record_with_gemini(request: RecordAnalysisRequest, settings) -> Reco
     try:
         summary, evidence_snippets, strength_tag_ids = client.analyze_record(request)
     except errors.APIError as exception:
+        log_gemini_api_error(
+            operation="record_analysis",
+            model=settings.gemini_generation_model,
+            exception=exception,
+            context={"recordId": request.recordId},
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Gemini analysis request failed.",
