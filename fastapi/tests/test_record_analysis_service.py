@@ -67,6 +67,15 @@ class RecordAnalysisServiceTest(unittest.TestCase):
         self.assertIn("최대 2개", prompt)
         self.assertIn(str(candidate_ids[0]), prompt)
 
+    def test_prompt_excludes_memo_content_and_limits_evidence_to_answers(self):
+        request, _ = analysis_request(memo_content="메모에만 있는 민감한 내용")
+
+        prompt = build_analysis_prompt(request)
+
+        self.assertNotIn("메모:", prompt)
+        self.assertNotIn("메모에만 있는 민감한 내용", prompt)
+        self.assertIn("evidenceSnippets는 답변 원문에서", prompt)
+
     def test_parse_analysis_payload_accepts_up_to_two_candidate_ids(self):
         request, candidate_ids = analysis_request()
 
@@ -149,7 +158,10 @@ class RecordAnalysisServiceTest(unittest.TestCase):
             )
 
 
-def analysis_request(candidate_count: int = 2) -> tuple[RecordAnalysisRequest, list[UUID]]:
+def analysis_request(
+    candidate_count: int = 2,
+    memo_content: str | None = None,
+) -> tuple[RecordAnalysisRequest, list[UUID]]:
     candidate_ids = [uuid4() for _ in range(candidate_count)]
     return RecordAnalysisRequest.model_validate(
         {
@@ -158,7 +170,11 @@ def analysis_request(candidate_count: int = 2) -> tuple[RecordAnalysisRequest, l
             "activity": {"title": "프로젝트", "description": "백엔드 개선"},
             "template": {"title": "문제 해결 경험"},
             "answers": [{"questionText": "무엇을 했나요?", "answerText": "병목을 찾아 개선했습니다."}],
-            "memos": [],
+            "memos": (
+                []
+                if memo_content is None
+                else [{"title": "보조 메모", "content": memo_content}]
+            ),
             "strengthTagCandidates": [
                 {
                     "id": str(candidate_id),

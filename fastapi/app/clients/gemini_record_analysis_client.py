@@ -41,10 +41,6 @@ def build_analysis_prompt(request: RecordAnalysisRequest) -> str:
         f"- 질문: {answer.questionText}\n  답변: {answer.answerText}"
         for answer in request.answers
     )
-    memos = "\n".join(
-        f"- 제목: {memo.title or ''}\n  내용: {memo.content}"
-        for memo in request.memos
-    )
     strength_tags = "\n".join(
         (
             f"- id: {candidate.id}\n"
@@ -63,7 +59,7 @@ def build_analysis_prompt(request: RecordAnalysisRequest) -> str:
 
 규칙:
 - summary는 한국어 1문장으로 작성합니다.
-- evidenceSnippets는 답변/메모 원문에서 핵심 근거 문장만 1~5개 추출합니다.
+- evidenceSnippets는 답변 원문에서 핵심 근거 문장만 1~5개 추출합니다.
 - strengthTagIds는 반드시 후보군 id 중에서만 선택합니다.
 - 정의, 판단 기준, 적합 예시와 부적합 예시를 함께 고려합니다.
 - 코사인 유사도는 후보 검색 결과이며 최종 판단의 유일한 근거로 사용하지 않습니다.
@@ -87,9 +83,6 @@ def build_analysis_prompt(request: RecordAnalysisRequest) -> str:
 
 답변:
 {answers}
-
-메모:
-{memos}
 
 강점 태그 후보군:
 {strength_tags}
