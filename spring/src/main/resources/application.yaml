@@ -130,7 +130,7 @@ matching:
 
 insight:
   minimum-analyzed-record-count: 10
-  regeneration-cooldown: 24h
+  regeneration-cooldown: 1h
   recommendation-candidate-ratio: ${INSIGHT_RECOMMENDATION_CANDIDATE_RATIO:0.1}
   recommendation-candidate-min: ${INSIGHT_RECOMMENDATION_CANDIDATE_MIN:1}
   recommendation-candidate-max: ${INSIGHT_RECOMMENDATION_CANDIDATE_MAX:20}
