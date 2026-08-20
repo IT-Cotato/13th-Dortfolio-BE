@@ -95,7 +95,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(CsrfException.class)
     protected ResponseEntity<ApiResponse<Void>> handleCsrfException(CsrfException e) {
-        log.warn("CsrfException: {}", e.getMessage());
+        log.warn("CSRF validation failed: {}", e.getClass().getSimpleName());
 
         GlobalErrorCode errorCode = GlobalErrorCode.INVALID_CSRF_TOKEN;
 
