@@ -5,6 +5,7 @@ import com.itcotato.dortfolio.global.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -83,6 +84,20 @@ public class GlobalExceptionHandler {
         log.warn("AuthenticationException: {}", e.getMessage());
 
         GlobalErrorCode errorCode = GlobalErrorCode.UNAUTHORIZED;
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.fail(
+                        errorCode.getCode(),
+                        errorCode.getMessage()
+                ));
+    }
+
+    @ExceptionHandler(CsrfException.class)
+    protected ResponseEntity<ApiResponse<Void>> handleCsrfException(CsrfException e) {
+        log.warn("CSRF validation failed: {}", e.getClass().getSimpleName());
+
+        GlobalErrorCode errorCode = GlobalErrorCode.INVALID_CSRF_TOKEN;
 
         return ResponseEntity
                 .status(errorCode.getStatus())

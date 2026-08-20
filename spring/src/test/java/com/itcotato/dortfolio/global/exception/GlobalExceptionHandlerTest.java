@@ -11,6 +11,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.ObjectError;
+import org.springframework.security.web.csrf.InvalidCsrfTokenException;
+import org.springframework.security.web.csrf.MissingCsrfTokenException;
+import org.springframework.security.web.csrf.DefaultCsrfToken;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 
 class GlobalExceptionHandlerTest {
@@ -36,5 +39,31 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().getCode()).isEqualTo("G001");
         assertThat(response.getBody().getMessage())
                 .isEqualTo("약관 동의가 필요합니다.");
+    }
+
+    @Test
+    void handlesMissingCsrfTokenAsForbidden() {
+        ResponseEntity<ApiResponse<Void>> response =
+                handler.handleCsrfException(new MissingCsrfTokenException(null));
+
+        assertCsrfForbiddenResponse(response);
+    }
+
+    @Test
+    void handlesInvalidCsrfTokenAsForbidden() {
+        ResponseEntity<ApiResponse<Void>> response =
+                handler.handleCsrfException(new InvalidCsrfTokenException(
+                        new DefaultCsrfToken("X-XSRF-TOKEN", "_csrf", "expected-token"),
+                        "invalid-token"
+                ));
+
+        assertCsrfForbiddenResponse(response);
+    }
+
+    private void assertCsrfForbiddenResponse(ResponseEntity<ApiResponse<Void>> response) {
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getCode()).isEqualTo("G006");
+        assertThat(response.getBody().getMessage()).isEqualTo("CSRF 토큰이 유효하지 않습니다.");
     }
 }
