@@ -1,7 +1,6 @@
 package com.itcotato.dortfolio.global.config;
 
 import com.itcotato.dortfolio.global.security.handler.CustomAuthenticationEntryPoint;
-import com.itcotato.dortfolio.global.security.handler.CustomCsrfAccessDeniedHandler;
 import com.itcotato.dortfolio.global.security.jwt.JwtAuthenticationFilter;
 import com.itcotato.dortfolio.global.security.jwt.JwtTokenProvider;
 import com.itcotato.dortfolio.global.security.oauth.CustomOAuth2UserService;
@@ -18,12 +17,8 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.config.ObjectPostProcessor;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.csrf.CsrfFilter;
-import org.springframework.security.web.csrf.CsrfTokenRepository;
-import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -43,7 +38,6 @@ public class SecurityConfig {
     private final OAuth2FailureHandler oAuth2FailureHandler;
     private final HttpCookieOAuth2AuthorizationRequestRepository httpCookieOAuth2AuthorizationRequestRepository;
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
-    private final CustomCsrfAccessDeniedHandler customCsrfAccessDeniedHandler;
 
     // 허용할 프론트엔드 출처. 배포 환경마다 달라서 설정으로 뺀다
     // (기본값은 기존과 동일한 로컬 개발 주소라, 설정을 안 해도 동작이 바뀌지 않는다)
@@ -68,24 +62,11 @@ public class SecurityConfig {
     };
 
     @Bean
-    public SecurityFilterChain securityFilterChain(
-            HttpSecurity http,
-            CsrfTokenRepository csrfTokenRepository
-    ) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(csrf -> csrf
-                        .csrfTokenRepository(csrfTokenRepository)
-                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                        .requireCsrfProtectionMatcher(new CookieAuthenticatedCsrfProtectionMatcher())
-                        .addObjectPostProcessor(new ObjectPostProcessor<CsrfFilter>() {
-                            @Override
-                            public <O extends CsrfFilter> O postProcess(O csrfFilter) {
-                                csrfFilter.setAccessDeniedHandler(customCsrfAccessDeniedHandler);
-                                return csrfFilter;
-                            }
-                        })
-                )
+                // 프론트엔드와 백엔드를 동일 사이트로 구성할 때 CSRF 보호를 다시 활성화합니다.
+                .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
