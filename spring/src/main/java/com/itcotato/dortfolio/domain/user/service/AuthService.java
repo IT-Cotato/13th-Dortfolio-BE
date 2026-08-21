@@ -3,6 +3,7 @@ package com.itcotato.dortfolio.domain.user.service;
 import com.itcotato.dortfolio.domain.activity.service.ActivityTypeService;
 import com.itcotato.dortfolio.domain.user.dto.LoginRequest;
 import com.itcotato.dortfolio.domain.user.dto.SignUpRequest;
+import com.itcotato.dortfolio.domain.user.dto.CsrfTokenResponse;
 import com.itcotato.dortfolio.domain.user.dto.TokenResponse;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.entity.UserTermAgreement;
@@ -176,6 +177,15 @@ public class AuthService {
 
         String accessToken = jwtTokenProvider.generateAccessToken(authenticationToken, userId);
         return TokenResponse.of(accessToken);
+    }
+
+    public CsrfTokenResponse issueCsrfToken(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
+        CsrfToken csrfToken = csrfTokenRepository.generateToken(request);
+        csrfTokenRepository.saveToken(csrfToken, request, response);
+        return CsrfTokenResponse.of(csrfToken.getToken());
     }
 
     private boolean tokensMatch(String savedRefreshToken, String requestRefreshToken) {

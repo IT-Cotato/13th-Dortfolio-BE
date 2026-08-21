@@ -61,6 +61,7 @@ public class SecurityConfig {
     private static final String[] PUBLIC_AUTH_PATHS = {
             "/api/auth/signup",
             "/api/auth/login",
+            "/api/auth/csrf",
             "/api/auth/refresh",
             "/api/auth/reset-request",
             "/api/auth/reset"

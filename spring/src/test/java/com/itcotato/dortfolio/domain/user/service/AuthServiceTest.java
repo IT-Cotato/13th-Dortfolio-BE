@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.itcotato.dortfolio.domain.activity.service.ActivityTypeService;
 import com.itcotato.dortfolio.domain.user.dto.TokenResponse;
+import com.itcotato.dortfolio.domain.user.dto.CsrfTokenResponse;
 import com.itcotato.dortfolio.domain.user.dto.SignUpRequest;
 import com.itcotato.dortfolio.domain.user.entity.Role;
 import com.itcotato.dortfolio.domain.user.entity.User;
@@ -30,9 +31,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
+import org.springframework.security.web.csrf.DefaultCsrfToken;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -51,6 +54,20 @@ class AuthServiceTest {
 
     @InjectMocks
     private AuthService authService;
+
+    @Test
+    void issuesCsrfTokenInCookieAndResponse() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        DefaultCsrfToken csrfToken =
+                new DefaultCsrfToken("X-XSRF-TOKEN", "_csrf", "csrf-token");
+        when(csrfTokenRepository.generateToken(request)).thenReturn(csrfToken);
+
+        CsrfTokenResponse tokenResponse = authService.issueCsrfToken(request, response);
+
+        assertThat(tokenResponse.csrfToken()).isEqualTo("csrf-token");
+        verify(csrfTokenRepository).saveToken(csrfToken, request, response);
+    }
 
     @Test
     void reissuesAccessTokenWithValidRefreshToken() {

@@ -61,6 +61,19 @@ public class AuthController implements AuthControllerDocs {
         );
     }
 
+    /* CSRF 토큰 발급 API */
+    @Override
+    @GetMapping("/csrf")
+    public ApiResponse<CsrfTokenResponse> issueCsrfToken(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
+        return ApiResponse.success(
+                "CSRF 토큰이 성공적으로 발급되었습니다.",
+                authService.issueCsrfToken(request, response)
+        );
+    }
+
     /* 로그아웃 API */
     @Override
     @PostMapping("/logout")

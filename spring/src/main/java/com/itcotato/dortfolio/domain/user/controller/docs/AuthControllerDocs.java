@@ -77,6 +77,15 @@ public interface AuthControllerDocs {
             HttpServletResponse response
     );
 
+    @Operation(
+            summary = "CSRF 토큰 발급 API",
+            description = "XSRF-TOKEN 쿠키를 발급하고, 프론트엔드가 X-XSRF-TOKEN 요청 헤더에 사용할 동일한 토큰을 응답 본문으로 반환합니다."
+    )
+    ApiResponse<CsrfTokenResponse> issueCsrfToken(
+            HttpServletRequest request,
+            HttpServletResponse response
+    );
+
     @Operation(summary = "로그아웃 API", description = "Redis에 저장된 Refresh Token을 삭제하고, 클라이언트의 Token 쿠키를 만료(삭제)시킵니다.")
     ApiResponse<Void> logout(
             @Parameter(hidden = true) @AuthenticationPrincipal UUID userId,
