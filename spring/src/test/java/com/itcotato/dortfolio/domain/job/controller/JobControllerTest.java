@@ -14,7 +14,6 @@ import com.itcotato.dortfolio.domain.job.dto.JobSummaryResponse;
 import com.itcotato.dortfolio.domain.job.service.JobQueryService;
 import com.itcotato.dortfolio.global.config.SecurityConfig;
 import com.itcotato.dortfolio.global.security.handler.CustomAuthenticationEntryPoint;
-import com.itcotato.dortfolio.global.security.handler.CustomCsrfAccessDeniedHandler;
 import com.itcotato.dortfolio.global.security.jwt.JwtTokenProvider;
 import com.itcotato.dortfolio.global.security.oauth.CustomOAuth2UserService;
 import com.itcotato.dortfolio.global.security.oauth.HttpCookieOAuth2AuthorizationRequestRepository;
@@ -22,7 +21,6 @@ import com.itcotato.dortfolio.global.security.oauth.OAuth2FailureHandler;
 import com.itcotato.dortfolio.global.security.oauth.OAuth2SuccessHandler;
 import java.util.List;
 import java.util.UUID;
-import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -37,8 +35,7 @@ import org.springframework.test.web.servlet.MockMvc;
 )
 @Import({
         SecurityConfig.class,
-        CustomAuthenticationEntryPoint.class,
-        CustomCsrfAccessDeniedHandler.class
+        CustomAuthenticationEntryPoint.class
 })
 class JobControllerTest {
 
@@ -73,21 +70,9 @@ class JobControllerTest {
     }
 
     @Test
-    void returnsForbiddenWhenRefreshRequestHasNoCsrfToken() throws Exception {
-        mockMvc.perform(post("/api/auth/refresh"))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("G006"))
-                .andExpect(jsonPath("$.message").value("CSRF 토큰이 유효하지 않습니다."));
-    }
-
-    @Test
-    void returnsForbiddenWhenRefreshRequestHasInvalidCsrfToken() throws Exception {
-        mockMvc.perform(post("/api/auth/refresh")
-                        .cookie(new Cookie("XSRF-TOKEN", "expected-token"))
-                        .header("X-XSRF-TOKEN", "invalid-token"))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("G006"))
-                .andExpect(jsonPath("$.message").value("CSRF 토큰이 유효하지 않습니다."));
+    void doesNotRejectUnsafeRequestWithoutCsrfToken() throws Exception {
+        mockMvc.perform(post("/api/jobs").with(user("user")))
+                .andExpect(status().isMethodNotAllowed());
     }
 
     @Test
