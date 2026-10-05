@@ -10,6 +10,7 @@ from app.clients.gemini_record_analysis_client import (
     build_analysis_prompt,
     parse_analysis_payload,
 )
+from app.core.ai_error import AiError
 from app.schemas.record_analysis import RecordAnalysisRequest, RecordAnalysisResponse
 from app.services.record_analysis_service import analyze_record
 
@@ -20,13 +21,13 @@ class RecordAnalysisServiceTest(unittest.TestCase):
         get_settings.return_value = SimpleNamespace(gemini_api_key=None)
 
         with self.assertRaises(HTTPException) as context:
-            analyze_record(None)
+            analyze_record(None, uuid4())
 
         self.assertEqual(context.exception.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
 
     @patch("app.services.record_analysis_service.GeminiRecordAnalysisClient")
     @patch("app.services.record_analysis_service.get_settings")
-    def test_analyze_record_logs_original_gemini_error(
+    def test_analyze_record_returns_sanitized_gemini_error(
         self,
         get_settings,
         client_type,
@@ -41,19 +42,15 @@ class RecordAnalysisServiceTest(unittest.TestCase):
             {"error": {"message": "Gateway timeout"}},
         )
 
-        with self.assertLogs(
-            "app.core.gemini_error_logging",
-            level="WARNING",
-        ) as logs:
-            with self.assertRaises(HTTPException) as context:
-                analyze_record(request)
+        request_id = uuid4()
+        with self.assertRaises(AiError) as context:
+            analyze_record(request, request_id)
 
-        self.assertEqual(context.exception.status_code, status.HTTP_502_BAD_GATEWAY)
-        self.assertEqual(context.exception.detail, "Gemini analysis request failed.")
-        self.assertIn("operation=record_analysis", logs.output[0])
-        self.assertIn("model=gemini-3.6-flash", logs.output[0])
-        self.assertIn("status=504", logs.output[0])
-        self.assertIn(f"recordId={request.recordId}", logs.output[0])
+        self.assertEqual(context.exception.request_id, request_id)
+        self.assertEqual(context.exception.http_status, status.HTTP_504_GATEWAY_TIMEOUT)
+        self.assertEqual(context.exception.error_code, "HTTP_504")
+        self.assertEqual(context.exception.model_id, "gemini-3.6-flash")
+        self.assertNotIn("Gateway timeout", str(context.exception))
 
     def test_prompt_includes_strength_judgement_context_and_maximum_count(self):
         request, candidate_ids = analysis_request()

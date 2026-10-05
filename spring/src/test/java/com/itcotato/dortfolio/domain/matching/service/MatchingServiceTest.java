@@ -8,6 +8,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.lenient;
 
 import com.itcotato.dortfolio.domain.matching.config.MatchingProperties;
 import com.itcotato.dortfolio.domain.matching.dto.fastapi.QuestionEmbeddingResponse;
@@ -15,6 +17,8 @@ import com.itcotato.dortfolio.domain.matching.dto.req.RecordMatchingRequest;
 import com.itcotato.dortfolio.domain.matching.dto.res.MatchingSource;
 import com.itcotato.dortfolio.domain.matching.exception.MatchingErrorCode;
 import com.itcotato.dortfolio.global.exception.CustomException;
+import com.itcotato.dortfolio.global.ai.observability.service.AiRequestTracker;
+import com.itcotato.dortfolio.support.PassthroughAiCallObserver;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.util.List;
@@ -37,11 +41,15 @@ class MatchingServiceTest {
 
 	@Mock
 	private MatchingUsageLimiter matchingUsageLimiter;
+	@Mock
+	private AiRequestTracker tracker;
 
 	private MatchingService matchingService;
 
 	@BeforeEach
 	void setUp() {
+		lenient().when(tracker.start(any(UUID.class), any())).thenReturn(UUID.randomUUID());
+		lenient().doCallRealMethod().when(recordMatchingClient).embedQuestion(any(UUID.class), anyString());
 		matchingService = new MatchingService(
 			new MatchingProperties(
 				3,
@@ -58,7 +66,9 @@ class MatchingServiceTest {
 			),
 			matchingReadService,
 			recordMatchingClient,
-			matchingUsageLimiter
+			matchingUsageLimiter,
+			tracker,
+			new PassthroughAiCallObserver()
 		);
 	}
 

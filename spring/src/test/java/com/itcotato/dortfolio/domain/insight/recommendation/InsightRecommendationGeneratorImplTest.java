@@ -7,6 +7,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.lenient;
 
 import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
 import com.itcotato.dortfolio.domain.insight.recommendation.client.InsightRecommendationClient;
@@ -17,6 +19,9 @@ import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRe
 import com.itcotato.dortfolio.domain.insight.recommendation.service.InsightRecommendationGeneratorImpl;
 import com.itcotato.dortfolio.domain.insight.recommendation.service.InsightRecommendationRetrySleeper;
 import com.itcotato.dortfolio.global.exception.CustomException;
+import com.itcotato.dortfolio.global.ai.observability.entity.AiFeature;
+import com.itcotato.dortfolio.global.ai.observability.service.AiRequestTracker;
+import com.itcotato.dortfolio.support.PassthroughAiCallObserver;
 import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
 import java.time.Duration;
 import java.util.List;
@@ -32,10 +37,14 @@ import org.springframework.web.client.RestClientException;
 @ExtendWith(MockitoExtension.class)
 class InsightRecommendationGeneratorImplTest {
 
+    private static final UUID USER_ID = UUID.randomUUID();
+
     @Mock
     private InsightRecommendationClient client;
     @Mock
     private InsightRecommendationRetrySleeper retrySleeper;
+    @Mock
+    private AiRequestTracker tracker;
 
     private InsightRecommendationGeneratorImpl generator;
     private RecommendationRequest request;
@@ -44,6 +53,9 @@ class InsightRecommendationGeneratorImplTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(tracker.start(USER_ID, AiFeature.INSIGHT_RECOMMENDATION))
+                .thenReturn(UUID.randomUUID());
+        lenient().doCallRealMethod().when(client).generateWithUsage(any(UUID.class), any(RecommendationRequest.class));
         generator = new InsightRecommendationGeneratorImpl(
                 client,
                 new InsightProperties(
@@ -51,7 +63,9 @@ class InsightRecommendationGeneratorImplTest {
                         "gemini-embedding-2", 2, Duration.ZERO,
                         Duration.ofSeconds(10)
                 ),
-                retrySleeper
+                retrySleeper,
+                tracker,
+                new PassthroughAiCallObserver()
         );
         competencyIds = ids();
         recordIds = ids();
@@ -78,7 +92,7 @@ class InsightRecommendationGeneratorImplTest {
                         .toList()
         );
 
-        assertThat(generator.generate(request))
+        assertThat(generator.generate(USER_ID, request))
                 .extracting(RecommendationResult::jobCompetencyId)
                 .containsExactlyElementsOf(competencyIds);
         verify(client).generate(request);
@@ -110,7 +124,7 @@ class InsightRecommendationGeneratorImplTest {
                         .toList()
         );
 
-        assertThat(generator.generate(request).get(0).matched()).isFalse();
+        assertThat(generator.generate(USER_ID, request).get(0).matched()).isFalse();
     }
 
     @Test
@@ -158,7 +172,7 @@ class InsightRecommendationGeneratorImplTest {
                 .thenThrow(new RestClientException("timeout"))
                 .thenReturn(response);
 
-        assertThat(generator.generate(request)).hasSize(5);
+        assertThat(generator.generate(USER_ID, request)).hasSize(5);
         verify(client, times(2)).generate(request);
         verify(retrySleeper).sleep(Duration.ZERO);
     }
@@ -171,7 +185,7 @@ class InsightRecommendationGeneratorImplTest {
                 request.competencies().subList(0, 4)
         );
 
-        assertThatThrownBy(() -> generator.generate(invalid))
+        assertThatThrownBy(() -> generator.generate(USER_ID, invalid))
                 .isInstanceOf(CustomException.class);
         verify(client, never()).generate(any());
     }
@@ -197,7 +211,7 @@ class InsightRecommendationGeneratorImplTest {
     }
 
     private void assertInvalidResponse() {
-        assertThatThrownBy(() -> generator.generate(request))
+        assertThatThrownBy(() -> generator.generate(USER_ID, request))
                 .isInstanceOf(CustomException.class)
                 .extracting(error -> ((CustomException) error).getErrorCode())
                 .isEqualTo(InsightErrorCode

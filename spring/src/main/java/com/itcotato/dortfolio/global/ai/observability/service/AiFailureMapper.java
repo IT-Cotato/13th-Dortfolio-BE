@@ -1,12 +1,12 @@
 package com.itcotato.dortfolio.global.ai.observability.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.itcotato.dortfolio.global.ai.observability.dto.AiErrorResponse;
 import com.itcotato.dortfolio.global.ai.observability.entity.AiCallStatus;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.ResourceAccessException;
@@ -14,10 +14,9 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 @Component
-@RequiredArgsConstructor
 public class AiFailureMapper {
 
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public Failure fromHttpError(
             UUID requestId,

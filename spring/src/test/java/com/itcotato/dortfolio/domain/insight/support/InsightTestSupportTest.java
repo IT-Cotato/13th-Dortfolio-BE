@@ -87,7 +87,7 @@ public class InsightTestSupportTest {
 
         generator.setResult(recommendationResult());
 
-        assertThat(generator.generate(recommendationRequest()))
+        assertThat(generator.generate(USER_ID, recommendationRequest()))
                 .containsExactly(recommendationResult());
         assertThat(generator.getRequestedRequest())
                 .isEqualTo(recommendationRequest());

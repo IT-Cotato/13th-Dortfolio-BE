@@ -6,6 +6,7 @@ import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRe
 
 import java.util.Objects;
 import java.util.List;
+import java.util.UUID;
 
 public class FakeInsightRecommendationGenerator implements InsightRecommendationGenerator {
 
@@ -22,6 +23,7 @@ public class FakeInsightRecommendationGenerator implements InsightRecommendation
 
     @Override
     public List<RecommendationResult> generate(
+            UUID userId,
             RecommendationRequest request
     ) {
         this.requestedRequest = request;

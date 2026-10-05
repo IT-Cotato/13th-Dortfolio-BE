@@ -35,6 +35,7 @@ import com.itcotato.dortfolio.domain.user.repository.UserRepository;
 import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingRequest;
 import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingResponse;
 import com.itcotato.dortfolio.global.ai.embedding.service.EmbeddingClient;
+import com.itcotato.dortfolio.global.ai.observability.dto.AiUsageResponse;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import java.time.LocalDate;
 import java.util.List;
@@ -845,6 +846,13 @@ class RecordAnalysisServiceTest {
 			return new EmbeddingResponse("test-embedding", embedding);
 		}
 
+		@Override
+		public EmbeddingResponse embed(UUID requestId, EmbeddingRequest request) {
+			EmbeddingResponse response = embed(request);
+			return new EmbeddingResponse(response.embeddingModel(), response.embedding(),
+				new AiUsageResponse(requestId, "TEST", response.embeddingModel(), 10L, null, 1));
+		}
+
 		private void reset() {
 			this.failure = null;
 			this.embedding = validEmbedding();
@@ -919,6 +927,16 @@ class RecordAnalysisServiceTest {
 				beforeReturn.run();
 			}
 			return response;
+		}
+
+		@Override
+		public RecordAnalysisResponse analyze(UUID requestId, RecordAnalysisRequest request) {
+			RecordAnalysisResponse result = analyze(request);
+			if (result == null) {
+				return null;
+			}
+			return new RecordAnalysisResponse(result.summary(), result.evidenceSnippets(),
+				result.strengthTagIds(), new AiUsageResponse(requestId, "TEST", "test-model", 10L, 5L, 1));
 		}
 
 		private void reset() {

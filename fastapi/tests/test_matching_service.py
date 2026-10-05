@@ -1,4 +1,5 @@
 import unittest
+from uuid import uuid4
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -16,7 +17,7 @@ class MatchingServiceTest(unittest.TestCase):
         )
 
         with self.assertRaises(HTTPException) as context:
-            embed_question(QuestionEmbeddingRequest(question="목표 달성 경험"))
+            embed_question(QuestionEmbeddingRequest(question="목표 달성 경험"), uuid4())
 
         self.assertEqual(context.exception.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
 
