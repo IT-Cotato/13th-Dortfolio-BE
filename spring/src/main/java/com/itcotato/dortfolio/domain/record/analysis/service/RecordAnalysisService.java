@@ -183,7 +183,7 @@ public class RecordAnalysisService {
 
 	private EmbeddingResponse requestEmbedding(RecordAnalysisRequest request) {
 		try {
-			return embeddingClient.embed(new EmbeddingRequest(recordEmbeddingTextBuilder.build(request)));
+			return embeddingClient.embed(UUID.randomUUID(), new EmbeddingRequest(recordEmbeddingTextBuilder.build(request)));
 		} catch (RestClientException exception) {
 			log.warn("Record embedding request failed. recordId={}", request.recordId(), exception);
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_FAILED);
@@ -211,13 +211,12 @@ public class RecordAnalysisService {
 
 	private RecordAnalysisResponse requestAnalysis(RecordAnalysisRequest request) {
 		try {
-			return recordAnalysisClient.analyze(request);
+			return recordAnalysisClient.analyze(UUID.randomUUID(), request);
 		} catch (RestClientResponseException exception) {
 			log.warn(
-				"Record AI service returned error. recordId={}, status={}, body={}",
+				"Record AI service returned error. recordId={}, status={}",
 				request.recordId(),
-				exception.getStatusCode(),
-				exception.getResponseBodyAsString()
+				exception.getStatusCode()
 			);
 			if (isRetryableAiServiceStatus(exception.getStatusCode())) {
 				throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_FAILED);

@@ -104,9 +104,10 @@ public class StrengthTagEmbeddingService {
 
 	private EmbeddingResponse requestEmbedding(UUID strengthTagId, String sourceText) {
 		EmbeddingRequest request = new EmbeddingRequest(sourceText);
+		UUID requestId = UUID.randomUUID();
 		for (int attempt = 1; attempt <= requestProperties.maxAttempts(); attempt++) {
 			try {
-				return embeddingClient.embed(request);
+				return embeddingClient.embed(requestId, request);
 			} catch (RestClientException exception) {
 				if (attempt == requestProperties.maxAttempts()) {
 					log.warn(

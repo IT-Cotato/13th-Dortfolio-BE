@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+from app.schemas.ai_observability import AiUsage
 
 
 class InsightRecommendationCandidate(BaseModel):
@@ -81,8 +82,14 @@ class InsightRecommendationResult(BaseModel):
         return self
 
 
-class InsightRecommendationResponse(BaseModel):
+class InsightRecommendationResultPayload(BaseModel):
     recommendations: list[InsightRecommendationResult] = Field(
         min_length=5,
         max_length=5,
     )
+
+
+class InsightRecommendationResponse(
+    InsightRecommendationResultPayload
+):
+    usage: AiUsage

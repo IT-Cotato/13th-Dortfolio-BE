@@ -1,12 +1,16 @@
 import json
+from time import perf_counter
+from uuid import UUID
 
 from google import genai
 from google.genai import types
 from pydantic import ValidationError
 
 from app.core.config import Settings
+from app.schemas.ai_observability import AiUsage
 from app.schemas.insight import (
     InsightRecommendationRequest,
+    InsightRecommendationResultPayload,
     InsightRecommendationResponse,
 )
 
@@ -26,28 +30,38 @@ class GeminiInsightClient:
     def generate_recommendation(
         self,
         request: InsightRecommendationRequest,
+        request_id: UUID,
     ) -> InsightRecommendationResponse:
         prompt = build_recommendation_prompt(request)
 
-        response = self.client.models.generate_content(
-            model=self.settings.gemini_generation_model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=InsightRecommendationResponse,
-                http_options=types.HttpOptions(
-                    timeout=int(
-                        self.settings
-                        .gemini_http_timeout_seconds
-                        * 1000
-                    )
+        started_at = perf_counter()
+        try:
+            response = self.client.models.generate_content(
+                model=self.settings.gemini_generation_model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=InsightRecommendationResultPayload,
+                    http_options=types.HttpOptions(
+                        timeout=int(self.settings.gemini_http_timeout_seconds * 1000)
+                    ),
                 ),
-            ),
-        )
+            )
+        finally:
+            latency_ms = int((perf_counter() - started_at) * 1000)
 
-        return parse_recommendation_response(
-            response.text,
-            request,
+        result = parse_recommendation_response(response.text, request)
+        metadata = response.usage_metadata
+        return InsightRecommendationResponse(
+            recommendations=result.recommendations,
+            usage=AiUsage(
+                requestId=request_id,
+                provider="GEMINI",
+                modelId=self.settings.gemini_generation_model,
+                inputTokens=getattr(metadata, "prompt_token_count", None),
+                outputTokens=getattr(metadata, "candidates_token_count", None),
+                latencyMs=latency_ms,
+            ),
         )
 
 
@@ -102,7 +116,7 @@ def build_recommendation_prompt(
 def parse_recommendation_response(
     response_text: str | None,
     request: InsightRecommendationRequest,
-) -> InsightRecommendationResponse:
+) -> InsightRecommendationResultPayload:
     if not response_text:
         raise ValueError(
             "Gemini recommendation response is empty."
@@ -110,7 +124,7 @@ def parse_recommendation_response(
 
     try:
         payload = json.loads(response_text)
-        response = InsightRecommendationResponse.model_validate(
+        response = InsightRecommendationResultPayload.model_validate(
             payload
         )
     except (
@@ -155,7 +169,7 @@ def parse_recommendation_response(
                 "Gemini selected a record outside candidates."
             )
 
-    return InsightRecommendationResponse(
+    return InsightRecommendationResultPayload(
         recommendations=[
             response_by_id[competency.jobCompetencyId]
             for competency in request.competencies

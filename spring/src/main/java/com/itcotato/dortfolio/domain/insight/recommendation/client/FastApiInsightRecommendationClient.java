@@ -6,6 +6,9 @@ import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRe
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 import com.itcotato.dortfolio.domain.record.analysis.config.AiServiceProperties;
 import java.util.List;
+import java.util.UUID;
+
+import com.itcotato.dortfolio.global.ai.observability.AiRequestHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -42,17 +45,25 @@ public class FastApiInsightRecommendationClient implements InsightRecommendation
     }
 
     @Override
-    public List<RecommendationResult> generate(
+    public List<RecommendationResult> generate(RecommendationRequest request) {
+        RecommendationResponse response = generateWithUsage(UUID.randomUUID(), request);
+        return response == null ? null : response.recommendations();
+    }
+
+    @Override
+    public RecommendationResponse generateWithUsage(
+            UUID requestId,
             RecommendationRequest request
     ) {
         RecommendationResponse response = restClient.post()
                 .uri("/ai/insights/recommendation")
+                .header(AiRequestHeaders.REQUEST_ID, requestId.toString())
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
                 .body(request)
                 .retrieve()
                 .body(RecommendationResponse.class);
 
-        return response == null ? null : response.recommendations();
+        return response;
     }
 }

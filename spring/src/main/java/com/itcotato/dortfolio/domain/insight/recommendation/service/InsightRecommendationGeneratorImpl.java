@@ -5,6 +5,7 @@ import com.itcotato.dortfolio.domain.insight.recommendation.client.InsightRecomm
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCandidate;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCompetency;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResponse;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import java.time.Duration;
@@ -41,13 +42,14 @@ public class InsightRecommendationGeneratorImpl
         validateRequest(request);
 
         FailureType lastFailure = FailureType.AI_SERVICE;
+        UUID requestId = UUID.randomUUID();
 
         for (int attempt = 1;
              attempt <= insightProperties.recommendationMaxAttempts();
              attempt++) {
             try {
-                List<RecommendationResult> response =
-                        client.generate(request);
+                RecommendationResponse aiResponse = client.generateWithUsage(requestId, request);
+                List<RecommendationResult> response = aiResponse == null ? null : aiResponse.recommendations();
 
                 return validateResponse(
                         request,

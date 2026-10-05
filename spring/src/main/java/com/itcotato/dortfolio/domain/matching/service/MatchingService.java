@@ -63,7 +63,7 @@ public class MatchingService {
 
 	private QuestionEmbeddingResponse requestQuestionEmbedding(String question) {
 		try {
-			QuestionEmbeddingResponse response = recordMatchingClient.embedQuestion(question);
+			QuestionEmbeddingResponse response = recordMatchingClient.embedQuestion(UUID.randomUUID(), question);
 			if (response == null || response.embedding() == null || response.embedding().length == 0
 				|| !StringUtils.hasText(response.embeddingModel())) {
 				throw new CustomException(MatchingErrorCode.MATCHING_INVALID_AI_RESPONSE);

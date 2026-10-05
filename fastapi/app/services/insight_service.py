@@ -1,11 +1,13 @@
 from fastapi import HTTPException, status
+from time import perf_counter
+from uuid import UUID
 from google.genai import errors
 
 from app.clients.gemini_insight_client import (
     GeminiInsightClient,
 )
 from app.core.config import get_settings
-from app.core.gemini_error_logging import log_gemini_api_error
+from app.core.ai_error import invalid_response_error, provider_error
 from app.schemas.insight import (
     InsightRecommendationRequest,
     InsightRecommendationResponse,
@@ -14,6 +16,7 @@ from app.schemas.insight import (
 
 def generate_insight_recommendation(
     request: InsightRecommendationRequest,
+    request_id: UUID,
 ) -> InsightRecommendationResponse:
     settings = get_settings()
 
@@ -24,28 +27,19 @@ def generate_insight_recommendation(
         )
 
     client = GeminiInsightClient(settings)
+    started_at = perf_counter()
 
     try:
-        return client.generate_recommendation(request)
+        return client.generate_recommendation(request, request_id)
     except errors.APIError as exception:
-        log_gemini_api_error(
-            operation="insight_recommendation",
-            model=settings.gemini_generation_model,
-            exception=exception,
-            context={
-                "jobId": request.jobId,
-                "competencyCount": len(request.competencies),
-            },
-        )
-        raise HTTPException(
-            status_code=gemini_error_status(exception),
-            detail="Gemini recommendation request failed.",
-            headers=gemini_retry_headers(exception),
+        raise provider_error(
+            request_id, settings.gemini_generation_model, exception,
+            int((perf_counter() - started_at) * 1000),
         ) from exception
     except ValueError as exception:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(exception),
+        raise invalid_response_error(
+            request_id, settings.gemini_generation_model,
+            int((perf_counter() - started_at) * 1000),
         ) from exception
 
 

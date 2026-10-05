@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.dependencies import AiRequestId
 from app.schemas.insight import (
     InsightRecommendationRequest,
     InsightRecommendationResponse,
@@ -21,5 +22,6 @@ router = APIRouter(
 )
 def generate_recommendation(
     request: InsightRecommendationRequest,
+    request_id: AiRequestId,
 ) -> InsightRecommendationResponse:
-    return generate_insight_recommendation(request)
+    return generate_insight_recommendation(request, request_id)
