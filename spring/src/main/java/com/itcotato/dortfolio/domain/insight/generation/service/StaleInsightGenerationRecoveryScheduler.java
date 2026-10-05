@@ -52,9 +52,9 @@ public class StaleInsightGenerationRecoveryScheduler {
             );
         } catch (RuntimeException exception) {
             log.error(
-                    "오래된 Insight RUNNING 복구에 실패했습니다. insightId={}",
+                    "오래된 Insight RUNNING 복구에 실패했습니다. insightId={}, exceptionType={}",
                     insightId,
-                    exception
+                    exception.getClass().getSimpleName()
             );
         }
     }

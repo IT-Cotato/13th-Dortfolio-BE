@@ -42,7 +42,7 @@ public class GlobalExceptionHandler {
     protected ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValidException(
             MethodArgumentNotValidException e
     ) {
-        log.error("MethodArgumentNotValidException", e);
+        log.warn("Request validation failed. exceptionType={}", e.getClass().getSimpleName());
 
         GlobalErrorCode errorCode = GlobalErrorCode.INVALID_INPUT_VALUE;
         String bindingMessage = e.getBindingResult()
@@ -65,7 +65,7 @@ public class GlobalExceptionHandler {
     protected ResponseEntity<ApiResponse<Void>> handleHttpRequestMethodNotSupportedException(
             HttpRequestMethodNotSupportedException e
     ) {
-        log.error("HttpRequestMethodNotSupportedException", e);
+        log.warn("Unsupported HTTP method. exceptionType={}", e.getClass().getSimpleName());
 
         GlobalErrorCode errorCode = GlobalErrorCode.METHOD_NOT_ALLOWED;
 
@@ -81,7 +81,7 @@ public class GlobalExceptionHandler {
     protected ResponseEntity<ApiResponse<Void>> handleAuthenticationException(
             AuthenticationException e
     ) {
-        log.warn("AuthenticationException: {}", e.getMessage());
+        log.warn("Authentication failed. exceptionType={}", e.getClass().getSimpleName());
 
         GlobalErrorCode errorCode = GlobalErrorCode.UNAUTHORIZED;
 
@@ -111,7 +111,7 @@ public class GlobalExceptionHandler {
     protected ResponseEntity<ApiResponse<Void>> handleNoResourceFoundException(
             NoResourceFoundException e
     ) {
-        log.warn("No resource found: {}", e.getResourcePath());
+        log.warn("No resource found. exceptionType={}", e.getClass().getSimpleName());
 
         GlobalErrorCode errorCode = GlobalErrorCode.NOT_FOUND;
 
@@ -125,7 +125,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     protected ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
-        log.error("Internal Server Exception", e);
+        log.error("Internal server exception. exceptionType={}", e.getClass().getSimpleName());
 
         GlobalErrorCode errorCode = GlobalErrorCode.INTERNAL_SERVER_ERROR;
 

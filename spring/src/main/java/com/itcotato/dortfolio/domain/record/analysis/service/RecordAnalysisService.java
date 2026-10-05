@@ -215,10 +215,11 @@ public class RecordAnalysisService {
 		} catch (CustomException exception) {
 			throw exception;
 		} catch (IllegalArgumentException exception) {
-			log.warn("Strength match candidate arguments are invalid.", exception);
+			log.warn("Strength match candidate arguments are invalid. exceptionType={}",
+				exception.getClass().getSimpleName());
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 		} catch (Exception exception) {
-			log.warn("Strength match candidate query failed.", exception);
+			log.warn("Strength match candidate query failed. exceptionType={}", exception.getClass().getSimpleName());
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED);
 		}
 	}
@@ -387,7 +388,8 @@ public class RecordAnalysisService {
 			expectedRecordUpdatedAt,
 			expectedGeneration, jobId, claimToken
 		));
-		log.warn("Record AI analysis {} failed. recordId={}", phase, recordId, exception);
+		log.warn("Record AI analysis {} failed. recordId={}, exceptionType={}",
+			phase, recordId, exception.getClass().getSimpleName());
 	}
 
 	private void markFailed(
@@ -454,9 +456,7 @@ public class RecordAnalysisService {
 		if (exception instanceof CustomException customException) {
 			return customException.getErrorCode().getCode() + " " + customException.getErrorCode().getMessage();
 		}
-		return exception.getMessage() == null
-			? exception.getClass().getSimpleName()
-			: exception.getMessage();
+		return "UNEXPECTED_ERROR";
 	}
 
 	private boolean toRetryable(CustomException exception) {

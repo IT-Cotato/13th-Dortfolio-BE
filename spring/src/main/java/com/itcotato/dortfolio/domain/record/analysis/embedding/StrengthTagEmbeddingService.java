@@ -79,10 +79,10 @@ public class StrengthTagEmbeddingService {
 				String reason = toFailureReason(exception);
 				failures.add(new StrengthTagEmbeddingFailure(strengthTagId, reason));
 				log.error(
-					"Strength tag embedding generation failed. strengthTagId={}, reason={}",
+					"Strength tag embedding generation failed. strengthTagId={}, reason={}, exceptionType={}",
 					strengthTagId,
 					reason,
-					exception
+					exception.getClass().getSimpleName()
 				);
 			}
 		}
@@ -187,8 +187,6 @@ public class StrengthTagEmbeddingService {
 		if (exception instanceof CustomException customException) {
 			return customException.getErrorCode().getCode() + " " + customException.getErrorCode().getMessage();
 		}
-		return exception.getMessage() == null
-			? exception.getClass().getSimpleName()
-			: exception.getMessage();
+		return "UNEXPECTED_ERROR";
 	}
 }

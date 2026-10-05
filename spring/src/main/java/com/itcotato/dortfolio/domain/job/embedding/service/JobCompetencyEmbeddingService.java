@@ -118,10 +118,10 @@ public class JobCompetencyEmbeddingService {
 
                 log.error(
                         "Job competency embedding generation failed. "
-                                + "jobCompetencyId={}, reason={}",
+                                + "jobCompetencyId={}, reason={}, exceptionType={}",
                         jobCompetencyId,
                         reason,
-                        exception
+                        exception.getClass().getSimpleName()
                 );
             }
         }
@@ -194,9 +194,7 @@ public class JobCompetencyEmbeddingService {
                     + customException.getErrorCode().getMessage();
         }
 
-        return exception.getMessage() == null
-                ? exception.getClass().getSimpleName()
-                : exception.getMessage();
+        return "UNEXPECTED_ERROR";
     }
 
     private EmbeddingResponse requestEmbedding(
