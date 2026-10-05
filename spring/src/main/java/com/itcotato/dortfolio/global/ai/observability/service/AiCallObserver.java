@@ -49,7 +49,7 @@ public class AiCallObserver {
             try {
                 validator.accept(response);
             } catch (RuntimeException exception) {
-                tracker.recordFailure(requestId, attemptNumber, usage.provider(), usage.modelId(),
+                tracker.recordFailure(requestId, attemptNumber, usage,
                         AiCallStatus.INVALID_RESPONSE, "SCHEMA_VALIDATION_FAILED", elapsed(started));
                 throw exception;
             }

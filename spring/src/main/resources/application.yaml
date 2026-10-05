@@ -68,6 +68,25 @@ jwt:
   refresh-expiration: 1209600000  # Refresh Token 만료 시간: 14일
 
 app:
+  ai:
+    pricing:
+      # Gemini Developer API 유료 Standard 단가(USD / 100만 토큰).
+      # 공급자/모델 변경 시 이 목록을 갱신한다. 미등록 모델의 비용은 null로 남긴다.
+      rates:
+        - provider: GEMINI
+          model-id: gemini-3.6-flash
+          input-usd-per-million-tokens: 0.75
+          output-usd-per-million-tokens: 3.75
+          effective-through: 2026-12-31
+        - provider: GEMINI
+          model-id: gemini-3.6-flash
+          input-usd-per-million-tokens: 1.50
+          output-usd-per-million-tokens: 7.50
+          effective-from: 2027-01-01
+        - provider: GEMINI
+          model-id: gemini-embedding-2
+          input-usd-per-million-tokens: 0.20
+          output-usd-per-million-tokens: 0
   cors:
     # 쉼표로 구분. 배포 환경에서는 프론트 주소(Vercel 등)를 CORS_ALLOWED_ORIGINS로 넘긴다
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:8080}

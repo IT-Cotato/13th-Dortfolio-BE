@@ -5,7 +5,7 @@ from uuid import UUID
 from google import genai
 from google.genai import types
 from app.core.config import Settings
-from app.schemas.ai_observability import AiUsage
+from app.schemas.ai_observability import AiUsage, billable_output_tokens
 from app.schemas.record_analysis import RecordAnalysisRequest, RecordAnalysisResult
 
 
@@ -54,9 +54,7 @@ class GeminiRecordAnalysisClient:
             inputTokens=(
                 metadata.prompt_token_count if metadata is not None else None
             ),
-            outputTokens=(
-                metadata.candidates_token_count if metadata is not None else None
-            ),
+            outputTokens=billable_output_tokens(metadata),
             latencyMs=latency_ms,
         )
 

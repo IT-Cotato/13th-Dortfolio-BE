@@ -7,7 +7,7 @@ from google.genai import types
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from app.schemas.ai_observability import AiUsage
+from app.schemas.ai_observability import AiUsage, billable_output_tokens
 from app.schemas.insight import (
     InsightRecommendationRequest,
     InsightRecommendationResultPayload,
@@ -59,7 +59,7 @@ class GeminiInsightClient:
                 provider="GEMINI",
                 modelId=self.settings.gemini_generation_model,
                 inputTokens=getattr(metadata, "prompt_token_count", None),
-                outputTokens=getattr(metadata, "candidates_token_count", None),
+                outputTokens=billable_output_tokens(metadata),
                 latencyMs=latency_ms,
             ),
         )

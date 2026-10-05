@@ -15,7 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -24,6 +26,7 @@ public class AiRequestTracker {
 
     private final AiRequestRepository requestRepository;
     private final AiCallAttemptRepository attemptRepository;
+    private final AiCostCalculator costCalculator;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -64,7 +67,7 @@ public class AiRequestTracker {
                         usage.modelId(),
                         usage.inputTokens(),
                         usage.outputTokens(),
-                        null, // 비용 계산은 커밋 3
+                        costCalculator.estimate(usage),
                         usage.latencyMs(),
                         AiCallStatus.SUCCESS,
                         null
@@ -101,6 +104,35 @@ public class AiRequestTracker {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordFailure(
+            UUID requestId,
+            int attemptNumber,
+            AiUsageResponse usage,
+            AiCallStatus status,
+            String errorCode,
+            long latencyMs
+    ) {
+        if (usage == null || !requestId.equals(usage.requestId())) {
+            throw new IllegalArgumentException("AI usage requestId does not match.");
+        }
+        AiRequest request = findRequest(requestId);
+        attemptRepository.save(
+                AiCallAttempt.create(
+                        request,
+                        attemptNumber,
+                        usage.provider(),
+                        usage.modelId(),
+                        usage.inputTokens(),
+                        usage.outputTokens(),
+                        costCalculator.estimate(usage),
+                        latencyMs,
+                        status,
+                        errorCode
+                )
+        );
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void finish(
             UUID requestId,
             boolean success,
@@ -109,22 +141,35 @@ public class AiRequestTracker {
     ) {
         AiRequest request = findRequest(requestId);
         LocalDateTime completedAt = LocalDateTime.now();
+        List<AiCallAttempt> attempts = attemptRepository
+                .findAllByAiRequest_IdOrderByAttemptNumberAsc(request.getId());
+        BigDecimal totalCost = totalEstimatedCost(attempts);
 
         if (success) {
             request.complete(
                     retryCount,
                     totalLatencyMs,
-                    null, // 비용 계산은 커밋 3
+                    totalCost,
                     completedAt
             );
         } else {
             request.fail(
                     retryCount,
                     totalLatencyMs,
-                    null,
+                    totalCost,
                     completedAt
             );
         }
+    }
+
+    private BigDecimal totalEstimatedCost(List<AiCallAttempt> attempts) {
+        if (attempts.isEmpty() || attempts.stream().anyMatch(
+                attempt -> attempt.getEstimatedCostUsd() == null)) {
+            return null;
+        }
+        return attempts.stream()
+                .map(AiCallAttempt::getEstimatedCostUsd)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private AiRequest findRequest(UUID requestId) {
