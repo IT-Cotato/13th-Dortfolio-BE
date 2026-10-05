@@ -14,6 +14,7 @@ CREATE TABLE ai_requests (
     total_estimated_cost_usd numeric(18, 10),
     created_at timestamp(6) NOT NULL,
     completed_at timestamp(6),
+    update_at timestamp(6) NOT NULL,
 
     PRIMARY KEY (id),
 
@@ -79,6 +80,7 @@ CREATE TABLE ai_call_attempts (
     status varchar(30) NOT NULL,
     error_code varchar(100),
     created_at timestamp(6) NOT NULL,
+    updated_at timestamp(6) NOT NULL,
 
     PRIMARY KEY (id),
 
