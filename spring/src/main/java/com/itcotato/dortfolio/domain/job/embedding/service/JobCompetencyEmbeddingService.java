@@ -14,6 +14,9 @@ import com.itcotato.dortfolio.global.exception.types.JobErrorCode;
 import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingRequest;
 import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingResponse;
 import com.itcotato.dortfolio.global.ai.embedding.service.EmbeddingClient;
+import com.itcotato.dortfolio.global.ai.observability.entity.AiFeature;
+import com.itcotato.dortfolio.global.ai.observability.service.AiCallObserver;
+import com.itcotato.dortfolio.global.ai.observability.service.AiRequestTracker;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +39,8 @@ public class JobCompetencyEmbeddingService {
     private final JobCompetencyEmbeddingWriter embeddingWriter;
     private final InsightProperties insightProperties;
     private final JobCompetencyEmbeddingRequestProperties requestProperties;
+    private final AiRequestTracker aiRequestTracker;
+    private final AiCallObserver aiCallObserver;
 
     public JobCompetencyEmbeddingGenerationStatus generate(UUID jobCompetencyId) {
         String targetModel = insightProperties.embeddingModel();
@@ -63,7 +68,6 @@ public class JobCompetencyEmbeddingService {
                 );
 
         // 응답 검증 (targetModel과 일치하는지도 검증)
-        validate(response, targetModel);
 
         boolean inserted = embeddingWriter.saveIfAbsent(
                 jobCompetencyId,
@@ -200,19 +204,28 @@ public class JobCompetencyEmbeddingService {
             String sourceText
     ) {
         EmbeddingRequest request = new EmbeddingRequest(sourceText);
-        UUID requestId = UUID.randomUUID();
+        UUID requestId = aiRequestTracker.start(null, AiFeature.JOB_COMPETENCY_EMBEDDING);
+        long started = System.nanoTime();
+        int attemptCount = 0;
+        boolean success = false;
+        try {
 
         for (int attempt = 1; attempt <= requestProperties.maxAttempts(); attempt++) {
+            attemptCount = attempt;
             try {
-                return embeddingClient.embed(requestId, request);
+                final int currentAttempt = attempt;
+                EmbeddingResponse response = aiCallObserver.attempt(requestId, currentAttempt,
+                        () -> embeddingClient.embed(requestId, request), EmbeddingResponse::usage,
+                        result -> validate(result, insightProperties.embeddingModel()));
+                success = true;
+                return response;
             } catch (RestClientException exception) {
                 if (attempt == requestProperties.maxAttempts()) {
                     log.warn(
                             "Job competency embedding request failed after retries. "
                                     + "jobCompetencyId={}, attempts={}",
                             jobCompetencyId,
-                            attempt,
-                            exception
+                            attempt
                     );
 
                     throw new CustomException(
@@ -233,10 +246,16 @@ public class JobCompetencyEmbeddingService {
                         backoff
                 );
                 pause(backoff);
+            } catch (AiCallObserver.InvalidAiUsageException exception) {
+                throw new CustomException(JobErrorCode.JOB_COMPETENCY_EMBEDDING_INVALID_RESPONSE);
             }
         }
 
         throw new IllegalStateException("Embedding retry loop completed unexpectedly");
+        } finally {
+            aiRequestTracker.finish(requestId, success, Math.max(0, attemptCount - 1),
+                    aiCallObserver.elapsed(started));
+        }
     }
 
     private void pause(Duration duration) {

@@ -219,7 +219,7 @@ public class InsightGenerationWorker {
                 competencies
         );
         List<RecommendationResult> recommendations =
-                recommendationGenerator.generate(request);
+                recommendationGenerator.generate(command.userId(), request);
         Map<UUID, RecommendationCompetency> competenciesById =
                 competencies.stream().collect(Collectors.toMap(
                         RecommendationCompetency::jobCompetencyId,

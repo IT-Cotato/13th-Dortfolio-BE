@@ -66,6 +66,11 @@ public class AiRequest extends BaseEntity {
     ) {
         if (requestId == null) {
             throw new IllegalArgumentException(
+                    "requestId must not be null."
+            );
+        }
+        if (feature == null) {
+            throw new IllegalArgumentException(
                     "feature must not be null."
             );
         }
