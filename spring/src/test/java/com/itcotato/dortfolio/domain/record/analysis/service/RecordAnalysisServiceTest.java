@@ -11,7 +11,9 @@ import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisResponse;
 import com.itcotato.dortfolio.domain.record.analysis.dto.StrengthMatchCandidate;
 import com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus;
+import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysisJob;
 import com.itcotato.dortfolio.domain.record.analysis.exception.RecordAnalysisErrorCode;
+import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisJobRepository;
 import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
 import com.itcotato.dortfolio.domain.record.analysis.repository.StrengthMatchCandidateQuery;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordAnswerRequest;
@@ -53,6 +55,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 
 @ActiveProfiles("test")
 @SpringBootTest
@@ -115,6 +118,9 @@ class RecordAnalysisServiceTest {
 	@Autowired
 	private UserRepository userRepository;
 
+	@Autowired
+	private RecordAnalysisJobRepository jobRepository;
+
 	private List<StrengthTag> strengthCandidates;
 
 	@BeforeEach
@@ -124,6 +130,7 @@ class RecordAnalysisServiceTest {
 		stubEmbeddingClient.reset();
 		stubRecordEmbeddingTextBuilder.reset();
 		stubStrengthMatchCandidateQuery.reset();
+		jobRepository.deleteAll();
 		recordAnalysisRepository.deleteAll();
 		recordEmbeddingRepository.deleteAll();
 		recordStrengthTagRepository.deleteAll();
@@ -199,7 +206,7 @@ class RecordAnalysisServiceTest {
 			List.of(),
 			RecordStatus.COMPLETED
 		));
-		stubRecordAnalysisClient.failure = new IllegalStateException("AI service unavailable");
+		stubRecordAnalysisClient.failure = new ResourceAccessException("AI service unavailable");
 
 		recordAnalysisService.analyze(record.id());
 
@@ -209,6 +216,7 @@ class RecordAnalysisServiceTest {
 			.contains(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_FAILED.getCode());
 		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow().isFailureRetryable())
 			.isTrue();
+		assertThat(stubRecordAnalysisClient.calls).isEqualTo(3);
 		assertThat(recordAnalysisRepository.findRetryableRecordIds()).contains(record.id());
 		assertThat(recordEmbeddingRepository.countByRecord_Id(record.id())).isZero();
 		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id())).isEmpty();
@@ -336,7 +344,7 @@ class RecordAnalysisServiceTest {
 		);
 		recordAnalysisService.analyze(record.id());
 		stubRecordAnalysisClient.reset();
-		stubRecordAnalysisClient.failure = new IllegalStateException("AI service unavailable");
+		stubRecordAnalysisClient.failure = new ResourceAccessException("AI service unavailable");
 
 		recordAnalysisService.analyze(record.id());
 
@@ -754,6 +762,68 @@ class RecordAnalysisServiceTest {
 		)).contains(record.id());
 	}
 
+	@Test
+	void generationRetryUsesExistingEmbeddingAndSucceedsOnThirdAttempt() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template template = createTemplate(user, false);
+		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
+				activity.getId(), template.getId(), "재시도 기록", List.of(), List.of(), RecordStatus.COMPLETED
+		));
+		stubRecordAnalysisClient.transientFailures = 2;
+		stubRecordAnalysisClient.response = new RecordAnalysisResponse("요약", List.of("근거"), List.of());
+
+		recordAnalysisService.analyze(record.id());
+
+		assertThat(stubEmbeddingClient.calls).isEqualTo(1);
+		assertThat(stubRecordAnalysisClient.calls).isEqualTo(3);
+		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow().getAiAnalysisStatus())
+				.isEqualTo(AiAnalysisStatus.COMPLETED);
+	}
+
+	@Test
+	void configurationErrorIsNotRetriedEvenWith503Status() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template template = createTemplate(user, false);
+		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
+				activity.getId(), template.getId(), "설정 오류 기록", List.of(), List.of(), RecordStatus.COMPLETED
+		));
+		stubRecordAnalysisClient.failure = HttpServerErrorException.create(HttpStatus.SERVICE_UNAVAILABLE,
+				"error", HttpHeaders.EMPTY, "{\"status\":\"CONFIGURATION_ERROR\",\"errorCode\":\"API_KEY_MISSING\"}".getBytes(), null);
+		recordAnalysisService.analyze(record.id());
+		assertThat(stubRecordAnalysisClient.calls).isEqualTo(1);
+		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow()).satisfies(analysis -> {
+			assertThat(analysis.isFailureRetryable()).isFalse();
+			assertThat(analysis.getFailureReason()).startsWith("RA010 ");
+		});
+	}
+
+	@Test
+	void waitingMetricsExcludeSupersededAnalysisGenerations() {
+		User user = createUser();
+		Activity activity = createActivity(user);
+		Template template = createTemplate(user, false);
+		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
+				activity.getId(), template.getId(), "대기열 기록", List.of(), List.of(), RecordStatus.COMPLETED
+		));
+		stubRecordAnalysisClient.response = new RecordAnalysisResponse("요약", List.of("근거"), List.of());
+		recordAnalysisService.analyze(record.id());
+		var analysis = recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow();
+		long generation = analysis.markPending();
+		recordAnalysisRepository.save(analysis);
+		RecordAnalysisJob job = jobRepository.save(RecordAnalysisJob.ready(
+				recordRepository.findById(record.id()).orElseThrow(), generation));
+		assertThat(jobRepository.countWaitingJobs()).isEqualTo(1);
+		assertThat(jobRepository.findOldestWaitingAt()).isNotNull();
+
+		analysis.markPending();
+		recordAnalysisRepository.save(analysis);
+		assertThat(jobRepository.countWaitingJobs()).isZero();
+		assertThat(jobRepository.findOldestWaitingAt()).isNull();
+		jobRepository.delete(job);
+	}
+
 	private User createUser() {
 		return userRepository.save(User.of(
 			UUID.randomUUID() + "@test.com",
@@ -845,9 +915,11 @@ class RecordAnalysisServiceTest {
 
 		private RuntimeException failure;
 		private float[] embedding = validEmbedding();
+		private int calls;
 
 		@Override
 		public EmbeddingResponse embed(EmbeddingRequest request) {
+			calls++;
 			if (failure != null) {
 				throw failure;
 			}
@@ -857,6 +929,7 @@ class RecordAnalysisServiceTest {
 		private void reset() {
 			this.failure = null;
 			this.embedding = validEmbedding();
+			this.calls = 0;
 		}
 
 		private static float[] validEmbedding() {
@@ -917,10 +990,16 @@ class RecordAnalysisServiceTest {
 		private RuntimeException failure;
 		private Runnable beforeReturn;
 		private RecordAnalysisRequest lastRequest;
+		private int calls;
+		private int transientFailures;
 
 		@Override
 		public RecordAnalysisResponse analyze(RecordAnalysisRequest request) {
 			this.lastRequest = request;
+			calls++;
+			if (transientFailures-- > 0) {
+				throw new ResourceAccessException("temporary timeout");
+			}
 			if (failure != null) {
 				throw failure;
 			}
@@ -935,6 +1014,8 @@ class RecordAnalysisServiceTest {
 			this.failure = null;
 			this.beforeReturn = null;
 			this.lastRequest = null;
+			this.calls = 0;
+			this.transientFailures = 0;
 		}
 	}
 

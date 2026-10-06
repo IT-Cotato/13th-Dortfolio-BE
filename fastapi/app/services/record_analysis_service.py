@@ -1,5 +1,13 @@
-from fastapi import HTTPException, status
 from google.genai import errors
+from httpx import TimeoutException, TransportError
+
+from app.core.ai_error import (
+    configuration_error,
+    provider_error,
+    invalid_response_error,
+    output_limit_error,
+    transport_error,
+)
 
 from app.clients.gemini_record_analysis_client import GeminiRecordAnalysisClient
 from app.core.config import get_settings
@@ -15,10 +23,7 @@ def analyze_record(request: RecordAnalysisRequest) -> RecordAnalysisResponse:
     settings = get_settings()
     if settings.gemini_api_key:
         return analyze_record_with_gemini(request, settings)
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="GEMINI_API_KEY is required.",
-    )
+    raise configuration_error()
 
 
 def analyze_record_with_gemini(request: RecordAnalysisRequest, settings) -> RecordAnalysisResponse:
@@ -32,17 +37,12 @@ def analyze_record_with_gemini(request: RecordAnalysisRequest, settings) -> Reco
             exception=exception,
             context={"recordId": request.recordId},
         )
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Gemini analysis request failed.",
-        ) from exception
+        raise provider_error(exception) from exception
+    except TimeoutException as exception:
+        raise transport_error(timeout=True) from exception
+    except TransportError as exception:
+        raise transport_error(timeout=False) from exception
     except OutputTokenLimitError as exception:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exception),
-        ) from exception
+        raise output_limit_error() from exception
     except ValueError as exception:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(exception),
-        ) from exception
+        raise invalid_response_error() from exception

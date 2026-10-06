@@ -1,10 +1,13 @@
 from fastapi import FastAPI
 
+from app.core.ai_error import AiError, handle_ai_error
+
 from app.api.insight import router as insight_router
 from app.api.matching import router as matching_router
 from app.api.record_analysis import router as record_analysis_router
 
 app = FastAPI(title="Dortfolio AI Service")
+app.add_exception_handler(AiError, handle_ai_error)
 
 app.include_router(matching_router)
 app.include_router(record_analysis_router)

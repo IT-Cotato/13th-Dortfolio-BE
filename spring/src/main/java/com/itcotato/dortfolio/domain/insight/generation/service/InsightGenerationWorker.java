@@ -29,7 +29,9 @@ import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -65,12 +67,20 @@ public class InsightGenerationWorker {
     private final InsightGenerationLock generationLock;
     private final InsightProperties insightProperties;
 
+    // ponytail: local worker tracking; use a shared heartbeat lease before running multiple Spring instances.
+    private final Set<UUID> activeGenerations = ConcurrentHashMap.newKeySet();
+
+    public boolean isRunning(UUID insightId) {
+        return activeGenerations.contains(insightId);
+    }
+
     /* 지정된 전용 Executor에서 Insight 생성을 실행 */
     @Async(InsightGenerationAsyncConfig.EXECUTOR_NAME)
     public void generate(
             InsightGenerationCommand command,
             String lockToken
     ) {
+        activeGenerations.add(command.insightId());
         try {
             runningWriter.markRunning(command.insightId());
 
@@ -81,6 +91,7 @@ public class InsightGenerationWorker {
         } catch (Exception exception) {
             markFailed(command.insightId(), exception);
         } finally {
+            activeGenerations.remove(command.insightId());
             // 성공과 실패 여부에 상관없이 반드시 락을 해제
             generationLock.release(
                     command.userId(),

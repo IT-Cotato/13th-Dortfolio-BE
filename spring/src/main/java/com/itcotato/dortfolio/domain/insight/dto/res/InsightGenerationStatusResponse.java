@@ -2,6 +2,7 @@ package com.itcotato.dortfolio.domain.insight.dto.res;
 
 import com.itcotato.dortfolio.domain.insight.entity.Insight;
 import com.itcotato.dortfolio.domain.insight.entity.InsightGenerationStatus;
+import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -53,7 +54,10 @@ public record InsightGenerationStatusResponse(
                 example = "Insight 추천 서비스를 사용할 수 없습니다.",
                 nullable = true
         )
-        String failureMessage
+        String failureMessage,
+
+        @Schema(description = "실패 원인이 재시도로 해결될 수 있는지 여부. 생성 조건은 eligibility로 별도 확인")
+        boolean failureRetryable
 ) {
 
     public static InsightGenerationStatusResponse from(
@@ -66,7 +70,9 @@ public record InsightGenerationStatusResponse(
                 insight.getCompletedAt(),
                 insight.getFailedAt(),
                 insight.getFailureCode(),
-                insight.getFailureMessage()
+                insight.getFailureMessage(),
+                insight.getStatus() == InsightGenerationStatus.FAILED
+                        && InsightErrorCode.INSIGHT_RECOMMENDATION_AI_SERVICE_FAILED.getCode().equals(insight.getFailureCode())
         );
     }
 }

@@ -31,6 +31,9 @@ class StaleInsightGenerationRecoverySchedulerTest {
     @Mock
     private Insight runningInsight;
 
+    @Mock
+    private InsightGenerationWorker worker;
+
     @Test
     void recoversOnlyRunningInsightsOlderThanStartedTimeout() {
         Clock clock = Clock.fixed(
@@ -41,7 +44,8 @@ class StaleInsightGenerationRecoverySchedulerTest {
                 new StaleInsightGenerationRecoveryScheduler(
                         insightRepository,
                         failureWriter,
-                        clock
+                        clock,
+                        worker
                 );
         ReflectionTestUtils.setField(
                 scheduler,
@@ -66,4 +70,19 @@ class StaleInsightGenerationRecoverySchedulerTest {
                 "실행 중단으로 오래 남은 Insight 생성 작업을 실패 처리했습니다."
         );
     }
+    @Test
+    void doesNotFailLiveWorkerWaitingForRetryAfter() {
+        Clock clock = Clock.fixed(Instant.parse("2026-08-08T08:00:00Z"), ZoneOffset.UTC);
+        var scheduler = new StaleInsightGenerationRecoveryScheduler(insightRepository, failureWriter, clock, worker);
+        ReflectionTestUtils.setField(scheduler, "staleRunningTimeout", Duration.ofMinutes(10));
+        UUID id = UUID.randomUUID();
+        when(runningInsight.getId()).thenReturn(id);
+        when(worker.isRunning(id)).thenReturn(true);
+        when(insightRepository.findAllByStatusAndStartedAtBefore(
+                InsightGenerationStatus.RUNNING, LocalDateTime.of(2026, 8, 8, 7, 50)))
+                .thenReturn(List.of(runningInsight));
+        scheduler.recover();
+        org.mockito.Mockito.verifyNoInteractions(failureWriter);
+    }
+
 }

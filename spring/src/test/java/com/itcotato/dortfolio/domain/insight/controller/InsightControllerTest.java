@@ -132,7 +132,8 @@ class InsightControllerTest {
                         null,
                         failedAt,
                         "I002",
-                        "Insight recommendation service failed."
+                        "Insight recommendation service failed.",
+                        true
                 );
 
         when(generationQueryService.getStatus(
