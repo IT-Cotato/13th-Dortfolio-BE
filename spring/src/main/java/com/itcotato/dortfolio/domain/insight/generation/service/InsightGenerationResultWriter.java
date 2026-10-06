@@ -5,11 +5,11 @@ import com.itcotato.dortfolio.domain.insight.entity.InsightJobRecommendation;
 import com.itcotato.dortfolio.domain.insight.entity.InsightStrength;
 import com.itcotato.dortfolio.domain.insight.entity.InsightStrengthRecord;
 import com.itcotato.dortfolio.domain.insight.entity.InsightTemplateStatistic;
-import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult.JobRecommendationResult;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult.StrengthRecordResult;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult.StrengthResult;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult.TemplateResult;
+import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult;
 import com.itcotato.dortfolio.domain.insight.repository.InsightJobRecommendationRepository;
 import com.itcotato.dortfolio.domain.insight.repository.InsightRepository;
 import com.itcotato.dortfolio.domain.insight.repository.InsightStrengthRecordRepository;
@@ -53,7 +53,7 @@ public class InsightGenerationResultWriter {
         entityManager.flush();
 
         LocalDateTime completedAt = LocalDateTime.now(clock);
-        insight.complete(completedAt);
+        insight.complete(completedAt, result.metadata());
 
         entityManager.flush();
     }

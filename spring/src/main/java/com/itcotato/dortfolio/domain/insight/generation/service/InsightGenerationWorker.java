@@ -3,18 +3,19 @@ package com.itcotato.dortfolio.domain.insight.generation.service;
 import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
 import com.itcotato.dortfolio.domain.insight.generation.config.InsightGenerationAsyncConfig;
 import com.itcotato.dortfolio.domain.insight.generation.lock.InsightGenerationLock;
-import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationCommand;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationCommand.JobCompetencySnapshot;
-import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult;
+import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationCommand;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult.JobRecommendationResult;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult.StrengthRecordResult;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult.StrengthResult;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult.TemplateResult;
+import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult;
 import com.itcotato.dortfolio.domain.insight.query.AnalyzedRecordQuery;
 import com.itcotato.dortfolio.domain.insight.query.AnalyzedRecordSnapshot;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCandidate;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCompetency;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResponse;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 import com.itcotato.dortfolio.domain.insight.recommendation.repository.RecommendationCandidateQuery;
 import com.itcotato.dortfolio.domain.insight.recommendation.service.InsightRecommendationGenerator;
@@ -22,6 +23,7 @@ import com.itcotato.dortfolio.domain.insight.statistics.StrengthStatistic;
 import com.itcotato.dortfolio.domain.insight.statistics.StrengthStatisticsCalculator;
 import com.itcotato.dortfolio.domain.insight.statistics.TemplateDistributionCalculator;
 import com.itcotato.dortfolio.domain.insight.statistics.TemplateStatistic;
+import com.itcotato.dortfolio.global.ai.generation.GenerationMetadata;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
 import java.util.Comparator;
@@ -118,14 +120,14 @@ public class InsightGenerationWorker {
         List<TemplateResult> templates =
                 toTemplateResults(templateStatistics);
 
-        List<JobRecommendationResult> recommendations =
-                generateRecommendations(command, records.size());
+        RecommendationBatch recommendations = generateRecommendations(command, records.size());
 
         return new InsightGenerationResult(
                 command.insightId(),
                 strengths,
                 templates,
-                recommendations
+                recommendations.results(),
+                recommendations.metadata()
         );
     }
 
@@ -191,7 +193,7 @@ public class InsightGenerationWorker {
     }
 
     /* 스냅샷에 포함된 5개 직무 역량을 순서대로 처리 */
-    private List<JobRecommendationResult> generateRecommendations(
+    private RecommendationBatch generateRecommendations(
             InsightGenerationCommand command,
             int totalEligibleRecordCount
     ) {
@@ -218,20 +220,23 @@ public class InsightGenerationWorker {
                 command.jobName(),
                 competencies
         );
-        List<RecommendationResult> recommendations =
-                recommendationGenerator.generate(request);
+        RecommendationResponse recommendations = recommendationGenerator.generate(request);
         Map<UUID, RecommendationCompetency> competenciesById =
                 competencies.stream().collect(Collectors.toMap(
                         RecommendationCompetency::jobCompetencyId,
                         Function.identity()
                 ));
 
-        return recommendations.stream()
+        List<JobRecommendationResult> results = recommendations.recommendations().stream()
                 .map(recommendation -> toRecommendationResult(
                         competenciesById.get(recommendation.jobCompetencyId()),
                         recommendation
                 ))
                 .toList();
+        return new RecommendationBatch(results, recommendations.metadata());
+    }
+
+    private record RecommendationBatch(List<JobRecommendationResult> results, GenerationMetadata metadata) {
     }
 
     int calculateCandidateCount(int totalEligibleRecordCount) {
