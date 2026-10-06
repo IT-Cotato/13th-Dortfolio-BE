@@ -7,9 +7,11 @@ import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCo
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResponse;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
+import com.itcotato.dortfolio.domain.insight.recommendation.exception.InsightRecommendationErrorCode;
 import com.itcotato.dortfolio.global.ai.retry.AiRetryExecutor;
 import com.itcotato.dortfolio.global.ai.retry.AiRetryPolicy;
 import com.itcotato.dortfolio.global.exception.CustomException;
+import com.itcotato.dortfolio.global.exception.ErrorCode;
 import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
 import java.util.List;
 import java.util.Map;
@@ -50,12 +52,12 @@ public class InsightRecommendationGeneratorImpl
         } catch (InvalidRecommendationResponseException exception) {
             throw new CustomException(InsightErrorCode.INSIGHT_RECOMMENDATION_INVALID_RESPONSE);
         } catch (RestClientException exception) {
-            InsightErrorCode errorCode = switch (retryPolicy.classify(exception)) {
+            ErrorCode errorCode = switch (retryPolicy.classify(exception)) {
                 case TEMPORARY -> InsightErrorCode.INSIGHT_RECOMMENDATION_AI_SERVICE_FAILED;
                 case INVALID_RESPONSE -> InsightErrorCode.INSIGHT_RECOMMENDATION_INVALID_RESPONSE;
-                case CONFIGURATION -> InsightErrorCode.INSIGHT_RECOMMENDATION_CONFIGURATION_ERROR;
-                case OUTPUT_LIMIT -> InsightErrorCode.INSIGHT_RECOMMENDATION_OUTPUT_LIMIT;
-                case REJECTED -> InsightErrorCode.INSIGHT_RECOMMENDATION_REJECTED;
+                case CONFIGURATION -> InsightRecommendationErrorCode.INSIGHT_RECOMMENDATION_CONFIGURATION_ERROR;
+                case OUTPUT_LIMIT -> InsightRecommendationErrorCode.INSIGHT_RECOMMENDATION_OUTPUT_LIMIT;
+                case REJECTED -> InsightRecommendationErrorCode.INSIGHT_RECOMMENDATION_REJECTED;
             };
             throw new CustomException(errorCode);
         }
