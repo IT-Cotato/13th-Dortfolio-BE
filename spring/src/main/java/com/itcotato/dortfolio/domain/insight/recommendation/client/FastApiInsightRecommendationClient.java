@@ -3,9 +3,7 @@ package com.itcotato.dortfolio.domain.insight.recommendation.client;
 import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResponse;
-import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 import com.itcotato.dortfolio.domain.record.analysis.config.AiServiceProperties;
-import java.util.List;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -42,7 +40,7 @@ public class FastApiInsightRecommendationClient implements InsightRecommendation
     }
 
     @Override
-    public List<RecommendationResult> generate(
+    public RecommendationResponse generate(
             RecommendationRequest request
     ) {
         RecommendationResponse response = restClient.post()
@@ -53,6 +51,6 @@ public class FastApiInsightRecommendationClient implements InsightRecommendation
                 .retrieve()
                 .body(RecommendationResponse.class);
 
-        return response == null ? null : response.recommendations();
+        return response;
     }
 }

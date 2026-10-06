@@ -1,5 +1,7 @@
 from uuid import UUID
 
+from app.schemas.generation import GenerationMetadata
+
 from pydantic import BaseModel, Field
 
 
@@ -43,7 +45,11 @@ class RecordAnalysisRequest(BaseModel):
     maxStrengthCount: int = Field(ge=1)
 
 
-class RecordAnalysisResponse(BaseModel):
+class RecordAnalysisOutput(BaseModel):
     summary: str
     evidenceSnippets: list[str] = Field(min_length=1, max_length=5)
     strengthTagIds: list[UUID]
+
+
+class RecordAnalysisResponse(RecordAnalysisOutput):
+    metadata: GenerationMetadata

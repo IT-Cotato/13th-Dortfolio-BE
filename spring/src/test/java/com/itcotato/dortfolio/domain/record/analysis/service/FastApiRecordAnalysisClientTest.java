@@ -3,11 +3,11 @@ package com.itcotato.dortfolio.domain.record.analysis.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.itcotato.dortfolio.domain.record.analysis.config.AiServiceProperties;
-import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.ActivityPayload;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.AnswerPayload;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.StrengthTagCandidatePayload;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest.TemplatePayload;
+import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisResponse;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -81,6 +81,10 @@ class FastApiRecordAnalysisClientTest {
 		assertThat(response.summary()).isEqualTo("요약");
 		assertThat(response.evidenceSnippets()).containsExactly("근거");
 		assertThat(response.strengthTagIds()).isEmpty();
+		assertThat(response.metadata().getPromptVersion()).isEqualTo("record_analysis.v1");
+		assertThat(response.metadata().getSchemaVersion()).isEqualTo("record_analysis.v1");
+		assertThat(response.metadata().getMaxOutputTokens()).isEqualTo(8192);
+		assertThat(response.metadata().getThinkingLevel()).isNull();
 	}
 
 	private void handleAnalyze(HttpExchange exchange) throws IOException {
@@ -89,7 +93,14 @@ class FastApiRecordAnalysisClientTest {
 			{
 			  "summary": "요약",
 			  "evidenceSnippets": ["근거"],
-			  "strengthTagIds": []
+			  "strengthTagIds": [],
+              "metadata": {
+				"promptVersion": "record_analysis.v1",
+				"schemaVersion": "record_analysis.v1",
+				"model": "test-generation",
+				"maxOutputTokens": 8192,
+				"thinkingLevel": null
+              }
 			}
 			""".getBytes(StandardCharsets.UTF_8);
 

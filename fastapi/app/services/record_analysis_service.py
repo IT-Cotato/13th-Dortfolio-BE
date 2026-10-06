@@ -3,6 +3,7 @@ from google.genai import errors
 
 from app.clients.gemini_record_analysis_client import GeminiRecordAnalysisClient
 from app.core.config import get_settings
+from app.core.generation import OutputTokenLimitError
 from app.core.gemini_error_logging import log_gemini_api_error
 from app.schemas.record_analysis import (
     RecordAnalysisRequest,
@@ -23,7 +24,7 @@ def analyze_record(request: RecordAnalysisRequest) -> RecordAnalysisResponse:
 def analyze_record_with_gemini(request: RecordAnalysisRequest, settings) -> RecordAnalysisResponse:
     client = GeminiRecordAnalysisClient(settings)
     try:
-        summary, evidence_snippets, strength_tag_ids = client.analyze_record(request)
+        return client.analyze_record(request)
     except errors.APIError as exception:
         log_gemini_api_error(
             operation="record_analysis",
@@ -35,14 +36,13 @@ def analyze_record_with_gemini(request: RecordAnalysisRequest, settings) -> Reco
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Gemini analysis request failed.",
         ) from exception
+    except OutputTokenLimitError as exception:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exception),
+        ) from exception
     except ValueError as exception:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(exception),
         ) from exception
-
-    return RecordAnalysisResponse(
-        summary=summary,
-        evidenceSnippets=evidence_snippets,
-        strengthTagIds=strength_tag_ids,
-    )

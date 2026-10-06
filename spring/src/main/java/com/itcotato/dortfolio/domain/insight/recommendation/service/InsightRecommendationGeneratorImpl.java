@@ -5,8 +5,10 @@ import com.itcotato.dortfolio.domain.insight.recommendation.client.InsightRecomm
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCandidate;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCompetency;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResponse;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 import com.itcotato.dortfolio.global.exception.CustomException;
+import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -14,9 +16,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
-import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
-import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
@@ -35,7 +36,7 @@ public class InsightRecommendationGeneratorImpl
     private final InsightRecommendationRetrySleeper retrySleeper;
 
     @Override
-    public List<RecommendationResult> generate(
+    public RecommendationResponse generate(
             RecommendationRequest request
     ) {
         validateRequest(request);
@@ -46,12 +47,14 @@ public class InsightRecommendationGeneratorImpl
              attempt <= insightProperties.recommendationMaxAttempts();
              attempt++) {
             try {
-                List<RecommendationResult> response =
-                        client.generate(request);
+                RecommendationResponse response = client.generate(request);
 
-                return validateResponse(
-                        request,
-                        response
+                if (response == null || (response.metadata() != null && !response.metadata().isValid())) {
+                    throw new InvalidRecommendationResponseException();
+                }
+                return RecommendationResponse.of(
+                        validateResponse(request, response.recommendations()),
+                        response.metadata()
                 );
             } catch (InvalidRecommendationResponseException exception) {
                 lastFailure = FailureType.INVALID_RESPONSE;

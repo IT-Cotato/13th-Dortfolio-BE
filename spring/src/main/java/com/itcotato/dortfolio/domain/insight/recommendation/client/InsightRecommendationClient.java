@@ -1,12 +1,11 @@
 package com.itcotato.dortfolio.domain.insight.recommendation.client;
 
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
-import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
-import java.util.List;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResponse;
 
 public interface InsightRecommendationClient {
 
-    List<RecommendationResult> generate(
+    RecommendationResponse generate(
             RecommendationRequest request
     );
 }

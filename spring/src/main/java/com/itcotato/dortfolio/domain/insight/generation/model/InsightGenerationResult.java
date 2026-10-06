@@ -1,5 +1,6 @@
 package com.itcotato.dortfolio.domain.insight.generation.model;
 
+import com.itcotato.dortfolio.global.ai.generation.GenerationMetadata;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -9,8 +10,16 @@ public record InsightGenerationResult(
         UUID insightId,
         List<StrengthResult> strengths,
         List<TemplateResult> templates,
-        List<JobRecommendationResult> recommendations
+        List<JobRecommendationResult> recommendations,
+        GenerationMetadata metadata
 ) {
+
+    public InsightGenerationResult(
+            UUID insightId, List<StrengthResult> strengths,
+            List<TemplateResult> templates, List<JobRecommendationResult> recommendations
+    ) {
+        this(insightId, strengths, templates, recommendations, null);
+    }
 
     /* 외부에서 전달한 가변 리스트가 나중에 변경되지 않도록 복사 */
     public InsightGenerationResult {

@@ -1,5 +1,7 @@
 from uuid import UUID
 
+from app.schemas.generation import GenerationMetadata
+
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
@@ -81,8 +83,12 @@ class InsightRecommendationResult(BaseModel):
         return self
 
 
-class InsightRecommendationResponse(BaseModel):
+class InsightRecommendationOutput(BaseModel):
     recommendations: list[InsightRecommendationResult] = Field(
         min_length=5,
         max_length=5,
     )
+
+
+class InsightRecommendationResponse(InsightRecommendationOutput):
+    metadata: GenerationMetadata
