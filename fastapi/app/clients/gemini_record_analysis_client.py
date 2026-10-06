@@ -18,7 +18,10 @@ class GeminiRecordAnalysisClient:
         self.settings = settings
         self.client = genai.Client(
             api_key=settings.gemini_api_key,
-            http_options=types.HttpOptions(timeout=int(settings.gemini_http_timeout_seconds * 1000)),
+            http_options=types.HttpOptions(
+                timeout=int(settings.gemini_http_timeout_seconds * 1000),
+                retry_options=types.HttpRetryOptions(attempts=1),
+            ),
         )
 
     def analyze_record(self, request: RecordAnalysisRequest) -> RecordAnalysisResponse:

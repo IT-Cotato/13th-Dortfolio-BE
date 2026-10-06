@@ -25,6 +25,8 @@ import com.itcotato.dortfolio.domain.record.repository.StrengthTagRepository;
 import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingRequest;
 import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingResponse;
 import com.itcotato.dortfolio.global.ai.embedding.service.EmbeddingClient;
+import com.itcotato.dortfolio.global.ai.retry.AiRetryExecutor;
+import com.itcotato.dortfolio.global.ai.retry.AiRetryPolicy;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -38,12 +40,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestClientResponseException;
 
 @Slf4j
 @Service
@@ -60,6 +60,8 @@ public class RecordAnalysisService {
 	private final RecordAnalysisRequestBuilder recordAnalysisRequestBuilder;
 	private final RecordAnalysisClient recordAnalysisClient;
 	private final EmbeddingClient embeddingClient;
+	private final AiRetryExecutor retryExecutor;
+	private final AiRetryPolicy retryPolicy;
 	private final RecordEmbeddingTextBuilder recordEmbeddingTextBuilder;
 	private final StrengthMatchCandidateQuery strengthMatchCandidateQuery;
 	private final RecordEmbeddingWriter recordEmbeddingWriter;
@@ -183,10 +185,10 @@ public class RecordAnalysisService {
 
 	private EmbeddingResponse requestEmbedding(RecordAnalysisRequest request) {
 		try {
-			return embeddingClient.embed(new EmbeddingRequest(recordEmbeddingTextBuilder.build(request)));
+			return retryExecutor.execute("record_embedding", () ->
+				embeddingClient.embed(new EmbeddingRequest(recordEmbeddingTextBuilder.build(request))));
 		} catch (RestClientException exception) {
-			log.warn("Record embedding request failed. recordId={}", request.recordId(), exception);
-			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_FAILED);
+			throw analysisFailure(exception);
 		}
 	}
 
@@ -211,22 +213,22 @@ public class RecordAnalysisService {
 
 	private RecordAnalysisResponse requestAnalysis(RecordAnalysisRequest request) {
 		try {
-			return recordAnalysisClient.analyze(request);
-		} catch (RestClientResponseException exception) {
-			log.warn(
-				"Record AI service returned error. recordId={}, status={}, body={}",
-				request.recordId(),
-				exception.getStatusCode(),
-				exception.getResponseBodyAsString()
-			);
-			if (isRetryableAiServiceStatus(exception.getStatusCode())) {
-				throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_FAILED);
-			}
-			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_REJECTED);
-		} catch (Exception exception) {
-			log.warn("Record AI service call failed. recordId={}", request.recordId(), exception);
-			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_FAILED);
+			return retryExecutor.execute("record_analysis", () -> recordAnalysisClient.analyze(request));
+		} catch (RestClientException exception) {
+			throw analysisFailure(exception);
 		}
+	}
+
+	private CustomException analysisFailure(RestClientException exception) {
+		RecordAnalysisErrorCode errorCode = switch (retryPolicy.classify(exception)) {
+			case TEMPORARY -> RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_FAILED;
+			case INVALID_RESPONSE -> RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE;
+			case CONFIGURATION -> RecordAnalysisErrorCode.RECORD_ANALYSIS_CONFIGURATION_ERROR;
+			case OUTPUT_LIMIT -> RecordAnalysisErrorCode.RECORD_ANALYSIS_OUTPUT_LIMIT;
+			case REJECTED -> RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_REJECTED;
+		};
+		log.warn("Record AI call failed. errorCode={}", errorCode.getCode());
+		return new CustomException(errorCode);
 	}
 
 	private void validateEmbedding(EmbeddingResponse response) {
@@ -414,10 +416,6 @@ public class RecordAnalysisService {
 		return record.getStatus() == RecordStatus.COMPLETED
 			&& !record.isDeleted()
 			&& !record.getActivity().isDeleted();
-	}
-
-	private boolean isRetryableAiServiceStatus(HttpStatusCode statusCode) {
-		return statusCode.is5xxServerError() || statusCode.value() == 429;
 	}
 
 	private String toJson(List<String> evidenceSnippets) {

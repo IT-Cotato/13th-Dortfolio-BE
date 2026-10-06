@@ -19,6 +19,7 @@ public class StaleInsightGenerationRecoveryScheduler {
     private final InsightRepository insightRepository;
     private final InsightGenerationFailureWriter failureWriter;
     private final Clock clock;
+    private final InsightGenerationWorker worker;
 
     @Value("${insight.generation.stale-running-timeout:10m}")
     private Duration staleRunningTimeout;
@@ -35,6 +36,8 @@ public class StaleInsightGenerationRecoveryScheduler {
                         InsightGenerationStatus.RUNNING,
                         startedBefore
                 )
+                .stream()
+                .filter(insight -> !worker.isRunning(insight.getId()))
                 .forEach(insight -> recover(insight.getId()));
     }
 

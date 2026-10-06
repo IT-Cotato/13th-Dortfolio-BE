@@ -9,12 +9,36 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface RecordAnalysisJobRepository
 		extends JpaRepository<RecordAnalysisJob, UUID> {
+
+	Optional<RecordAnalysisJob> findStatusByRecord_Id(UUID recordId);
+
+	@Query("""
+			select count(job) from RecordAnalysisJob job
+			join RecordAnalysis analysis on analysis.record = job.record
+			where job.status = com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysisJobStatus.READY
+              and analysis.aiAnalysisStatus = com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus.PENDING
+              and job.analysisGeneration = analysis.analysisGeneration
+              and job.record.deletedAt is null and job.record.activity.deletedAt is null
+              and job.record.status = com.itcotato.dortfolio.domain.record.entity.RecordStatus.COMPLETED
+			""")
+	long countWaitingJobs();
+
+	@Query("""
+			select min(analysis.lastAttemptedAt) from RecordAnalysisJob job
+			join RecordAnalysis analysis on analysis.record = job.record
+			where job.status = com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysisJobStatus.READY
+              and analysis.aiAnalysisStatus = com.itcotato.dortfolio.domain.record.analysis.entity.AiAnalysisStatus.PENDING
+              and job.analysisGeneration = analysis.analysisGeneration
+              and job.record.deletedAt is null and job.record.activity.deletedAt is null
+              and job.record.status = com.itcotato.dortfolio.domain.record.entity.RecordStatus.COMPLETED
+			""")
+	LocalDateTime findOldestWaitingAt();
 
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	Optional<RecordAnalysisJob> findFirstByStatusOrderByCreatedAtAsc(

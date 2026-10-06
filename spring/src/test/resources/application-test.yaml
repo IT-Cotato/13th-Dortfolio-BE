@@ -87,3 +87,8 @@ insight:
     async-core-pool-size: 1
     async-max-pool-size: 1
     async-queue-capacity: 10
+
+ai:
+  retry:
+    max-attempts: 3
+    initial-backoff: 0s

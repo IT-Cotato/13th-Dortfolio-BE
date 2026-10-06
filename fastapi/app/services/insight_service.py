@@ -1,5 +1,13 @@
-from fastapi import HTTPException, status
 from google.genai import errors
+from httpx import TimeoutException, TransportError
+
+from app.core.ai_error import (
+    configuration_error,
+    provider_error,
+    invalid_response_error,
+    output_limit_error,
+    transport_error,
+)
 
 from app.clients.gemini_insight_client import (
     GeminiInsightClient,
@@ -19,10 +27,7 @@ def generate_insight_recommendation(
     settings = get_settings()
 
     if not settings.gemini_api_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="GEMINI_API_KEY is required.",
-        )
+        raise configuration_error()
 
     client = GeminiInsightClient(settings)
 
@@ -38,45 +43,12 @@ def generate_insight_recommendation(
                 "competencyCount": len(request.competencies),
             },
         )
-        raise HTTPException(
-            status_code=gemini_error_status(exception),
-            detail="Gemini recommendation request failed.",
-            headers=gemini_retry_headers(exception),
-        ) from exception
+        raise provider_error(exception) from exception
+    except TimeoutException as exception:
+        raise transport_error(timeout=True) from exception
+    except TransportError as exception:
+        raise transport_error(timeout=False) from exception
     except OutputTokenLimitError as exception:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exception),
-        ) from exception
+        raise output_limit_error() from exception
     except ValueError as exception:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(exception),
-        ) from exception
-
-
-def gemini_error_status(exception: errors.APIError) -> int:
-    """Preserve actionable Gemini statuses for the Spring retry policy."""
-    code = getattr(exception, "code", None)
-
-    if isinstance(code, int) and 400 <= code <= 599:
-        return code
-
-    return status.HTTP_502_BAD_GATEWAY
-
-
-def gemini_retry_headers(
-    exception: errors.APIError,
-) -> dict[str, str] | None:
-    response = getattr(exception, "response", None)
-    response_headers = getattr(response, "headers", None)
-
-    if response_headers is None:
-        return None
-
-    retry_after = response_headers.get("retry-after")
-
-    if not retry_after:
-        return None
-
-    return {"Retry-After": str(retry_after)}
+        raise invalid_response_error() from exception

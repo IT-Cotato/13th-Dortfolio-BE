@@ -7,25 +7,20 @@ import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCo
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResponse;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
+import com.itcotato.dortfolio.global.ai.retry.AiRetryExecutor;
+import com.itcotato.dortfolio.global.ai.retry.AiRetryPolicy;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestClientResponseException;
 
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class InsightRecommendationGeneratorImpl
@@ -33,7 +28,8 @@ public class InsightRecommendationGeneratorImpl
 
     private final InsightRecommendationClient client;
     private final InsightProperties insightProperties;
-    private final InsightRecommendationRetrySleeper retrySleeper;
+    private final AiRetryExecutor retryExecutor;
+    private final AiRetryPolicy retryPolicy;
 
     @Override
     public RecommendationResponse generate(
@@ -41,123 +37,27 @@ public class InsightRecommendationGeneratorImpl
     ) {
         validateRequest(request);
 
-        FailureType lastFailure = FailureType.AI_SERVICE;
-
-        for (int attempt = 1;
-             attempt <= insightProperties.recommendationMaxAttempts();
-             attempt++) {
-            try {
+        try {
+            return retryExecutor.execute("insight_recommendation", () -> {
                 RecommendationResponse response = client.generate(request);
-
                 if (response == null || (response.metadata() != null && !response.metadata().isValid())) {
                     throw new InvalidRecommendationResponseException();
                 }
                 return RecommendationResponse.of(
-                        validateResponse(request, response.recommendations()),
-                        response.metadata()
+                        validateResponse(request, response.recommendations()), response.metadata()
                 );
-            } catch (InvalidRecommendationResponseException exception) {
-                lastFailure = FailureType.INVALID_RESPONSE;
-                break;
-            } catch (RestClientResponseException exception) {
-                lastFailure = FailureType.AI_SERVICE;
-
-                if (!isRetryable(exception.getStatusCode())) {
-                    break;
-                }
-
-                pauseBeforeRetry(attempt, exception);
-            } catch (RestClientException exception) {
-                lastFailure = FailureType.AI_SERVICE;
-                pauseBeforeRetry(attempt, null);
-            }
-        }
-
-        if (lastFailure == FailureType.INVALID_RESPONSE) {
-            throw new CustomException(
-                    InsightErrorCode
-                            .INSIGHT_RECOMMENDATION_INVALID_RESPONSE
-            );
-        }
-
-        throw new CustomException(
-                InsightErrorCode
-                        .INSIGHT_RECOMMENDATION_AI_SERVICE_FAILED
-        );
-    }
-
-    private boolean isRetryable(HttpStatusCode statusCode) {
-        return statusCode.value() == 429
-                || statusCode.is5xxServerError();
-    }
-
-    private void pauseBeforeRetry(
-            int attempt,
-            RestClientResponseException exception
-    ) {
-        if (attempt >= insightProperties.recommendationMaxAttempts()) {
-            return;
-        }
-
-        Duration backoff = calculateBackoff(attempt, exception);
-
-        log.warn(
-                "Insight recommendation request failed; retrying. "
-                        + "attempt={}, maxAttempts={}, backoff={}"
-                        + "{}",
-                attempt,
-                insightProperties.recommendationMaxAttempts(),
-                backoff,
-                exception == null
-                        ? ""
-                        : ", status=" + exception.getStatusCode().value()
-        );
-
-        retrySleeper.sleep(backoff);
-    }
-
-    private Duration calculateBackoff(
-            int attempt,
-            RestClientResponseException exception
-    ) {
-        Duration configuredBackoff = insightProperties
-                .recommendationInitialBackoff()
-                .multipliedBy(1L << Math.min(attempt - 1, 10));
-        Duration retryAfter = parseRetryAfter(exception);
-        Duration base = retryAfter.compareTo(configuredBackoff) > 0
-                ? retryAfter
-                : configuredBackoff;
-
-        if (base.isZero()) {
-            return base;
-        }
-
-        long jitterBound = Math.max(1L, base.toMillis() / 2L);
-        long jitterMillis = ThreadLocalRandom.current()
-                .nextLong(jitterBound + 1L);
-
-        return base.plusMillis(jitterMillis);
-    }
-
-    private Duration parseRetryAfter(
-            RestClientResponseException exception
-    ) {
-        if (exception == null || exception.getResponseHeaders() == null) {
-            return Duration.ZERO;
-        }
-
-        String value = exception.getResponseHeaders()
-                .getFirst(HttpHeaders.RETRY_AFTER);
-
-        if (!StringUtils.hasText(value)) {
-            return Duration.ZERO;
-        }
-
-        try {
-            long seconds = Long.parseLong(value.trim());
-            return seconds < 0 ? Duration.ZERO : Duration.ofSeconds(seconds);
-        } catch (NumberFormatException ignored) {
-            return Duration.ZERO;
+            }, insightProperties.recommendationMaxAttempts(), insightProperties.recommendationInitialBackoff());
+        } catch (InvalidRecommendationResponseException exception) {
+            throw new CustomException(InsightErrorCode.INSIGHT_RECOMMENDATION_INVALID_RESPONSE);
+        } catch (RestClientException exception) {
+            InsightErrorCode errorCode = switch (retryPolicy.classify(exception)) {
+                case TEMPORARY -> InsightErrorCode.INSIGHT_RECOMMENDATION_AI_SERVICE_FAILED;
+                case INVALID_RESPONSE -> InsightErrorCode.INSIGHT_RECOMMENDATION_INVALID_RESPONSE;
+                case CONFIGURATION -> InsightErrorCode.INSIGHT_RECOMMENDATION_CONFIGURATION_ERROR;
+                case OUTPUT_LIMIT -> InsightErrorCode.INSIGHT_RECOMMENDATION_OUTPUT_LIMIT;
+                case REJECTED -> InsightErrorCode.INSIGHT_RECOMMENDATION_REJECTED;
+            };
+            throw new CustomException(errorCode);
         }
     }
 
@@ -262,11 +162,6 @@ public class InsightRecommendationGeneratorImpl
                 response.recordId(),
                 response.reason().trim()
         );
-    }
-
-    private enum FailureType {
-        AI_SERVICE,
-        INVALID_RESPONSE
     }
 
     private static final class

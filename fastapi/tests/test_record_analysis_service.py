@@ -48,8 +48,8 @@ class RecordAnalysisServiceTest(unittest.TestCase):
             with self.assertRaises(HTTPException) as context:
                 analyze_record(request)
 
-        self.assertEqual(context.exception.status_code, status.HTTP_502_BAD_GATEWAY)
-        self.assertEqual(context.exception.detail, "Gemini analysis request failed.")
+        self.assertEqual(context.exception.status_code, status.HTTP_504_GATEWAY_TIMEOUT)
+        self.assertEqual(context.exception.error_code, "HTTP_504")
         self.assertIn("operation=record_analysis", logs.output[0])
         self.assertIn("model=gemini-3.6-flash", logs.output[0])
         self.assertIn("status=504", logs.output[0])

@@ -199,8 +199,13 @@ class InsightGenerationWorkerTest {
                 "문제 해결 과정이 구체적으로 드러납니다."
         )), new GenerationMetadata("insight_recommendation.v1", "insight_recommendation.v1", "test-generation", 8192, "low")));
 
+        org.mockito.Mockito.doAnswer(invocation -> {
+            assertThat(worker.isRunning(INSIGHT_ID)).isTrue();
+            return null;
+        }).when(resultWriter).complete(any(InsightGenerationResult.class));
         // when
         worker.generate(command, "lock-token");
+        assertThat(worker.isRunning(INSIGHT_ID)).isFalse();
 
         // then
         ArgumentCaptor<InsightGenerationResult> resultCaptor =

@@ -16,10 +16,15 @@ import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRe
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResponse;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 import com.itcotato.dortfolio.domain.insight.recommendation.service.InsightRecommendationGeneratorImpl;
-import com.itcotato.dortfolio.domain.insight.recommendation.service.InsightRecommendationRetrySleeper;
 import com.itcotato.dortfolio.global.ai.generation.GenerationMetadata;
+import com.itcotato.dortfolio.global.ai.retry.AiRetryExecutor;
+import com.itcotato.dortfolio.global.ai.retry.AiRetryPolicy;
+import com.itcotato.dortfolio.global.ai.retry.AiRetryProperties;
+import com.itcotato.dortfolio.global.ai.retry.AiRetrySleeper;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
@@ -29,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,7 +43,7 @@ class InsightRecommendationGeneratorImplTest {
     @Mock
     private InsightRecommendationClient client;
     @Mock
-    private InsightRecommendationRetrySleeper retrySleeper;
+    private AiRetrySleeper retrySleeper;
 
     private InsightRecommendationGeneratorImpl generator;
     private RecommendationRequest request;
@@ -53,7 +59,9 @@ class InsightRecommendationGeneratorImplTest {
                         "gemini-embedding-2", 2, Duration.ZERO,
                         Duration.ofSeconds(10)
                 ),
-                retrySleeper
+                new AiRetryExecutor(new AiRetryPolicy(Clock.systemUTC()), new AiRetryProperties(3, Duration.ZERO),
+                        retrySleeper, new SimpleMeterRegistry()),
+                new AiRetryPolicy(Clock.systemUTC())
         );
         competencyIds = ids();
         recordIds = ids();
@@ -162,7 +170,7 @@ class InsightRecommendationGeneratorImplTest {
         List<RecommendationResult> response =
                 IntStream.range(0, 5).mapToObj(this::matched).toList();
         when(client.generate(request))
-                .thenThrow(new RestClientException("timeout"))
+                .thenThrow(new ResourceAccessException("timeout"))
                 .thenReturn(RecommendationResponse.of(response, null));
 
         assertThat(generator.generate(request).recommendations()).hasSize(5);
