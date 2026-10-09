@@ -1,4 +1,6 @@
 import json
+from time import perf_counter
+from uuid import UUID
 
 from google import genai
 from google.genai import types
@@ -7,6 +9,7 @@ from pydantic import ValidationError
 from app.core.config import Settings
 from app.core.generation import generation_config, check_generation_response
 from app.prompts.registry import INSIGHT_RECOMMENDATION_PROMPT
+from app.schemas.ai_observability import AiUsage, billable_output_tokens
 from app.schemas.insight import (
     InsightRecommendationRequest,
     InsightRecommendationResponse,
@@ -29,24 +32,38 @@ class GeminiInsightClient:
     def generate_recommendation(
         self,
         request: InsightRecommendationRequest,
+        request_id: UUID,
     ) -> InsightRecommendationResponse:
         prompt = build_recommendation_prompt(request)
 
-        response = self.client.models.generate_content(
-            model=self.settings.gemini_generation_model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=InsightRecommendationOutput,
-                **generation_config(self.settings, "insight_recommendation"),
-            ),
-        )
+        started_at = perf_counter()
+        try:
+            response = self.client.models.generate_content(
+                model=self.settings.gemini_generation_model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=InsightRecommendationOutput,
+                    **generation_config(self.settings, "insight_recommendation"),
+                ),
+            )
+        finally:
+            latency_ms = int((perf_counter() - started_at) * 1000)
 
         check_generation_response(response, "insight_recommendation")
         result = parse_recommendation_response(response.text, request)
+        metadata = response.usage_metadata
         return InsightRecommendationResponse(
             recommendations=result.recommendations,
             metadata=INSIGHT_RECOMMENDATION_PROMPT.metadata(self.settings),
+            usage=AiUsage(
+                requestId=request_id,
+                provider="GEMINI",
+                modelId=self.settings.gemini_generation_model,
+                inputTokens=getattr(metadata, "prompt_token_count", None),
+                outputTokens=billable_output_tokens(metadata),
+                latencyMs=latency_ms,
+            ),
         )
 
 

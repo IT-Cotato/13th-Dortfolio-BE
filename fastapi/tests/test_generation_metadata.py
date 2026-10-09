@@ -1,5 +1,6 @@
 import json
 import unittest
+from uuid import uuid4
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -49,7 +50,11 @@ class GenerationMetadataTest(unittest.TestCase):
             "metadata": {"promptVersion": "forged"},
         })
 
-        result = analyze_record(request)
+        request_id = uuid4()
+        result = analyze_record(request, request_id)
+        self.assertEqual(result.usage.requestId, request_id)
+        self.assertEqual(result.usage.inputTokens, 100)
+        self.assertEqual(result.usage.outputTokens, 70)
         config = client_type.return_value.models.generate_content.call_args.kwargs["config"]
         self.assertEqual(config.max_output_tokens, 4096)
         self.assertEqual(config.thinking_config.thinking_level, types.ThinkingLevel.LOW)
@@ -68,7 +73,11 @@ class GenerationMetadataTest(unittest.TestCase):
             "recommendations": insight_fixtures.InsightServiceTest().valid_recommendations(request),
         })
 
-        result = GeminiInsightClient(self.settings()).generate_recommendation(request)
+        request_id = uuid4()
+        result = GeminiInsightClient(self.settings()).generate_recommendation(request, request_id)
+        self.assertEqual(result.usage.requestId, request_id)
+        self.assertEqual(result.usage.inputTokens, 100)
+        self.assertEqual(result.usage.outputTokens, 70)
         config = client_type.return_value.models.generate_content.call_args.kwargs["config"]
         self.assertEqual(config.max_output_tokens, 8192)
         self.assertIsNone(config.thinking_config)
@@ -88,7 +97,7 @@ class GenerationMetadataTest(unittest.TestCase):
         }, types.FinishReason.MAX_TOKENS)
         from fastapi import HTTPException
         with self.assertRaises(HTTPException) as context:
-            analyze_record(request)
+            analyze_record(request, uuid4())
         self.assertEqual(context.exception.status_code, 422)
         self.assertIn("token limit", context.exception.detail)
 
@@ -100,7 +109,7 @@ class GenerationMetadataTest(unittest.TestCase):
         client_type.return_value.models.generate_content.return_value = self.response({}, types.FinishReason.MAX_TOKENS)
         from fastapi import HTTPException
         with self.assertRaises(HTTPException) as context:
-            generate_insight_recommendation(request)
+            generate_insight_recommendation(request, uuid4())
         self.assertEqual(context.exception.status_code, 422)
 
     def test_invalid_generation_settings_are_rejected(self):

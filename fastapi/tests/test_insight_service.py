@@ -12,6 +12,7 @@ from app.clients.gemini_insight_client import (
     build_recommendation_prompt,
     parse_recommendation_response,
 )
+from app.core.ai_error import AiError
 from app.schemas.insight import (
     InsightRecommendationCandidate,
     InsightRecommendationCompetency,
@@ -68,7 +69,7 @@ class InsightServiceTest(unittest.TestCase):
         get_settings.return_value = SimpleNamespace(gemini_api_key=None)
 
         with self.assertRaises(HTTPException) as context:
-            generate_insight_recommendation(self.request())
+            generate_insight_recommendation(self.request(), uuid4())
 
         self.assertEqual(context.exception.status_code, 503)
 
@@ -208,11 +209,11 @@ class InsightServiceTest(unittest.TestCase):
             )
         )
 
-        with self.assertRaises(HTTPException) as context:
-            generate_insight_recommendation(self.request())
+        with self.assertRaises(AiError) as context:
+            generate_insight_recommendation(self.request(), uuid4())
 
-        self.assertEqual(context.exception.status_code, 429)
-        self.assertEqual(context.exception.headers, {"Retry-After": "30"})
+        self.assertEqual(context.exception.http_status, 429)
+        self.assertEqual(context.exception.retry_after, "30")
 
     @patch("app.services.insight_service.GeminiInsightClient")
     @patch("app.services.insight_service.get_settings")
@@ -232,10 +233,11 @@ class InsightServiceTest(unittest.TestCase):
             )
         )
 
-        with self.assertRaises(HTTPException) as context:
-            generate_insight_recommendation(self.request())
+        with self.assertRaises(AiError) as context:
+            generate_insight_recommendation(self.request(), uuid4())
 
-        self.assertEqual(context.exception.status_code, 403)
+        self.assertEqual(context.exception.http_status, 403)
+        self.assertEqual(context.exception.error_code, "HTTP_403")
 
 
 if __name__ == "__main__":

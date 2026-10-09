@@ -1,5 +1,5 @@
 import json
-import logging
+from time import perf_counter
 from uuid import UUID
 
 from google import genai
@@ -7,10 +7,8 @@ from google.genai import types
 from app.core.config import Settings
 from app.core.generation import generation_config, check_generation_response
 from app.prompts.registry import RECORD_ANALYSIS_PROMPT
+from app.schemas.ai_observability import AiUsage, billable_output_tokens
 from app.schemas.record_analysis import RecordAnalysisRequest, RecordAnalysisOutput, RecordAnalysisResponse
-
-
-logger = logging.getLogger(__name__)
 
 
 class GeminiRecordAnalysisClient:
@@ -21,49 +19,72 @@ class GeminiRecordAnalysisClient:
             http_options=types.HttpOptions(timeout=int(settings.gemini_http_timeout_seconds * 1000)),
         )
 
-    def analyze_record(self, request: RecordAnalysisRequest) -> RecordAnalysisResponse:
+    def analyze_record(
+        self,
+        request: RecordAnalysisRequest,
+        request_id: UUID,
+    ) -> RecordAnalysisResponse:
         prompt = build_analysis_prompt(request)
-        answers = "\n".join(
-            f"- 질문: {answer.questionText}\n  답변: {answer.answerText}"
-            for answer in request.answers
-        )
-        strength_tags = build_strength_tags(request)
-        logger.warning(
-            "Gemini record analysis prompt prepared. recordId=%s, promptChars=%s, "
-            "answerCount=%s, answerChars=%s, strengthCandidateCount=%s, "
-            "strengthCandidateChars=%s",
-            request.recordId,
-            len(prompt),
-            len(request.answers),
-            len(answers),
-            len(request.strengthTagCandidates),
-            len(strength_tags),
-        )
-        response = self.client.models.generate_content(
-            model=self.settings.gemini_generation_model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=RecordAnalysisOutput,
-                **generation_config(self.settings, "record_analysis"),
-            ),
-        )
+
+        started_at = perf_counter()
+        try:
+            response = self.client.models.generate_content(
+                model=self.settings.gemini_generation_model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=RecordAnalysisOutput,
+                    **generation_config(self.settings, "record_analysis"),
+                ),
+            )
+        finally:
+            latency_ms = int((perf_counter() - started_at) * 1000)
+
         check_generation_response(response, "record_analysis")
         payload = json.loads(response.text or "{}")
-        summary, evidence_snippets, strength_tag_ids = parse_analysis_payload(payload, request)
+        summary, evidence_snippets, strength_tag_ids = parse_analysis_payload(
+            payload,
+            request,
+        )
+
+        metadata = response.usage_metadata
+        usage = AiUsage(
+            requestId=request_id,
+            provider="GEMINI",
+            modelId=self.settings.gemini_generation_model,
+            inputTokens=(
+                metadata.prompt_token_count if metadata is not None else None
+            ),
+            outputTokens=billable_output_tokens(metadata),
+            latencyMs=latency_ms,
+        )
+
         return RecordAnalysisResponse(
-            summary=summary,
-            evidenceSnippets=evidence_snippets,
-            strengthTagIds=strength_tag_ids,
+            summary=summary, evidenceSnippets=evidence_snippets,
+            strengthTagIds=strength_tag_ids, usage=usage,
             metadata=RECORD_ANALYSIS_PROMPT.metadata(self.settings),
         )
 
-    def embed_record(self, text: str) -> list[float]:
-        result = self.client.models.embed_content(
-            model=self.settings.gemini_embedding_model,
-            contents=text,
+    def embed_record(self, text: str, request_id: UUID) -> tuple[list[float], AiUsage]:
+        started_at = perf_counter()
+        try:
+            result = self.client.models.embed_content(
+                model=self.settings.gemini_embedding_model,
+                contents=text,
+            )
+        finally:
+            latency_ms = int((perf_counter() - started_at) * 1000)
+        embedding = extract_embedding_values(result)
+        metadata = getattr(result, "usage_metadata", None)
+        usage = AiUsage(
+            requestId=request_id,
+            provider="GEMINI",
+            modelId=self.settings.gemini_embedding_model,
+            inputTokens=getattr(metadata, "prompt_token_count", None),
+            outputTokens=getattr(metadata, "candidates_token_count", None),
+            latencyMs=latency_ms,
         )
-        return extract_embedding_values(result)
+        return embedding, usage
 
 
 def build_analysis_prompt(request: RecordAnalysisRequest) -> str:

@@ -3,6 +3,7 @@ from uuid import UUID
 from app.schemas.generation import GenerationMetadata
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+from app.schemas.ai_observability import AiUsage
 
 
 class InsightRecommendationCandidate(BaseModel):
@@ -90,5 +91,8 @@ class InsightRecommendationOutput(BaseModel):
     )
 
 
-class InsightRecommendationResponse(InsightRecommendationOutput):
+class InsightRecommendationResponse(
+    InsightRecommendationOutput
+):
+    usage: AiUsage
     metadata: GenerationMetadata

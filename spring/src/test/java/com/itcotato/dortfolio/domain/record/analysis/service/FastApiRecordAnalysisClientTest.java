@@ -27,10 +27,12 @@ class FastApiRecordAnalysisClientTest {
 
 	private HttpServer server;
 	private AtomicReference<String> requestBody;
+	private AtomicReference<String> receivedRequestId;
 
 	@BeforeEach
 	void setUp() throws IOException {
 		requestBody = new AtomicReference<>();
+		receivedRequestId = new AtomicReference<>();
 		server = HttpServer.create(new InetSocketAddress(0), 0);
 		server.createContext("/ai/records/analyze", this::handleAnalyze);
 		server.start();
@@ -50,7 +52,8 @@ class FastApiRecordAnalysisClientTest {
 		);
 
 		UUID recordId = UUID.randomUUID();
-		RecordAnalysisResponse response = client.analyze(new RecordAnalysisRequest(
+		UUID requestId = UUID.randomUUID();
+		RecordAnalysisResponse response = client.analyze(requestId, new RecordAnalysisRequest(
 			recordId,
 			"기록 제목",
 			new ActivityPayload("활동 제목", "활동 설명"),
@@ -81,6 +84,10 @@ class FastApiRecordAnalysisClientTest {
 		assertThat(response.summary()).isEqualTo("요약");
 		assertThat(response.evidenceSnippets()).containsExactly("근거");
 		assertThat(response.strengthTagIds()).isEmpty();
+		assertThat(receivedRequestId.get()).isEqualTo(requestId.toString());
+		assertThat(response.usage().requestId()).isEqualTo(requestId);
+		assertThat(response.usage().inputTokens()).isEqualTo(100L);
+		assertThat(response.usage().outputTokens()).isEqualTo(70L);
 		assertThat(response.metadata().getPromptVersion()).isEqualTo("record_analysis.v1");
 		assertThat(response.metadata().getSchemaVersion()).isEqualTo("record_analysis.v1");
 		assertThat(response.metadata().getMaxOutputTokens()).isEqualTo(8192);
@@ -88,12 +95,17 @@ class FastApiRecordAnalysisClientTest {
 	}
 
 	private void handleAnalyze(HttpExchange exchange) throws IOException {
+		receivedRequestId.set(exchange.getRequestHeaders().getFirst("X-AI-Request-ID"));
 		requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
 		byte[] response = """
 			{
 			  "summary": "요약",
 			  "evidenceSnippets": ["근거"],
 			  "strengthTagIds": [],
+              "usage": {
+                "requestId": "%s", "provider": "GEMINI", "modelId": "test-generation",
+                "inputTokens": 100, "outputTokens": 70, "latencyMs": 15
+              },
               "metadata": {
 				"promptVersion": "record_analysis.v1",
 				"schemaVersion": "record_analysis.v1",
@@ -102,7 +114,7 @@ class FastApiRecordAnalysisClientTest {
 				"thinkingLevel": null
               }
 			}
-			""".getBytes(StandardCharsets.UTF_8);
+			""".formatted(receivedRequestId.get()).getBytes(StandardCharsets.UTF_8);
 
 		exchange.getResponseHeaders().add("Content-Type", "application/json");
 		exchange.sendResponseHeaders(200, response.length);

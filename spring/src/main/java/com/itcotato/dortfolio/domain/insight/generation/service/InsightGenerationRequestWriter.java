@@ -111,9 +111,9 @@ public class InsightGenerationRequestWriter {
             );
         } catch (DataIntegrityViolationException exception) {
             log.warn(
-                    "Insight PENDING 저장 실패. userId={}",
+                    "Insight PENDING 저장 실패. userId={}, exceptionType={}",
                     userId,
-                    exception
+                    exception.getClass().getSimpleName()
             );
             if (isPendingUniqueConstraintViolation(exception)) {
                 throw new CustomException(

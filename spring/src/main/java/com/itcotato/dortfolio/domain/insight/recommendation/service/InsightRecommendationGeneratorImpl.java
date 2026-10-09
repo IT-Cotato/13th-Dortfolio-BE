@@ -7,6 +7,9 @@ import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCo
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResponse;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
+import com.itcotato.dortfolio.global.ai.observability.entity.AiFeature;
+import com.itcotato.dortfolio.global.ai.observability.service.AiCallObserver;
+import com.itcotato.dortfolio.global.ai.observability.service.AiRequestTracker;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
 import java.time.Duration;
@@ -34,29 +37,48 @@ public class InsightRecommendationGeneratorImpl
     private final InsightRecommendationClient client;
     private final InsightProperties insightProperties;
     private final InsightRecommendationRetrySleeper retrySleeper;
+    private final AiRequestTracker aiRequestTracker;
+    private final AiCallObserver aiCallObserver;
 
     @Override
     public RecommendationResponse generate(
+            UUID userId,
             RecommendationRequest request
     ) {
         validateRequest(request);
 
         FailureType lastFailure = FailureType.AI_SERVICE;
+        UUID requestId = aiRequestTracker.start(userId, AiFeature.INSIGHT_RECOMMENDATION);
+        long started = System.nanoTime();
+        int attemptCount = 0;
+        boolean success = false;
 
+        try {
         for (int attempt = 1;
              attempt <= insightProperties.recommendationMaxAttempts();
              attempt++) {
+            attemptCount = attempt;
             try {
-                RecommendationResponse response = client.generate(request);
+                RecommendationResponse aiResponse = aiCallObserver.attempt(requestId, attempt,
+                        () -> client.generateWithUsage(requestId, request), RecommendationResponse::usage,
+                        result -> {
+                            if (result.metadata() != null && !result.metadata().isValid()) {
+                                throw new InvalidRecommendationResponseException();
+                            }
+                            validateResponse(request, result.recommendations());
+                        });
+                List<RecommendationResult> response = aiResponse == null ? null : aiResponse.recommendations();
 
-                if (response == null || (response.metadata() != null && !response.metadata().isValid())) {
-                    throw new InvalidRecommendationResponseException();
-                }
-                return RecommendationResponse.of(
-                        validateResponse(request, response.recommendations()),
-                        response.metadata()
+                List<RecommendationResult> validated = validateResponse(
+                        request,
+                        response
                 );
+                success = true;
+                return new RecommendationResponse(validated, aiResponse.usage(), aiResponse.metadata());
             } catch (InvalidRecommendationResponseException exception) {
+                lastFailure = FailureType.INVALID_RESPONSE;
+                break;
+            } catch (AiCallObserver.InvalidAiUsageException exception) {
                 lastFailure = FailureType.INVALID_RESPONSE;
                 break;
             } catch (RestClientResponseException exception) {
@@ -84,6 +106,10 @@ public class InsightRecommendationGeneratorImpl
                 InsightErrorCode
                         .INSIGHT_RECOMMENDATION_AI_SERVICE_FAILED
         );
+        } finally {
+            aiRequestTracker.finish(requestId, success, Math.max(0, attemptCount - 1),
+                    aiCallObserver.elapsed(started));
+        }
     }
 
     private boolean isRetryable(HttpStatusCode statusCode) {

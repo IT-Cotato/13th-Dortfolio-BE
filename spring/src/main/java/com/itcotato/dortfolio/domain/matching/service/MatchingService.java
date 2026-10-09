@@ -6,15 +6,16 @@ import com.itcotato.dortfolio.domain.matching.dto.req.RecordMatchingRequest;
 import com.itcotato.dortfolio.domain.matching.dto.res.MatchingSource;
 import com.itcotato.dortfolio.domain.matching.dto.res.RecordMatchingResponse;
 import com.itcotato.dortfolio.domain.matching.exception.MatchingErrorCode;
+import com.itcotato.dortfolio.global.ai.observability.entity.AiFeature;
+import com.itcotato.dortfolio.global.ai.observability.service.AiCallObserver;
+import com.itcotato.dortfolio.global.ai.observability.service.AiRequestTracker;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MatchingService {
@@ -23,13 +24,15 @@ public class MatchingService {
 	private final MatchingReadService matchingReadService;
 	private final RecordMatchingClient recordMatchingClient;
 	private final MatchingUsageLimiter matchingUsageLimiter;
+	private final AiRequestTracker tracker;
+	private final AiCallObserver observer;
 
 	public RecordMatchingResponse matchRecords(UUID userId, RecordMatchingRequest request) {
 		String question = validateQuestion(request.question());
 		int limit = resolveLimit(request.limit());
 		matchingUsageLimiter.validateDailyLimit(userId);
 
-		QuestionEmbeddingResponse embeddingResponse = requestQuestionEmbedding(question);
+		QuestionEmbeddingResponse embeddingResponse = requestQuestionEmbedding(userId, question);
 		return RecordMatchingResponse.of(
 			question,
 			MatchingSource.VECTOR,
@@ -61,20 +64,32 @@ public class MatchingService {
 		return limit;
 	}
 
-	private QuestionEmbeddingResponse requestQuestionEmbedding(String question) {
+	private QuestionEmbeddingResponse requestQuestionEmbedding(UUID userId, String question) {
+		UUID requestId = tracker.start(userId, AiFeature.QUESTION_EMBEDDING);
+		long started = System.nanoTime();
+		boolean success = false;
 		try {
-			QuestionEmbeddingResponse response = recordMatchingClient.embedQuestion(question);
-			if (response == null || response.embedding() == null || response.embedding().length == 0
-				|| !StringUtils.hasText(response.embeddingModel())) {
-				throw new CustomException(MatchingErrorCode.MATCHING_INVALID_AI_RESPONSE);
-			}
-			validateEmbeddingModel(response.embeddingModel());
-			validateEmbedding(response.embedding());
+			QuestionEmbeddingResponse response = observer.attempt(requestId, 1,
+				() -> recordMatchingClient.embedQuestion(requestId, question), QuestionEmbeddingResponse::usage,
+				this::validateQuestionEmbeddingResponse);
+			success = true;
 			return response;
 		} catch (RestClientException exception) {
-			log.warn("Question embedding request failed.", exception);
 			throw new CustomException(MatchingErrorCode.MATCHING_AI_SERVICE_UNAVAILABLE);
+		} catch (AiCallObserver.InvalidAiUsageException exception) {
+			throw new CustomException(MatchingErrorCode.MATCHING_INVALID_AI_RESPONSE);
+		} finally {
+			tracker.finish(requestId, success, 0, observer.elapsed(started));
 		}
+	}
+
+	private void validateQuestionEmbeddingResponse(QuestionEmbeddingResponse response) {
+		if (response.embedding() == null || response.embedding().length == 0
+			|| !StringUtils.hasText(response.embeddingModel())) {
+			throw new CustomException(MatchingErrorCode.MATCHING_INVALID_AI_RESPONSE);
+		}
+		validateEmbeddingModel(response.embeddingModel());
+		validateEmbedding(response.embedding());
 	}
 
 	private void validateEmbeddingModel(String embeddingModel) {

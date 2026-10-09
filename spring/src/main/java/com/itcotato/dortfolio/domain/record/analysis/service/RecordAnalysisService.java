@@ -25,6 +25,9 @@ import com.itcotato.dortfolio.domain.record.repository.StrengthTagRepository;
 import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingRequest;
 import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingResponse;
 import com.itcotato.dortfolio.global.ai.embedding.service.EmbeddingClient;
+import com.itcotato.dortfolio.global.ai.observability.entity.AiFeature;
+import com.itcotato.dortfolio.global.ai.observability.service.AiCallObserver;
+import com.itcotato.dortfolio.global.ai.observability.service.AiRequestTracker;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -65,6 +68,8 @@ public class RecordAnalysisService {
 	private final RecordEmbeddingWriter recordEmbeddingWriter;
 	private final RecordAnalysisProperties recordAnalysisProperties;
 	private final TransactionTemplate transactionTemplate;
+	private final AiRequestTracker aiRequestTracker;
+	private final AiCallObserver aiCallObserver;
 	private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
 	public void analyze(UUID recordId) {
@@ -92,7 +97,7 @@ public class RecordAnalysisService {
 
 		AnalysisExecutionResult result;
 		try {
-			result = executeAnalysis(snapshotOptional.get().request());
+			result = executeAnalysis(snapshotOptional.get().request(), snapshotOptional.get().userId());
 		} catch (CustomException exception) {
 			recordAnalysisLockManager.executeWithLock(
 				recordId,
@@ -142,17 +147,15 @@ public class RecordAnalysisService {
 		log.info("Record AI analysis completed. recordId={}", recordId);
 	}
 
-	private AnalysisExecutionResult executeAnalysis(RecordAnalysisRequest baseRequest) {
-		EmbeddingResponse embedding = requestEmbedding(baseRequest);
-		validateEmbedding(embedding);
+	private AnalysisExecutionResult executeAnalysis(RecordAnalysisRequest baseRequest, UUID userId) {
+		EmbeddingResponse embedding = requestEmbedding(baseRequest, userId);
 
 		List<StrengthMatchCandidate> candidates = findStrengthCandidates(embedding);
 		RecordAnalysisRequest analysisRequest = baseRequest.withStrengthCandidates(
 			candidates,
 			recordAnalysisProperties.strengthMaxCount()
 		);
-		RecordAnalysisResponse response = requestAnalysis(analysisRequest);
-		validateAnalysisResponse(response, analysisRequest);
+		RecordAnalysisResponse response = requestAnalysis(analysisRequest, userId);
 
 		return new AnalysisExecutionResult(
 			response,
@@ -177,16 +180,27 @@ public class RecordAnalysisService {
 		}
 		return Optional.of(new AnalysisSnapshot(
 			recordAnalysisRequestBuilder.build(record),
-			record.getUpdatedAt(), analysisGeneration, jobId, claimToken
+			record.getUser().getId(), record.getUpdatedAt(), analysisGeneration, jobId, claimToken
 		));
 	}
 
-	private EmbeddingResponse requestEmbedding(RecordAnalysisRequest request) {
+	private EmbeddingResponse requestEmbedding(RecordAnalysisRequest request, UUID userId) {
+		UUID requestId = aiRequestTracker.start(userId, AiFeature.RECORD_EMBEDDING);
+		long started = System.nanoTime();
+		boolean success = false;
 		try {
-			return embeddingClient.embed(new EmbeddingRequest(recordEmbeddingTextBuilder.build(request)));
+			EmbeddingResponse response = aiCallObserver.attempt(requestId, 1,
+				() -> embeddingClient.embed(requestId, new EmbeddingRequest(recordEmbeddingTextBuilder.build(request))),
+				EmbeddingResponse::usage, this::validateEmbedding);
+			success = true;
+			return response;
 		} catch (RestClientException exception) {
-			log.warn("Record embedding request failed. recordId={}", request.recordId(), exception);
+			log.warn("Record embedding request failed. recordId={}", request.recordId());
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_FAILED);
+		} catch (AiCallObserver.InvalidAiUsageException exception) {
+			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
+		} finally {
+			aiRequestTracker.finish(requestId, success, 0, aiCallObserver.elapsed(started));
 		}
 	}
 
@@ -201,31 +215,42 @@ public class RecordAnalysisService {
 		} catch (CustomException exception) {
 			throw exception;
 		} catch (IllegalArgumentException exception) {
-			log.warn("Strength match candidate arguments are invalid.", exception);
+			log.warn("Strength match candidate arguments are invalid. exceptionType={}",
+				exception.getClass().getSimpleName());
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_INVALID_RESPONSE);
 		} catch (Exception exception) {
-			log.warn("Strength match candidate query failed.", exception);
+			log.warn("Strength match candidate query failed. exceptionType={}", exception.getClass().getSimpleName());
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_PERSISTENCE_FAILED);
 		}
 	}
 
-	private RecordAnalysisResponse requestAnalysis(RecordAnalysisRequest request) {
+	private RecordAnalysisResponse requestAnalysis(RecordAnalysisRequest request, UUID userId) {
+		UUID requestId = aiRequestTracker.start(userId, AiFeature.RECORD_ANALYSIS);
+		long started = System.nanoTime();
+		boolean success = false;
 		try {
-			return recordAnalysisClient.analyze(request);
+			RecordAnalysisResponse response = aiCallObserver.attempt(requestId, 1,
+				() -> recordAnalysisClient.analyze(requestId, request), RecordAnalysisResponse::usage,
+				result -> validateAnalysisResponse(result, request));
+			success = true;
+			return response;
 		} catch (RestClientResponseException exception) {
 			log.warn(
-				"Record AI service returned error. recordId={}, status={}, body={}",
+				"Record AI service returned error. recordId={}, status={}",
 				request.recordId(),
-				exception.getStatusCode(),
-				exception.getResponseBodyAsString()
+				exception.getStatusCode()
 			);
 			if (isRetryableAiServiceStatus(exception.getStatusCode())) {
 				throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_FAILED);
 			}
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_REJECTED);
+		} catch (CustomException exception) {
+			throw exception;
 		} catch (Exception exception) {
-			log.warn("Record AI service call failed. recordId={}", request.recordId(), exception);
+			log.warn("Record AI service call failed. recordId={}", request.recordId());
 			throw new CustomException(RecordAnalysisErrorCode.RECORD_ANALYSIS_AI_SERVICE_FAILED);
+		} finally {
+			aiRequestTracker.finish(requestId, success, 0, aiCallObserver.elapsed(started));
 		}
 	}
 
@@ -365,7 +390,8 @@ public class RecordAnalysisService {
 			expectedRecordUpdatedAt,
 			expectedGeneration, jobId, claimToken
 		));
-		log.warn("Record AI analysis {} failed. recordId={}", phase, recordId, exception);
+		log.warn("Record AI analysis {} failed. recordId={}, exceptionType={}",
+			phase, recordId, exception.getClass().getSimpleName());
 	}
 
 	private void markFailed(
@@ -432,9 +458,7 @@ public class RecordAnalysisService {
 		if (exception instanceof CustomException customException) {
 			return customException.getErrorCode().getCode() + " " + customException.getErrorCode().getMessage();
 		}
-		return exception.getMessage() == null
-			? exception.getClass().getSimpleName()
-			: exception.getMessage();
+		return "UNEXPECTED_ERROR";
 	}
 
 	private boolean toRetryable(CustomException exception) {
@@ -446,6 +470,7 @@ public class RecordAnalysisService {
 
 	private record AnalysisSnapshot(
 		RecordAnalysisRequest request,
+		UUID userId,
 		LocalDateTime recordUpdatedAt,
 		long analysisGeneration,
 		UUID jobId,

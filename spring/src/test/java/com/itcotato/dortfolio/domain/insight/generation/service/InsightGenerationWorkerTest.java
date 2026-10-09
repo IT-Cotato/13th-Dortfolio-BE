@@ -192,6 +192,7 @@ class InsightGenerationWorkerTest {
         )).thenReturn(List.of(candidate));
 
         when(recommendationGenerator.generate(
+                eq(USER_ID),
                 any(RecommendationRequest.class)
         )).thenReturn(RecommendationResponse.of(List.of(new RecommendationResult(
                 competencyId,
@@ -300,7 +301,7 @@ class InsightGenerationWorkerTest {
                  0.0
         )).thenReturn(List.of(candidate));
 
-        when(recommendationGenerator.generate(any()))
+        when(recommendationGenerator.generate(eq(USER_ID), any(RecommendationRequest.class)))
                 .thenReturn(RecommendationResponse.of(List.of(new RecommendationResult(
                         competencyId,
                         recordId,
@@ -393,10 +394,11 @@ class InsightGenerationWorkerTest {
         )).thenReturn(List.of(candidate));
 
         when(recommendationGenerator.generate(
+                eq(USER_ID),
                 any(RecommendationRequest.class)
         )).thenAnswer(invocation -> {
             RecommendationRequest request =
-                    invocation.getArgument(0);
+                    invocation.getArgument(1);
 
             return RecommendationResponse.of(request.competencies().stream()
                     .map(competency -> new RecommendationResult(
@@ -421,7 +423,7 @@ class InsightGenerationWorkerTest {
                 );
 
         verify(recommendationGenerator, times(1))
-                .generate(any(RecommendationRequest.class));
+                .generate(eq(USER_ID), any(RecommendationRequest.class));
 
         ArgumentCaptor<InsightGenerationResult> resultCaptor =
                 ArgumentCaptor.forClass(
@@ -525,7 +527,7 @@ class InsightGenerationWorkerTest {
                  0.0
         )).thenReturn(List.of());
 
-        when(recommendationGenerator.generate(any()))
+        when(recommendationGenerator.generate(eq(USER_ID), any(RecommendationRequest.class)))
                 .thenReturn(RecommendationResponse.of(List.of(new RecommendationResult(
                         false,
                         competencyId,
@@ -551,7 +553,7 @@ class InsightGenerationWorkerTest {
 
         ArgumentCaptor<RecommendationRequest> requestCaptor =
                 ArgumentCaptor.forClass(RecommendationRequest.class);
-        verify(recommendationGenerator).generate(requestCaptor.capture());
+        verify(recommendationGenerator).generate(eq(USER_ID), requestCaptor.capture());
         assertThat(requestCaptor.getValue().competencies())
                 .singleElement()
                 .satisfies(competency ->
@@ -607,7 +609,7 @@ class InsightGenerationWorkerTest {
                 1,
                  0.0
         )).thenReturn(List.of(candidate));
-        when(recommendationGenerator.generate(any()))
+        when(recommendationGenerator.generate(eq(USER_ID), any(RecommendationRequest.class)))
                 .thenThrow(new CustomException(
                         InsightErrorCode
                                 .INSIGHT_RECOMMENDATION_AI_SERVICE_FAILED

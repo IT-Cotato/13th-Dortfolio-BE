@@ -62,8 +62,8 @@ public class RecordAnalysisJobWorker {
 			transactionTemplate.executeWithoutResult(status -> jobRepository
 				.completeClaim(jobTarget.jobId(), jobTarget.claimToken()));
 		} catch (RuntimeException exception) {
-			log.error("Record analysis job execution failed. jobId={}, recordId={}",
-				jobTarget.jobId(), jobTarget.recordId(), exception);
+			log.error("Record analysis job execution failed. jobId={}, recordId={}, exceptionType={}",
+				jobTarget.jobId(), jobTarget.recordId(), exception.getClass().getSimpleName());
 			transactionTemplate.executeWithoutResult(status -> jobRepository
 				.requeueClaim(jobTarget.jobId(), jobTarget.claimToken()));
 		} finally {

@@ -220,7 +220,8 @@ public class InsightGenerationWorker {
                 command.jobName(),
                 competencies
         );
-        RecommendationResponse recommendations = recommendationGenerator.generate(request);
+        RecommendationResponse recommendations =
+                recommendationGenerator.generate(command.userId(), request);
         Map<UUID, RecommendationCompetency> competenciesById =
                 competencies.stream().collect(Collectors.toMap(
                         RecommendationCompetency::jobCompetencyId,
@@ -293,13 +294,13 @@ public class InsightGenerationWorker {
                     failure.message()
             );
         } catch (Exception failureWritingException) {
-            // FAILED 저장까지 실패했다면 운영자가 추적할 수 있도록 두 예외 모두 기록
+            // 예외 전문 대신 식별자와 안전한 오류 코드만 기록한다.
             log.error(
                     "Failed to persist Insight generation failure. "
-                            + "insightId={}, originalFailureCode={}",
+                            + "insightId={}, originalFailureCode={}, exceptionType={}",
                     insightId,
                     failure.code(),
-                    failureWritingException
+                    failureWritingException.getClass().getSimpleName()
             );
         }
 
@@ -308,8 +309,7 @@ public class InsightGenerationWorker {
                         + "insightId={}, failureCode={}, exceptionType={}",
                 insightId,
                 failure.code(),
-                generationException.getClass().getSimpleName(),
-                generationException
+                generationException.getClass().getSimpleName()
         );
     }
 

@@ -9,6 +9,9 @@ import com.itcotato.dortfolio.domain.record.repository.StrengthTagRepository;
 import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingRequest;
 import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingResponse;
 import com.itcotato.dortfolio.global.ai.embedding.service.EmbeddingClient;
+import com.itcotato.dortfolio.global.ai.observability.entity.AiFeature;
+import com.itcotato.dortfolio.global.ai.observability.service.AiCallObserver;
+import com.itcotato.dortfolio.global.ai.observability.service.AiRequestTracker;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -32,6 +35,8 @@ public class StrengthTagEmbeddingService {
 	private final StrengthTagEmbeddingWriter embeddingWriter;
 	private final InsightProperties insightProperties;
 	private final StrengthTagEmbeddingRequestProperties requestProperties;
+	private final AiRequestTracker aiRequestTracker;
+	private final AiCallObserver aiCallObserver;
 
 	public boolean generate(UUID strengthTagId) {
 		String targetModel = insightProperties.embeddingModel();
@@ -43,7 +48,6 @@ public class StrengthTagEmbeddingService {
 			.orElseThrow(() -> new CustomException(RecordAnalysisErrorCode.STRENGTH_TAG_NOT_FOUND));
 
 		EmbeddingResponse response = requestEmbedding(strengthTagId, textBuilder.build(strengthTag));
-		validate(response, targetModel);
 
 		return embeddingWriter.saveIfAbsent(
 			strengthTagId,
@@ -75,10 +79,10 @@ public class StrengthTagEmbeddingService {
 				String reason = toFailureReason(exception);
 				failures.add(new StrengthTagEmbeddingFailure(strengthTagId, reason));
 				log.error(
-					"Strength tag embedding generation failed. strengthTagId={}, reason={}",
+					"Strength tag embedding generation failed. strengthTagId={}, reason={}, exceptionType={}",
 					strengthTagId,
 					reason,
-					exception
+					exception.getClass().getSimpleName()
 				);
 			}
 		}
@@ -104,17 +108,24 @@ public class StrengthTagEmbeddingService {
 
 	private EmbeddingResponse requestEmbedding(UUID strengthTagId, String sourceText) {
 		EmbeddingRequest request = new EmbeddingRequest(sourceText);
+		UUID requestId = aiRequestTracker.start(null, AiFeature.STRENGTH_TAG_EMBEDDING);
+		long started = System.nanoTime();
+		int attemptCount = 0;
+		boolean success = false;
+		try {
 		for (int attempt = 1; attempt <= requestProperties.maxAttempts(); attempt++) {
+			attemptCount = attempt;
 			try {
-				return embeddingClient.embed(request);
+				final int currentAttempt = attempt;
+				EmbeddingResponse response = aiCallObserver.attempt(requestId, currentAttempt,
+					() -> embeddingClient.embed(requestId, request), EmbeddingResponse::usage,
+					result -> validate(result, insightProperties.embeddingModel()));
+				success = true;
+				return response;
 			} catch (RestClientException exception) {
 				if (attempt == requestProperties.maxAttempts()) {
-					log.warn(
-						"Strength tag embedding request failed after retries. strengthTagId={}, attempts={}",
-						strengthTagId,
-						attempt,
-						exception
-					);
+					log.warn("Strength tag embedding request failed after retries. strengthTagId={}, attempts={}",
+						strengthTagId, attempt);
 					throw new CustomException(RecordAnalysisErrorCode.STRENGTH_TAG_EMBEDDING_AI_SERVICE_FAILED);
 				}
 
@@ -128,9 +139,15 @@ public class StrengthTagEmbeddingService {
 					backoff
 				);
 				pause(backoff);
+			} catch (AiCallObserver.InvalidAiUsageException exception) {
+				throw new CustomException(RecordAnalysisErrorCode.STRENGTH_TAG_EMBEDDING_INVALID_RESPONSE);
 			}
 		}
 		throw new IllegalStateException("Embedding retry loop completed unexpectedly");
+		} finally {
+			aiRequestTracker.finish(requestId, success, Math.max(0, attemptCount - 1),
+				aiCallObserver.elapsed(started));
+		}
 	}
 
 	private void validate(EmbeddingResponse response, String targetModel) {
@@ -170,8 +187,6 @@ public class StrengthTagEmbeddingService {
 		if (exception instanceof CustomException customException) {
 			return customException.getErrorCode().getCode() + " " + customException.getErrorCode().getMessage();
 		}
-		return exception.getMessage() == null
-			? exception.getClass().getSimpleName()
-			: exception.getMessage();
+		return "UNEXPECTED_ERROR";
 	}
 }

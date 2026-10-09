@@ -3,7 +3,7 @@ from uuid import UUID
 from app.schemas.generation import GenerationMetadata
 
 from pydantic import BaseModel, Field
-
+from app.schemas.ai_observability import AiUsage
 
 class ActivityPayload(BaseModel):
     title: str
@@ -47,9 +47,12 @@ class RecordAnalysisRequest(BaseModel):
 
 class RecordAnalysisOutput(BaseModel):
     summary: str
-    evidenceSnippets: list[str] = Field(min_length=1, max_length=5)
+    evidenceSnippets: list[str] = Field(
+        min_length=1,
+        max_length=5,
+    )
     strengthTagIds: list[UUID]
 
-
 class RecordAnalysisResponse(RecordAnalysisOutput):
+    usage: AiUsage
     metadata: GenerationMetadata

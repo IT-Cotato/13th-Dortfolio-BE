@@ -7,11 +7,15 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.lenient;
 
 import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
 import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingRequest;
 import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingResponse;
 import com.itcotato.dortfolio.global.ai.embedding.service.EmbeddingClient;
+import com.itcotato.dortfolio.global.ai.observability.service.AiRequestTracker;
+import com.itcotato.dortfolio.support.PassthroughAiCallObserver;
 import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingBatchResult;
 import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingCoverage;
 import com.itcotato.dortfolio.domain.job.embedding.model.JobCompetencyEmbeddingGenerationStatus;
@@ -48,11 +52,15 @@ class JobCompetencyEmbeddingServiceTest {
 
     @Mock
     private InsightProperties insightProperties;
+    @Mock
+    private AiRequestTracker tracker;
 
     private JobCompetencyEmbeddingService service;
 
     @BeforeEach
     void setUp() {
+        lenient().when(tracker.start(any(), any())).thenReturn(UUID.randomUUID());
+        lenient().doCallRealMethod().when(embeddingClient).embed(any(UUID.class), any(EmbeddingRequest.class));
         service = new JobCompetencyEmbeddingService(
                 jobCompetencyRepository,
                 embeddingRepository,
@@ -64,7 +72,9 @@ class JobCompetencyEmbeddingServiceTest {
                         Duration.ZERO,
                         3,
                         Duration.ZERO
-                )
+                ),
+                tracker,
+                new PassthroughAiCallObserver()
         );
     }
 
@@ -261,7 +271,7 @@ class JobCompetencyEmbeddingServiceTest {
         assertThat(result.failedCount()).isEqualTo(1);
         assertThat(result.failures()).singleElement().satisfies(failure -> {
             assertThat(failure.jobCompetencyId()).isEqualTo(failedId);
-            assertThat(failure.reason()).isEqualTo("database unavailable");
+            assertThat(failure.reason()).isEqualTo("UNEXPECTED_ERROR");
         });
         verify(embeddingWriter).saveIfAbsent(
                 org.mockito.ArgumentMatchers.eq(lastId), any(), any()
