@@ -5,8 +5,10 @@ from uuid import UUID
 from google import genai
 from google.genai import types
 from app.core.config import Settings
+from app.core.generation import generation_config, check_generation_response
+from app.prompts.registry import RECORD_ANALYSIS_PROMPT
 from app.schemas.ai_observability import AiUsage, billable_output_tokens
-from app.schemas.record_analysis import RecordAnalysisRequest, RecordAnalysisResult
+from app.schemas.record_analysis import RecordAnalysisRequest, RecordAnalysisOutput, RecordAnalysisResponse
 
 
 class GeminiRecordAnalysisClient:
@@ -21,7 +23,7 @@ class GeminiRecordAnalysisClient:
         self,
         request: RecordAnalysisRequest,
         request_id: UUID,
-    ) -> tuple[str, list[str], list[UUID], AiUsage]:
+    ) -> RecordAnalysisResponse:
         prompt = build_analysis_prompt(request)
 
         started_at = perf_counter()
@@ -31,15 +33,14 @@ class GeminiRecordAnalysisClient:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    response_schema=RecordAnalysisResult,
-                    http_options=types.HttpOptions(
-                        timeout=int(self.settings.gemini_http_timeout_seconds * 1000)
-                    ),
+                    response_schema=RecordAnalysisOutput,
+                    **generation_config(self.settings, "record_analysis"),
                 ),
             )
         finally:
             latency_ms = int((perf_counter() - started_at) * 1000)
 
+        check_generation_response(response, "record_analysis")
         payload = json.loads(response.text or "{}")
         summary, evidence_snippets, strength_tag_ids = parse_analysis_payload(
             payload,
@@ -58,7 +59,11 @@ class GeminiRecordAnalysisClient:
             latencyMs=latency_ms,
         )
 
-        return summary, evidence_snippets, strength_tag_ids, usage
+        return RecordAnalysisResponse(
+            summary=summary, evidenceSnippets=evidence_snippets,
+            strengthTagIds=strength_tag_ids, usage=usage,
+            metadata=RECORD_ANALYSIS_PROMPT.metadata(self.settings),
+        )
 
     def embed_record(self, text: str, request_id: UUID) -> tuple[list[float], AiUsage]:
         started_at = perf_counter()
@@ -89,39 +94,16 @@ def build_analysis_prompt(request: RecordAnalysisRequest) -> str:
     )
     strength_tags = build_strength_tags(request)
 
-    return f"""
-아래 기록을 분석해서 JSON만 반환해 주세요.
-
-규칙:
-- summary는 한국어 1문장으로 작성합니다.
-- evidenceSnippets는 답변 원문에서 핵심 근거 문장만 1~5개 추출합니다.
-- strengthTagIds는 반드시 후보군 id 중에서만 선택합니다.
-- 정의, 판단 기준, 적합 예시와 부적합 예시를 함께 고려합니다.
-- 코사인 유사도는 후보 검색 결과이며 최종 판단의 유일한 근거로 사용하지 않습니다.
-- 최대 {request.maxStrengthCount}개를 선택합니다.
-- 후보군이 비어 있거나 기록에서 확인할 수 있는 강점이 없으면 빈 배열을 반환합니다.
-- 새로운 태그 id를 만들지 않습니다.
-
-응답 JSON 형식:
-{{
-  "summary": "string",
-  "evidenceSnippets": ["string"],
-  "strengthTagIds": ["uuid"]
-}}
-
-기록:
-- recordId: {request.recordId}
-- title: {request.title}
-- activityTitle: {request.activity.title}
-- activityDescription: {request.activity.description or ""}
-- templateTitle: {request.template.title}
-
-답변:
-{answers}
-
-강점 태그 후보군:
-{strength_tags}
-""".strip()
+    return RECORD_ANALYSIS_PROMPT.render(
+        max_strength_count=request.maxStrengthCount,
+        record_id=request.recordId,
+        title=request.title,
+        activity_title=request.activity.title,
+        activity_description=request.activity.description or "",
+        template_title=request.template.title,
+        answers=answers,
+        strength_tags=strength_tags,
+    )
 
 
 def build_strength_tags(request: RecordAnalysisRequest) -> str:

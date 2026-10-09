@@ -8,9 +8,9 @@ import java.util.UUID;
 
 public interface InsightRecommendationClient {
 
-    List<RecommendationResult> generate(RecommendationRequest request);
+    RecommendationResponse generate(RecommendationRequest request);
 
     default RecommendationResponse generateWithUsage(UUID requestId, RecommendationRequest request) {
-        return new RecommendationResponse(generate(request), null);
+        return generate(request);
     }
 }

@@ -1,5 +1,7 @@
 package com.itcotato.dortfolio.domain.insight.recommendation;
 
+import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
+import com.itcotato.dortfolio.domain.insight.recommendation.client.InsightRecommendationClient;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -10,14 +12,14 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.lenient;
 
-import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
-import com.itcotato.dortfolio.domain.insight.recommendation.client.InsightRecommendationClient;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCandidate;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCompetency;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResponse;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 import com.itcotato.dortfolio.domain.insight.recommendation.service.InsightRecommendationGeneratorImpl;
 import com.itcotato.dortfolio.domain.insight.recommendation.service.InsightRecommendationRetrySleeper;
+import com.itcotato.dortfolio.global.ai.generation.GenerationMetadata;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.ai.observability.entity.AiFeature;
 import com.itcotato.dortfolio.global.ai.observability.service.AiRequestTracker;
@@ -85,16 +87,21 @@ class InsightRecommendationGeneratorImplTest {
 
     @Test
     void generatesFiveRecommendationsInRequestOrder() {
-        when(client.generate(request)).thenReturn(
+        GenerationMetadata metadata = new GenerationMetadata(
+                "insight_recommendation.v1", "insight_recommendation.v1", "test-generation", 8192, null
+        );
+        when(client.generate(request)).thenReturn(RecommendationResponse.of(
                 IntStream.range(0, 5)
                         .map(index -> 4 - index)
                         .mapToObj(this::matched)
                         .toList()
-        );
+        , metadata));
 
-        assertThat(generator.generate(USER_ID, request))
+        RecommendationResponse result = generator.generate(USER_ID, request);
+        assertThat(result.recommendations())
                 .extracting(RecommendationResult::jobCompetencyId)
                 .containsExactlyElementsOf(competencyIds);
+        assertThat(result.metadata()).isSameAs(metadata);
         verify(client).generate(request);
     }
 
@@ -114,7 +121,7 @@ class InsightRecommendationGeneratorImplTest {
                         ))
                         .toList()
         );
-        when(client.generate(request)).thenReturn(
+        when(client.generate(request)).thenReturn(RecommendationResponse.of(
                 IntStream.range(0, 5)
                         .mapToObj(index -> index == 0
                                 ? new RecommendationResult(
@@ -122,16 +129,16 @@ class InsightRecommendationGeneratorImplTest {
                                 )
                                 : matched(index))
                         .toList()
-        );
+        , null));
 
-        assertThat(generator.generate(USER_ID, request).get(0).matched()).isFalse();
+        assertThat(generator.generate(USER_ID, request).recommendations().get(0).matched()).isFalse();
     }
 
     @Test
     void rejectsMissingCompetencyResultWithoutRetry() {
-        when(client.generate(request)).thenReturn(
+        when(client.generate(request)).thenReturn(RecommendationResponse.of(
                 IntStream.range(0, 4).mapToObj(this::matched).toList()
-        );
+        , null));
 
         assertInvalidResponse();
         verify(client).generate(request);
@@ -140,16 +147,16 @@ class InsightRecommendationGeneratorImplTest {
 
     @Test
     void rejectsDuplicateCompetencyResult() {
-        when(client.generate(request)).thenReturn(List.of(
+        when(client.generate(request)).thenReturn(RecommendationResponse.of(List.of(
                 matched(0), matched(0), matched(1), matched(2), matched(3)
-        ));
+        ), null));
 
         assertInvalidResponse();
     }
 
     @Test
     void rejectsRecordOutsideItsCompetencyCandidates() {
-        when(client.generate(request)).thenReturn(
+        when(client.generate(request)).thenReturn(RecommendationResponse.of(
                 IntStream.range(0, 5)
                         .mapToObj(index -> index == 0
                                 ? new RecommendationResult(
@@ -159,7 +166,7 @@ class InsightRecommendationGeneratorImplTest {
                                 )
                                 : matched(index))
                         .toList()
-        );
+        , null));
 
         assertInvalidResponse();
     }
@@ -170,9 +177,9 @@ class InsightRecommendationGeneratorImplTest {
                 IntStream.range(0, 5).mapToObj(this::matched).toList();
         when(client.generate(request))
                 .thenThrow(new RestClientException("timeout"))
-                .thenReturn(response);
+                .thenReturn(RecommendationResponse.of(response, null));
 
-        assertThat(generator.generate(USER_ID, request)).hasSize(5);
+        assertThat(generator.generate(USER_ID, request).recommendations()).hasSize(5);
         verify(client, times(2)).generate(request);
         verify(retrySleeper).sleep(Duration.ZERO);
     }
@@ -188,6 +195,16 @@ class InsightRecommendationGeneratorImplTest {
         assertThatThrownBy(() -> generator.generate(USER_ID, invalid))
                 .isInstanceOf(CustomException.class);
         verify(client, never()).generate(any());
+    }
+
+    @Test
+    void rejectsMalformedMetadataWithoutRetry() {
+        when(client.generate(request)).thenReturn(RecommendationResponse.of(
+                IntStream.range(0, 5).mapToObj(this::matched).toList(),
+                new GenerationMetadata("", "v1", "model", 0, null)
+        ));
+        assertInvalidResponse();
+        verify(retrySleeper, never()).sleep(any());
     }
 
     private List<UUID> ids() {
@@ -211,7 +228,7 @@ class InsightRecommendationGeneratorImplTest {
     }
 
     private void assertInvalidResponse() {
-        assertThatThrownBy(() -> generator.generate(USER_ID, request))
+        assertThatThrownBy(() -> generator.generate(USER_ID, request).recommendations())
                 .isInstanceOf(CustomException.class)
                 .extracting(error -> ((CustomException) error).getErrorCode())
                 .isEqualTo(InsightErrorCode

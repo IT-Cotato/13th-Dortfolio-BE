@@ -8,6 +8,7 @@ from app.clients.gemini_insight_client import (
 )
 from app.core.config import get_settings
 from app.core.ai_error import invalid_response_error, provider_error
+from app.core.generation import OutputTokenLimitError
 from app.schemas.insight import (
     InsightRecommendationRequest,
     InsightRecommendationResponse,
@@ -35,6 +36,11 @@ def generate_insight_recommendation(
         raise provider_error(
             request_id, settings.gemini_generation_model, exception,
             int((perf_counter() - started_at) * 1000),
+        ) from exception
+    except OutputTokenLimitError as exception:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exception),
         ) from exception
     except ValueError as exception:
         raise invalid_response_error(

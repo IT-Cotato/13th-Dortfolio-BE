@@ -1,8 +1,10 @@
 package com.itcotato.dortfolio.domain.insight.entity;
 
 import com.itcotato.dortfolio.domain.user.entity.User;
+import com.itcotato.dortfolio.global.ai.generation.GenerationMetadata;
 import com.itcotato.dortfolio.global.entity.BaseEntity;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -60,6 +62,9 @@ public class Insight extends BaseEntity {
     @Column(columnDefinition = "text")
     private String failureMessage;
 
+    @Embedded
+    private GenerationMetadata generationMetadata;
+
     private Insight(
             User user,
             UUID jobIdSnapshot,
@@ -96,6 +101,10 @@ public class Insight extends BaseEntity {
     }
 
     public void complete(LocalDateTime completedAt) {
+        complete(completedAt, null);
+    }
+
+    public void complete(LocalDateTime completedAt, GenerationMetadata metadata) {
         if (status != InsightGenerationStatus.PENDING
                 && status != InsightGenerationStatus.RUNNING) {
             throw new IllegalStateException(
@@ -105,6 +114,7 @@ public class Insight extends BaseEntity {
 
         this.status = InsightGenerationStatus.COMPLETED;
         this.completedAt = completedAt;
+        this.generationMetadata = metadata;
         this.failedAt = null;
         this.failureCode = null;
         this.failureMessage = null;

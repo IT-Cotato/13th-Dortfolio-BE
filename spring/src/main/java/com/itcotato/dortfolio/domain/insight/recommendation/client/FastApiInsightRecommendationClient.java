@@ -3,7 +3,6 @@ package com.itcotato.dortfolio.domain.insight.recommendation.client;
 import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResponse;
-import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 import com.itcotato.dortfolio.domain.record.analysis.config.AiServiceProperties;
 import java.util.List;
 import java.util.UUID;
@@ -45,9 +44,9 @@ public class FastApiInsightRecommendationClient implements InsightRecommendation
     }
 
     @Override
-    public List<RecommendationResult> generate(RecommendationRequest request) {
+    public RecommendationResponse generate(RecommendationRequest request) {
         RecommendationResponse response = generateWithUsage(UUID.randomUUID(), request);
-        return response == null ? null : response.recommendations();
+        return response;
     }
 
     @Override

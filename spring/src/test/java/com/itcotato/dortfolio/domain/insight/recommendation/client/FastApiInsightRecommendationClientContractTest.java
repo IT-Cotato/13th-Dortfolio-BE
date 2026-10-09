@@ -1,13 +1,14 @@
 package com.itcotato.dortfolio.domain.insight.recommendation.client;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCandidate;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCompetency;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResponse;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 import com.itcotato.dortfolio.domain.record.analysis.config.AiServiceProperties;
 import com.sun.net.httpserver.HttpServer;
@@ -35,16 +36,19 @@ class FastApiInsightRecommendationClientContractTest {
 
     @Test
     void sendsAndReceivesFastApiContract() throws Exception {
+        UUID requestId = UUID.randomUUID();
         UUID jobId = UUID.randomUUID();
         UUID competencyId = UUID.randomUUID();
         UUID recordId = UUID.randomUUID();
         AtomicReference<JsonNode> receivedBody = new AtomicReference<>();
         AtomicReference<String> receivedMethod = new AtomicReference<>();
         AtomicReference<String> receivedContentType = new AtomicReference<>();
+        AtomicReference<String> receivedRequestId = new AtomicReference<>();
 
         server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/ai/insights/recommendation", exchange -> {
             receivedMethod.set(exchange.getRequestMethod());
+            receivedRequestId.set(exchange.getRequestHeaders().getFirst("X-AI-Request-ID"));
             receivedContentType.set(
                     exchange.getRequestHeaders().getFirst("Content-Type")
             );
@@ -63,7 +67,18 @@ class FastApiInsightRecommendationClientContractTest {
                                     "recordId", recordId,
                                     "reason", "직무 역량을 잘 보여주는 기록입니다."
                             ))
-                            .toList()
+                            .toList(),
+                    "usage", java.util.Map.of(
+                            "requestId", requestId, "provider", "GEMINI", "modelId", "test-generation",
+                            "inputTokens", 100, "outputTokens", 70, "latencyMs", 15
+                    ),
+                    "metadata", java.util.Map.of(
+                            "promptVersion", "insight_recommendation.v1",
+                            "schemaVersion", "insight_recommendation.v1",
+                            "model", "test-generation",
+                            "maxOutputTokens", 8192,
+                            "thinkingLevel", "low"
+                    )
             ));
             exchange.getResponseHeaders().set(
                     "Content-Type",
@@ -116,7 +131,15 @@ class FastApiInsightRecommendationClientContractTest {
                         .toList()
         );
 
-        List<RecommendationResult> results = client.generate(request);
+        RecommendationResponse response = client.generateWithUsage(requestId, request);
+        List<RecommendationResult> results = response.recommendations();
+        assertThat(receivedRequestId.get()).isEqualTo(requestId.toString());
+        assertThat(response.usage().requestId()).isEqualTo(requestId);
+        assertThat(response.usage().inputTokens()).isEqualTo(100L);
+        assertThat(response.usage().outputTokens()).isEqualTo(70L);
+        assertThat(response.metadata().getPromptVersion()).isEqualTo("insight_recommendation.v1");
+        assertThat(response.metadata().getMaxOutputTokens()).isEqualTo(8192);
+        assertThat(response.metadata().getThinkingLevel()).isEqualTo("low");
 
         assertThat(receivedMethod.get()).isEqualTo("POST");
         assertThat(receivedContentType.get()).startsWith("application/json");

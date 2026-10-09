@@ -1,5 +1,7 @@
 from uuid import UUID
 
+from app.schemas.generation import GenerationMetadata
+
 from pydantic import BaseModel, Field, field_validator, model_validator
 from app.schemas.ai_observability import AiUsage
 
@@ -82,7 +84,7 @@ class InsightRecommendationResult(BaseModel):
         return self
 
 
-class InsightRecommendationResultPayload(BaseModel):
+class InsightRecommendationOutput(BaseModel):
     recommendations: list[InsightRecommendationResult] = Field(
         min_length=5,
         max_length=5,
@@ -90,6 +92,7 @@ class InsightRecommendationResultPayload(BaseModel):
 
 
 class InsightRecommendationResponse(
-    InsightRecommendationResultPayload
+    InsightRecommendationOutput
 ):
     usage: AiUsage
+    metadata: GenerationMetadata

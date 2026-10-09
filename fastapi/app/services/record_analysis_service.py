@@ -7,6 +7,7 @@ from google.genai import errors
 from app.clients.gemini_record_analysis_client import GeminiRecordAnalysisClient
 from app.core.config import get_settings
 from app.core.ai_error import invalid_response_error, provider_error
+from app.core.generation import OutputTokenLimitError
 from app.schemas.record_analysis import (
     RecordAnalysisRequest,
     RecordAnalysisResponse,
@@ -37,23 +38,19 @@ def analyze_record_with_gemini(
     started_at = perf_counter()
 
     try:
-        summary, evidence_snippets, strength_tag_ids, usage = (
-            client.analyze_record(request, request_id)
-        )
+        return client.analyze_record(request, request_id)
     except errors.APIError as exception:
         raise provider_error(
             request_id, settings.gemini_generation_model, exception,
             int((perf_counter() - started_at) * 1000),
+        ) from exception
+    except OutputTokenLimitError as exception:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exception),
         ) from exception
     except ValueError as exception:
         raise invalid_response_error(
             request_id, settings.gemini_generation_model,
             int((perf_counter() - started_at) * 1000),
         ) from exception
-
-    return RecordAnalysisResponse(
-        summary=summary,
-        evidenceSnippets=evidence_snippets,
-        strengthTagIds=strength_tag_ids,
-        usage=usage,
-    )

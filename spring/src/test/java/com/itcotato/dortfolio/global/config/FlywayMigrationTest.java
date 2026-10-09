@@ -29,8 +29,8 @@ class FlywayMigrationTest {
 	void migratesFreshSchemaThroughLatestVersion() {
 		MigrateResult result = flyway().migrate();
 
-		assertThat(result.migrationsExecuted).isEqualTo(22);
-		assertThat(result.targetSchemaVersion).isEqualTo("22");
+		assertThat(result.migrationsExecuted).isEqualTo(23);
+		assertThat(result.targetSchemaVersion).isEqualTo("23");
 		assertAiObservabilityTablesCreated();
 		assertMatchingIndexesCreated();
 		assertRunningInsightStatusAllowed();
@@ -44,7 +44,17 @@ class FlywayMigrationTest {
 		assertStrengthTagCatalogSeeded();
 		assertRecommendationNoMatchSupported();
 		assertRecordAnalysisJobOutboxCreated();
+        assertGenerationMetadataColumnsCreated();
 	}
+
+    private void assertGenerationMetadataColumnsCreated() {
+        assertThat(jdbcTemplate().queryForObject("""
+                select count(*) from information_schema.columns
+                where table_name in ('record_analysis', 'insights')
+                  and column_name in ('prompt_version', 'schema_version', 'generation_model', 'max_output_tokens', 'thinking_level')
+                  and is_nullable = 'YES'
+                """, Integer.class)).isEqualTo(10);
+    }
 
 	private void assertAiObservabilityTablesCreated() {
 		assertThat(jdbcTemplate().queryForObject("""

@@ -1,5 +1,7 @@
 package com.itcotato.dortfolio.domain.insight.generation.service;
 
+import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
+import com.itcotato.dortfolio.domain.insight.generation.lock.InsightGenerationLock;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -8,16 +10,15 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.itcotato.dortfolio.domain.insight.config.InsightProperties;
-import com.itcotato.dortfolio.domain.insight.generation.lock.InsightGenerationLock;
-import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationCommand;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationCommand.JobCompetencySnapshot;
+import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationCommand;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult;
 import com.itcotato.dortfolio.domain.insight.query.AnalyzedRecordQuery;
-import com.itcotato.dortfolio.domain.insight.query.AnalyzedRecordSnapshot;
 import com.itcotato.dortfolio.domain.insight.query.AnalyzedRecordSnapshot.StrengthTagSnapshot;
+import com.itcotato.dortfolio.domain.insight.query.AnalyzedRecordSnapshot;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationCandidate;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResponse;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
 import com.itcotato.dortfolio.domain.insight.recommendation.repository.RecommendationCandidateQuery;
 import com.itcotato.dortfolio.domain.insight.recommendation.service.InsightRecommendationGenerator;
@@ -25,6 +26,7 @@ import com.itcotato.dortfolio.domain.insight.statistics.StrengthStatistic;
 import com.itcotato.dortfolio.domain.insight.statistics.StrengthStatisticsCalculator;
 import com.itcotato.dortfolio.domain.insight.statistics.TemplateDistributionCalculator;
 import com.itcotato.dortfolio.domain.insight.statistics.TemplateStatistic;
+import com.itcotato.dortfolio.global.ai.generation.GenerationMetadata;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
 import java.time.Duration;
@@ -192,11 +194,11 @@ class InsightGenerationWorkerTest {
         when(recommendationGenerator.generate(
                 eq(USER_ID),
                 any(RecommendationRequest.class)
-        )).thenReturn(List.of(new RecommendationResult(
+        )).thenReturn(RecommendationResponse.of(List.of(new RecommendationResult(
                 competencyId,
                 recordId,
                 "문제 해결 과정이 구체적으로 드러납니다."
-        )));
+        )), new GenerationMetadata("insight_recommendation.v1", "insight_recommendation.v1", "test-generation", 8192, "low")));
 
         // when
         worker.generate(command, "lock-token");
@@ -217,6 +219,8 @@ class InsightGenerationWorkerTest {
                 resultCaptor.getValue();
 
         assertThat(result.insightId()).isEqualTo(INSIGHT_ID);
+        assertThat(result.metadata().getPromptVersion()).isEqualTo("insight_recommendation.v1");
+        assertThat(result.metadata().getThinkingLevel()).isEqualTo("low");
         assertThat(result.strengths()).hasSize(1);
         assertThat(result.templates()).hasSize(1);
         assertThat(result.recommendations()).hasSize(1);
@@ -298,11 +302,11 @@ class InsightGenerationWorkerTest {
         )).thenReturn(List.of(candidate));
 
         when(recommendationGenerator.generate(eq(USER_ID), any(RecommendationRequest.class)))
-                .thenReturn(List.of(new RecommendationResult(
+                .thenReturn(RecommendationResponse.of(List.of(new RecommendationResult(
                         competencyId,
                         recordId,
                         "추천 이유"
-                )));
+                )), null));
 
         // when
         worker.generate(command, "token");
@@ -396,13 +400,13 @@ class InsightGenerationWorkerTest {
             RecommendationRequest request =
                     invocation.getArgument(1);
 
-            return request.competencies().stream()
+            return RecommendationResponse.of(request.competencies().stream()
                     .map(competency -> new RecommendationResult(
                             competency.jobCompetencyId(),
                             recordId,
                             "recommendation-reason"
                     ))
-                    .toList();
+                    .toList(), null);
         });
 
         // when
@@ -524,12 +528,12 @@ class InsightGenerationWorkerTest {
         )).thenReturn(List.of());
 
         when(recommendationGenerator.generate(eq(USER_ID), any(RecommendationRequest.class)))
-                .thenReturn(List.of(new RecommendationResult(
+                .thenReturn(RecommendationResponse.of(List.of(new RecommendationResult(
                         false,
                         competencyId,
                         null,
                         null
-                )));
+                )), null));
 
         // when
         worker.generate(command, "token");

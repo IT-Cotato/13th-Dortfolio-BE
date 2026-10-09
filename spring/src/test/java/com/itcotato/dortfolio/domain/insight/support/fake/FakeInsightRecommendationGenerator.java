@@ -1,11 +1,12 @@
 package com.itcotato.dortfolio.domain.insight.support.fake;
 
-import com.itcotato.dortfolio.domain.insight.recommendation.service.InsightRecommendationGenerator;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationRequest;
+import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResponse;
 import com.itcotato.dortfolio.domain.insight.recommendation.dto.RecommendationResult;
+import com.itcotato.dortfolio.domain.insight.recommendation.service.InsightRecommendationGenerator;
 
-import java.util.Objects;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 public class FakeInsightRecommendationGenerator implements InsightRecommendationGenerator {
@@ -22,15 +23,15 @@ public class FakeInsightRecommendationGenerator implements InsightRecommendation
     }
 
     @Override
-    public List<RecommendationResult> generate(
+    public RecommendationResponse generate(
             UUID userId,
             RecommendationRequest request
     ) {
         this.requestedRequest = request;
 
-        return Objects.requireNonNull(
+        return RecommendationResponse.of(Objects.requireNonNull(
                 result,
                 "Insight recommendation result is not configured."
-        );
+        ), null);
     }
 }

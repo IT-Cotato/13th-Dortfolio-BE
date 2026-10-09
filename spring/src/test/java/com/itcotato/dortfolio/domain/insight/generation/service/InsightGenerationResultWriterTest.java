@@ -6,11 +6,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.itcotato.dortfolio.domain.insight.entity.Insight;
 import com.itcotato.dortfolio.domain.insight.entity.InsightGenerationStatus;
 import com.itcotato.dortfolio.domain.insight.entity.InsightJobRecommendationMatchStatus;
-import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult.JobRecommendationResult;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult.StrengthRecordResult;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult.StrengthResult;
 import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult.TemplateResult;
+import com.itcotato.dortfolio.domain.insight.generation.model.InsightGenerationResult;
 import com.itcotato.dortfolio.domain.insight.repository.InsightJobRecommendationRepository;
 import com.itcotato.dortfolio.domain.insight.repository.InsightRepository;
 import com.itcotato.dortfolio.domain.insight.repository.InsightStrengthRecordRepository;
@@ -18,6 +18,7 @@ import com.itcotato.dortfolio.domain.insight.repository.InsightStrengthRepositor
 import com.itcotato.dortfolio.domain.insight.repository.InsightTemplateStatisticRepository;
 import com.itcotato.dortfolio.domain.user.entity.User;
 import com.itcotato.dortfolio.domain.user.repository.UserRepository;
+import com.itcotato.dortfolio.global.ai.generation.GenerationMetadata;
 import jakarta.persistence.PersistenceException;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -86,6 +87,22 @@ class InsightGenerationResultWriterTest {
         if (createdUserId != null) {
             userRepository.deleteById(createdUserId);
         }
+    }
+
+    @Test
+    void persistsGenerationMetadataWithCompletedInsight() {
+        Insight insight = createPendingInsight();
+        GenerationMetadata metadata = new GenerationMetadata(
+                "insight_recommendation.v1", "insight_recommendation.v1",
+                "test-generation", 8192, null
+        );
+        resultWriter.complete(new InsightGenerationResult(
+                insight.getId(), List.of(), List.of(), List.of(), metadata
+        ));
+
+        Insight saved = insightRepository.findById(insight.getId()).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(InsightGenerationStatus.COMPLETED);
+        assertThat(saved.getGenerationMetadata()).usingRecursiveComparison().isEqualTo(metadata);
     }
 
     @Test

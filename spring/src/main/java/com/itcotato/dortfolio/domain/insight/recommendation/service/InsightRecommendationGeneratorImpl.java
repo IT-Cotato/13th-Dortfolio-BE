@@ -11,6 +11,7 @@ import com.itcotato.dortfolio.global.ai.observability.entity.AiFeature;
 import com.itcotato.dortfolio.global.ai.observability.service.AiCallObserver;
 import com.itcotato.dortfolio.global.ai.observability.service.AiRequestTracker;
 import com.itcotato.dortfolio.global.exception.CustomException;
+import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -18,9 +19,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
-import com.itcotato.dortfolio.global.exception.types.InsightErrorCode;
-import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
@@ -41,7 +41,7 @@ public class InsightRecommendationGeneratorImpl
     private final AiCallObserver aiCallObserver;
 
     @Override
-    public List<RecommendationResult> generate(
+    public RecommendationResponse generate(
             UUID userId,
             RecommendationRequest request
     ) {
@@ -61,7 +61,12 @@ public class InsightRecommendationGeneratorImpl
             try {
                 RecommendationResponse aiResponse = aiCallObserver.attempt(requestId, attempt,
                         () -> client.generateWithUsage(requestId, request), RecommendationResponse::usage,
-                        result -> validateResponse(request, result.recommendations()));
+                        result -> {
+                            if (result.metadata() != null && !result.metadata().isValid()) {
+                                throw new InvalidRecommendationResponseException();
+                            }
+                            validateResponse(request, result.recommendations());
+                        });
                 List<RecommendationResult> response = aiResponse == null ? null : aiResponse.recommendations();
 
                 List<RecommendationResult> validated = validateResponse(
@@ -69,7 +74,7 @@ public class InsightRecommendationGeneratorImpl
                         response
                 );
                 success = true;
-                return validated;
+                return new RecommendationResponse(validated, aiResponse.usage(), aiResponse.metadata());
             } catch (InvalidRecommendationResponseException exception) {
                 lastFailure = FailureType.INVALID_RESPONSE;
                 break;

@@ -1,5 +1,7 @@
 from uuid import UUID
 
+from app.schemas.generation import GenerationMetadata
+
 from pydantic import BaseModel, Field
 from app.schemas.ai_observability import AiUsage
 
@@ -43,7 +45,7 @@ class RecordAnalysisRequest(BaseModel):
     maxStrengthCount: int = Field(ge=1)
 
 
-class RecordAnalysisResult(BaseModel):
+class RecordAnalysisOutput(BaseModel):
     summary: str
     evidenceSnippets: list[str] = Field(
         min_length=1,
@@ -51,5 +53,6 @@ class RecordAnalysisResult(BaseModel):
     )
     strengthTagIds: list[UUID]
 
-class RecordAnalysisResponse(RecordAnalysisResult):
+class RecordAnalysisResponse(RecordAnalysisOutput):
     usage: AiUsage
+    metadata: GenerationMetadata

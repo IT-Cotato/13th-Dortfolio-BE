@@ -8,10 +8,10 @@ import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisRequest;
 import com.itcotato.dortfolio.domain.record.analysis.dto.RecordAnalysisResponse;
 import com.itcotato.dortfolio.domain.record.analysis.dto.StrengthMatchCandidate;
 import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysis;
-import com.itcotato.dortfolio.domain.record.analysis.exception.RecordAnalysisErrorCode;
-import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
-import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisJobRepository;
 import com.itcotato.dortfolio.domain.record.analysis.entity.RecordAnalysisJobStatus;
+import com.itcotato.dortfolio.domain.record.analysis.exception.RecordAnalysisErrorCode;
+import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisJobRepository;
+import com.itcotato.dortfolio.domain.record.analysis.repository.RecordAnalysisRepository;
 import com.itcotato.dortfolio.domain.record.analysis.repository.StrengthMatchCandidateQuery;
 import com.itcotato.dortfolio.domain.record.entity.Record;
 import com.itcotato.dortfolio.domain.record.entity.RecordEmbedding;
@@ -33,8 +33,8 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -278,6 +278,7 @@ public class RecordAnalysisService {
 		RecordAnalysisRequest request
 	) {
 		if (response == null
+			|| (response.metadata() != null && !response.metadata().isValid())
 			|| !StringUtils.hasText(response.summary())
 			|| response.evidenceSnippets() == null
 			|| response.evidenceSnippets().isEmpty()
@@ -330,7 +331,8 @@ public class RecordAnalysisService {
 		recordAnalysis.complete(
 			result.response().summary(),
 			result.evidenceSnippetsJson(),
-			snapshot.recordUpdatedAt()
+			snapshot.recordUpdatedAt(),
+			result.response().metadata()
 		);
 		saveStrengthTags(record, result.response().strengthTagIds(), result.candidates());
 		recordEmbeddingWriter.save(

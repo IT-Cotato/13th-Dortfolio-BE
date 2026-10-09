@@ -1,8 +1,10 @@
 package com.itcotato.dortfolio.domain.record.analysis.entity;
 
 import com.itcotato.dortfolio.domain.record.entity.Record;
+import com.itcotato.dortfolio.global.ai.generation.GenerationMetadata;
 import com.itcotato.dortfolio.global.entity.BaseEntity;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -71,6 +73,9 @@ public class RecordAnalysis extends BaseEntity {
 	@Column(nullable = false)
 	private long analysisGeneration;
 
+	@Embedded
+	private GenerationMetadata generationMetadata;
+
 	private RecordAnalysis(Record record) {
 		this.record = record;
 		this.aiAnalysisStatus = AiAnalysisStatus.PENDING;
@@ -84,6 +89,7 @@ public class RecordAnalysis extends BaseEntity {
 		this.analysisGeneration++;
 		this.aiAnalysisStatus = AiAnalysisStatus.PENDING;
 		this.summary = null;
+		this.generationMetadata = null;
 		this.evidenceSnippets = null;
 		this.failureReason = null;
 		this.failureRetryable = false;
@@ -97,6 +103,11 @@ public class RecordAnalysis extends BaseEntity {
 	}
 
 	public void complete(String summary, String evidenceSnippets, LocalDateTime recordUpdatedAt) {
+		complete(summary, evidenceSnippets, recordUpdatedAt, null);
+	}
+
+	public void complete(String summary, String evidenceSnippets, LocalDateTime recordUpdatedAt, GenerationMetadata metadata) {
+		this.generationMetadata = metadata;
 		this.aiAnalysisStatus = AiAnalysisStatus.COMPLETED;
 		this.summary = summary;
 		this.evidenceSnippets = evidenceSnippets;
@@ -119,6 +130,7 @@ public class RecordAnalysis extends BaseEntity {
 		this.lastFailureRetryable = retryable;
 		this.aiAnalysisStatus = AiAnalysisStatus.FAILED;
 		this.summary = null;
+		this.generationMetadata = null;
 		this.evidenceSnippets = null;
 		this.analyzedAt = null;
 		this.analyzedRecordUpdatedAt = null;

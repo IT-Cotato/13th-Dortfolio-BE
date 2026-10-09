@@ -18,14 +18,14 @@ import com.itcotato.dortfolio.domain.record.dto.req.RecordAnswerRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordCreateRequest;
 import com.itcotato.dortfolio.domain.record.dto.req.RecordUpdateRequest;
 import com.itcotato.dortfolio.domain.record.dto.res.RecordResponse;
-import com.itcotato.dortfolio.domain.record.entity.StrengthTag;
 import com.itcotato.dortfolio.domain.record.entity.RecordStatus;
-import com.itcotato.dortfolio.domain.record.repository.StrengthTagRepository;
+import com.itcotato.dortfolio.domain.record.entity.StrengthTag;
 import com.itcotato.dortfolio.domain.record.repository.RecordAnswerRepository;
-import com.itcotato.dortfolio.domain.record.repository.RecordStrengthTagRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordEmbeddingRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordMemoRepository;
 import com.itcotato.dortfolio.domain.record.repository.RecordRepository;
+import com.itcotato.dortfolio.domain.record.repository.RecordStrengthTagRepository;
+import com.itcotato.dortfolio.domain.record.repository.StrengthTagRepository;
 import com.itcotato.dortfolio.domain.record.service.RecordService;
 import com.itcotato.dortfolio.domain.template.entity.Template;
 import com.itcotato.dortfolio.domain.template.entity.TemplateQuestion;
@@ -36,6 +36,7 @@ import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingRequest;
 import com.itcotato.dortfolio.global.ai.embedding.dto.EmbeddingResponse;
 import com.itcotato.dortfolio.global.ai.embedding.service.EmbeddingClient;
 import com.itcotato.dortfolio.global.ai.observability.dto.AiUsageResponse;
+import com.itcotato.dortfolio.global.ai.generation.GenerationMetadata;
 import com.itcotato.dortfolio.global.exception.CustomException;
 import java.time.LocalDate;
 import java.util.List;
@@ -156,7 +157,8 @@ class RecordAnalysisServiceTest {
 		stubRecordAnalysisClient.response = new RecordAnalysisResponse(
 			"추천 기준을 개선한 경험입니다.",
 			List.of("추천 기준을 다시 정의했습니다."),
-			List.of(strengthTag.getId())
+			List.of(strengthTag.getId()),
+			new GenerationMetadata("record_analysis.v1", "record_analysis.v1", "test-generation", 8192, "low")
 		);
 
 		recordAnalysisService.analyze(record.id());
@@ -167,6 +169,13 @@ class RecordAnalysisServiceTest {
 			.isEqualTo("추천 기준을 개선한 경험입니다.");
 		assertThat(recordAnalysisRepository.findByRecord_Id(record.id()).orElseThrow().getEvidenceSnippets())
 			.contains("추천 기준을 다시 정의했습니다.");
+		GenerationMetadata metadata = recordAnalysisRepository.findByRecord_Id(record.id())
+				.orElseThrow().getGenerationMetadata();
+		assertThat(metadata.getPromptVersion()).isEqualTo("record_analysis.v1");
+		assertThat(metadata.getSchemaVersion()).isEqualTo("record_analysis.v1");
+		assertThat(metadata.getModel()).isEqualTo("test-generation");
+		assertThat(metadata.getMaxOutputTokens()).isEqualTo(8192);
+		assertThat(metadata.getThinkingLevel()).isEqualTo("low");
 		assertThat(stubRecordEmbeddingWriter.recordId).isEqualTo(record.id());
 		assertThat(stubRecordEmbeddingWriter.embeddingModel).isEqualTo("test-embedding");
 		assertThat(stubRecordEmbeddingWriter.embedding).hasSize(3072);
@@ -936,7 +945,8 @@ class RecordAnalysisServiceTest {
 				return null;
 			}
 			return new RecordAnalysisResponse(result.summary(), result.evidenceSnippets(),
-				result.strengthTagIds(), new AiUsageResponse(requestId, "TEST", "test-model", 10L, 5L, 1));
+				result.strengthTagIds(), new AiUsageResponse(requestId, "TEST", "test-model", 10L, 5L, 1),
+				result.metadata());
 		}
 
 		private void reset() {
