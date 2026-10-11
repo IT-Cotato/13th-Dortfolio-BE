@@ -45,7 +45,7 @@ class AiRequestTrackerIntegrationTest {
     @Test
     void successStoresTokensCostLatencyAndStatus() {
         UUID requestId = tracker.start(null, AiFeature.RECORD_EMBEDDING);
-        tracker.recordSuccess(requestId, 1, usage(requestId, "gemini-embedding-2", 1_000L));
+        tracker.recordSuccess(requestId, 1, usage(requestId, "test-embedding-model", 1_000L));
         tracker.finish(requestId, true, 0, 42);
 
         AiRequest request = requests.findByRequestId(requestId).orElseThrow();
@@ -53,18 +53,18 @@ class AiRequestTrackerIntegrationTest {
         assertThat(request.getFinalStatus()).isEqualTo(AiRequestStatus.SUCCESS);
         assertThat(request.getRetryCount()).isZero();
         assertThat(request.getTotalLatencyMs()).isEqualTo(42);
-        assertThat(request.getTotalEstimatedCostUsd()).isEqualByComparingTo("0.0002000000");
+        assertThat(request.getTotalEstimatedCostUsd()).isEqualByComparingTo("0.0001200000");
         assertThat(request.getCompletedAt()).isNotNull();
         assertThat(attempt.getInputTokens()).isEqualTo(1_000L);
         assertThat(attempt.getOutputTokens()).isNull();
         assertThat(attempt.getStatus()).isEqualTo(AiCallStatus.SUCCESS);
-        assertThat(attempt.getEstimatedCostUsd()).isEqualByComparingTo("0.0002000000");
+        assertThat(attempt.getEstimatedCostUsd()).isEqualByComparingTo("0.0001200000");
     }
 
     @Test
     void failureStoresSafeErrorButDoesNotInventCost() {
         UUID requestId = tracker.start(null, AiFeature.RECORD_ANALYSIS);
-        tracker.recordFailure(requestId, 1, "GEMINI", "gemini-3.6-flash",
+        tracker.recordFailure(requestId, 1, "BEDROCK", "test-generation-model",
                 AiCallStatus.RATE_LIMITED, "HTTP_429", 20);
         tracker.finish(requestId, false, 0, 25);
 
@@ -81,9 +81,9 @@ class AiRequestTrackerIntegrationTest {
     @Test
     void retryAggregatesKnownAttemptCostsAndRetryCount() {
         UUID requestId = tracker.start(null, AiFeature.INSIGHT_RECOMMENDATION);
-        tracker.recordFailure(requestId, 1, usage(requestId, "gemini-embedding-2", 1_000L),
+        tracker.recordFailure(requestId, 1, usage(requestId, "test-embedding-model", 1_000L),
                 AiCallStatus.INVALID_RESPONSE, "SCHEMA_VALIDATION_FAILED", 12);
-        tracker.recordSuccess(requestId, 2, usage(requestId, "gemini-embedding-2", 2_000L));
+        tracker.recordSuccess(requestId, 2, usage(requestId, "test-embedding-model", 2_000L));
         tracker.finish(requestId, true, 1, 60);
 
         AiRequest request = requests.findByRequestId(requestId).orElseThrow();
@@ -93,7 +93,7 @@ class AiRequestTrackerIntegrationTest {
                 .containsExactly(AiCallStatus.INVALID_RESPONSE, AiCallStatus.SUCCESS);
         assertThat(request.getRetryCount()).isEqualTo(1);
         assertThat(request.getTotalLatencyMs()).isEqualTo(60);
-        assertThat(request.getTotalEstimatedCostUsd()).isEqualByComparingTo("0.0006000000");
+        assertThat(request.getTotalEstimatedCostUsd()).isEqualByComparingTo("0.0003600000");
     }
 
     @Test
@@ -112,7 +112,7 @@ class AiRequestTrackerIntegrationTest {
         UUID[] requestId = new UUID[1];
         transactions.executeWithoutResult(status -> {
             requestId[0] = tracker.start(null, AiFeature.RECORD_EMBEDDING);
-            tracker.recordSuccess(requestId[0], 1, usage(requestId[0], "gemini-embedding-2", 500L));
+            tracker.recordSuccess(requestId[0], 1, usage(requestId[0], "test-embedding-model", 500L));
             tracker.finish(requestId[0], true, 0, 15);
             status.setRollbackOnly();
         });
@@ -143,7 +143,7 @@ class AiRequestTrackerIntegrationTest {
     }
 
     private AiUsageResponse usage(UUID requestId, String model, long inputTokens) {
-        return new AiUsageResponse(requestId, "GEMINI", model, inputTokens, null, 5);
+        return new AiUsageResponse(requestId, "BEDROCK", model, inputTokens, null, 5);
     }
 
     private AiCallAttempt onlyAttempt(AiRequest request) {

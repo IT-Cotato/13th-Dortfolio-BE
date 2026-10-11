@@ -1,7 +1,5 @@
 import logging
 
-from google.genai import types
-
 
 logger = logging.getLogger(__name__)
 
@@ -10,28 +8,19 @@ class OutputTokenLimitError(ValueError):
     pass
 
 
-def generation_config(settings, feature: str) -> dict:
-    level = getattr(settings, f"{feature}_thinking_level")
-    config = {
-        "max_output_tokens": getattr(settings, f"{feature}_max_output_tokens"),
-        "http_options": types.HttpOptions(timeout=int(settings.gemini_http_timeout_seconds * 1000)),
-    }
-    if level is not None:
-        config["thinking_config"] = types.ThinkingConfig(thinking_level=level)
-    return config
+def inference_config(settings, feature: str) -> dict:
+    return {"maxTokens": getattr(settings, f"{feature}_max_output_tokens")}
 
 
-def check_generation_response(response, feature: str) -> None:
-    usage = response.usage_metadata
-    finish_reason = response.candidates[0].finish_reason if response.candidates else None
+def check_generation_response(response: dict, feature: str) -> None:
+    usage = response.get("usage") or {}
+    stop_reason = response.get("stopReason")
     logger.info(
-        "Gemini generation completed. feature=%s, finishReason=%s, inputTokens=%s, "
-        "outputTokens=%s, thinkingTokens=%s",
+        "Bedrock generation completed. feature=%s, stopReason=%s, inputTokens=%s, outputTokens=%s",
         feature,
-        finish_reason,
-        usage.prompt_token_count if usage else None,
-        usage.candidates_token_count if usage else None,
-        usage.thoughts_token_count if usage else None,
+        stop_reason,
+        usage.get("inputTokens"),
+        usage.get("outputTokens"),
     )
-    if finish_reason == types.FinishReason.MAX_TOKENS:
-        raise OutputTokenLimitError("Gemini generation reached the output token limit.")
+    if stop_reason == "max_tokens":
+        raise OutputTokenLimitError("Bedrock generation reached the output token limit.")

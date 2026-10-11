@@ -377,7 +377,7 @@ class InsightRecordQueryRepositoryTest {
                         """,
                 UUID.randomUUID(),
                 record.getId(),
-                "gemini-embedding-2"
+                "cohere-embed-v4"
         );
     }
 

@@ -37,6 +37,14 @@ search:
   max-page-size: 50
 
 app:
+  ai:
+    pricing:
+      # 운영 단가·모델 ID(환경변수)와 무관하게 비용 계산을 검증하도록 테스트용 단가를 고정한다.
+      rates:
+        - provider: BEDROCK
+          model-id: test-embedding-model
+          input-usd-per-million-tokens: 0.12
+          output-usd-per-million-tokens: 0
   fastapi:
     base-url: http://localhost:8000
     connect-timeout: 1s
@@ -57,9 +65,9 @@ matching:
   default-record-limit: 3
   max-record-limit: 10
   candidate-record-limit: 10
-  embedding-dimension: 3072
+  embedding-dimension: 1536
   indexed-embedding-models:
-    - gemini-embedding-2
+    - cohere-embed-v4
   question-max-length: 500
   min-match-rate: 30
   daily-ai-request-limit: 20
@@ -78,7 +86,7 @@ insight:
   recommendation-candidate-min: 1
   recommendation-candidate-max: 20
   recommendation-min-similarity: 0.0
-  embedding-model: gemini-embedding-2
+  embedding-model: cohere-embed-v4
   recommendation-max-attempts: 2
   recommendation-timeout: 30s
 

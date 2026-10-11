@@ -55,7 +55,7 @@ class MatchingServiceTest {
 				3,
 				10,
 				10,
-				3072,
+				1536,
 				List.of("test-embedding"),
 				500,
 				30,
@@ -197,7 +197,7 @@ class MatchingServiceTest {
 	}
 
 	private float[] embedding(float first, float second) {
-		float[] embedding = new float[3072];
+		float[] embedding = new float[1536];
 		embedding[0] = first;
 		embedding[1] = second;
 		return embedding;

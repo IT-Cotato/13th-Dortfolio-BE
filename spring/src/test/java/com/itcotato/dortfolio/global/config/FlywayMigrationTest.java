@@ -29,8 +29,8 @@ class FlywayMigrationTest {
 	void migratesFreshSchemaThroughLatestVersion() {
 		MigrateResult result = flyway().migrate();
 
-		assertThat(result.migrationsExecuted).isEqualTo(23);
-		assertThat(result.targetSchemaVersion).isEqualTo("23");
+		assertThat(result.migrationsExecuted).isEqualTo(24);
+		assertThat(result.targetSchemaVersion).isEqualTo("24");
 		assertAiObservabilityTablesCreated();
 		assertMatchingIndexesCreated();
 		assertRunningInsightStatusAllowed();
@@ -45,6 +45,25 @@ class FlywayMigrationTest {
 		assertRecommendationNoMatchSupported();
 		assertRecordAnalysisJobOutboxCreated();
         assertGenerationMetadataColumnsCreated();
+		assertEmbeddingColumnsUseCohereDimension();
+	}
+
+	private void assertEmbeddingColumnsUseCohereDimension() {
+		assertThat(jdbcTemplate().queryForList("""
+				select format_type(attribute.atttypid, attribute.atttypmod)
+				from pg_attribute attribute
+				where attribute.attrelid in (
+					'job_competency_embeddings'::regclass,
+					'strength_tag_embeddings'::regclass
+				)
+				  and attribute.attname = 'embedding'
+				""", String.class)).containsExactly("vector(1536)", "vector(1536)");
+		assertThat(jdbcTemplate().queryForObject("""
+				select count(*)
+				from pg_indexes
+				where tablename = 'record_embeddings'
+				  and indexname = 'idx_record_embeddings_gemini_embedding_2_hvc'
+				""", Integer.class)).isZero();
 	}
 
     private void assertGenerationMetadataColumnsCreated() {
@@ -164,6 +183,60 @@ class FlywayMigrationTest {
 		assertBuiltinTemplatesSeeded();
 	}
 
+	@Test
+	void switchesEmbeddingModelAndFlagsCompletedAnalysesForReanalysis() {
+		flyway(MigrationVersion.fromVersion("23")).migrate();
+		UUID strengthTagId = jdbcTemplate().queryForObject(
+			"select id from strength_tags order by code limit 1", UUID.class
+		);
+		jdbcTemplate().update("""
+				insert into strength_tag_embeddings
+				    (id, created_at, updated_at, strength_tag_id, embedding_model, embedding)
+				values (?, now(), now(), ?, 'gemini-embedding-2', cast(? as vector))
+				""", UUID.randomUUID(), strengthTagId, vectorLiteral(3072));
+		UUID completedAnalysisId = UUID.randomUUID();
+		UUID pendingAnalysisId = UUID.randomUUID();
+		// 기록·사용자 등 선행 데이터를 만들지 않도록 이 세션에서만 FK 검사를 끈다.
+		jdbcTemplate().execute("""
+				set session_replication_role = replica;
+				insert into record_analysis
+				    (id, created_at, updated_at, ai_analysis_status, summary, failure_retryable,
+				     last_attempt_failed, last_failure_retryable, record_id)
+				values
+				    ('%s', now(), now(), 'COMPLETED', '기존 요약', false, false, false, '%s'),
+				    ('%s', now(), now(), 'PENDING', null, false, false, false, '%s');
+				""".formatted(completedAnalysisId, UUID.randomUUID(), pendingAnalysisId, UUID.randomUUID()));
+
+		flyway().migrate();
+
+		assertThat(jdbcTemplate().queryForObject(
+			"select count(*) from strength_tag_embeddings", Integer.class
+		)).isZero();
+		jdbcTemplate().update("""
+				insert into strength_tag_embeddings
+				    (id, created_at, updated_at, strength_tag_id, embedding_model, embedding)
+				values (?, now(), now(), ?, 'cohere-embed-v4', cast(? as vector))
+				""", UUID.randomUUID(), strengthTagId, vectorLiteral(1536));
+		assertThat(jdbcTemplate().queryForMap("""
+				select ai_analysis_status, summary, last_attempt_failed, last_failure_retryable,
+				       last_failure_reason like 'RA008 %' as marked_not_ready
+				from record_analysis
+				where id = ?
+				""", completedAnalysisId))
+			.containsEntry("ai_analysis_status", "COMPLETED")
+			.containsEntry("summary", "기존 요약")
+			.containsEntry("last_attempt_failed", true)
+			.containsEntry("last_failure_retryable", true)
+			.containsEntry("marked_not_ready", true);
+		assertThat(jdbcTemplate().queryForObject(
+			"select last_attempt_failed from record_analysis where id = ?", Boolean.class, pendingAnalysisId
+		)).isFalse();
+	}
+
+	private String vectorLiteral(int dimension) {
+		return "[" + String.join(",", java.util.Collections.nCopies(dimension, "0.1")) + "]";
+	}
+
 	private Flyway flyway() {
 		return flyway(null);
 	}
@@ -203,7 +276,7 @@ class FlywayMigrationTest {
 				where tablename = 'record_embeddings'
 					and indexname in (
 						'uk_record_embedding_record_model',
-						'idx_record_embeddings_gemini_embedding_2_hvc'
+						'idx_record_embeddings_cohere_embed_v4_hvc'
 					)
 				""", Integer.class)).isEqualTo(2);
 	}

@@ -62,7 +62,7 @@ class InsightRecommendationGeneratorImplTest {
                 client,
                 new InsightProperties(
                         10, Duration.ofHours(24), 0.1, 1, 5, 0.0,
-                        "gemini-embedding-2", 2, Duration.ZERO,
+                        "cohere-embed-v4", 2, Duration.ZERO,
                         Duration.ofSeconds(10)
                 ),
                 retrySleeper,

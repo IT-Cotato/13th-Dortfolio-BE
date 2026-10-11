@@ -40,6 +40,7 @@ class FastApiRecordMatchingClientTest {
 		QuestionEmbeddingResponse response = client.embedQuestion("목표 달성 경험");
 
 		assertThat(embeddingRequestBody.get()).contains("\"question\":\"목표 달성 경험\"");
+		assertThat(embeddingRequestBody.get()).contains("\"inputType\":\"search_query\"");
 		assertThat(response.embeddingModel()).isEqualTo("test-embedding");
 		assertThat(response.embedding()).containsExactly(0.1f, 0.2f);
 	}

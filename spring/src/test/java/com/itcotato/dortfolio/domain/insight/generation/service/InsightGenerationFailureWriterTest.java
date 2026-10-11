@@ -54,7 +54,7 @@ class InsightGenerationFailureWriterTest {
         failureWriter.fail(
                 insight.getId(),
                 "AI_TIMEOUT",
-                "Gemini 요청 시간이 초과되었습니다."
+                "Bedrock 요청 시간이 초과되었습니다."
         );
 
         // then
@@ -68,7 +68,7 @@ class InsightGenerationFailureWriterTest {
         assertThat(savedInsight.getFailureCode())
                 .isEqualTo("AI_TIMEOUT");
         assertThat(savedInsight.getFailureMessage())
-                .isEqualTo("Gemini 요청 시간이 초과되었습니다.");
+                .isEqualTo("Bedrock 요청 시간이 초과되었습니다.");
     }
 
     @Test

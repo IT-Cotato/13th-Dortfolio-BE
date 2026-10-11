@@ -13,7 +13,7 @@
    ```bash
    cp .env.example .env
    ```
-   필요 시 `.env` 값(DB 이름/계정, GEMINI_API_KEY 등) 수정
+   필요 시 `.env` 값(DB 이름/계정, Bedrock용 AWS 액세스 키 등) 수정
 
 2. DB / FastAPI 컨테이너 기동
    ```bash

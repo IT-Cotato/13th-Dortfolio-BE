@@ -12,7 +12,7 @@ class MatchingPropertiesTest {
 
 	@Test
 	void validationRejectsMatchRateGreaterThanOneHundred() {
-		MatchingProperties properties = properties(3072, 101);
+		MatchingProperties properties = properties(1536, 101);
 
 		var violations = Validation.buildDefaultValidatorFactory()
 			.getValidator()
@@ -25,7 +25,7 @@ class MatchingPropertiesTest {
 
 	@Test
 	void validationRejectsEmbeddingDimensionThatDiffersFromVectorIndex() {
-		MatchingProperties properties = properties(1536, 30);
+		MatchingProperties properties = properties(3072, 30);
 
 		var violations = Validation.buildDefaultValidatorFactory()
 			.getValidator()
@@ -39,7 +39,7 @@ class MatchingPropertiesTest {
 	@Test
 	void validationRejectsBlankQuestionTagFields() {
 		MatchingProperties properties = properties(
-			3072,
+			1536,
 			30,
 			List.of(new MatchingProperties.QuestionTag("", " "))
 		);
@@ -71,7 +71,7 @@ class MatchingPropertiesTest {
 			10,
 			10,
 			embeddingDimension,
-			List.of("gemini-embedding-2"),
+			List.of("cohere-embed-v4"),
 			500,
 			minMatchRate,
 			20,

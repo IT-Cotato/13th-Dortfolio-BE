@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 class AiCostCalculatorTest {
 
     private final AiCostCalculator calculator = new AiCostCalculator(new AiPricingProperties(List.of(
-            new ModelRate("GEMINI", "text-model", new BigDecimal("0.75"),
+            new ModelRate("BEDROCK", "text-model", new BigDecimal("0.75"),
                     new BigDecimal("3.75"), null, null),
             new ModelRate("BEDROCK", "embedding-model", new BigDecimal("0.20"),
                     BigDecimal.ZERO, null, null)
@@ -21,7 +21,7 @@ class AiCostCalculatorTest {
 
     @Test
     void calculatesInputAndOutputWithBigDecimalPrecision() {
-        AiUsageResponse usage = new AiUsageResponse(UUID.randomUUID(), "GEMINI", "text-model",
+        AiUsageResponse usage = new AiUsageResponse(UUID.randomUUID(), "BEDROCK", "text-model",
                 1_000L, 200L, 25);
 
         assertThat(calculator.estimate(usage)).isEqualByComparingTo("0.0015000000");
@@ -39,9 +39,9 @@ class AiCostCalculatorTest {
     void unregisteredModelAndMissingBillableTokensHaveUnknownCost() {
         assertThat(calculator.estimate(new AiUsageResponse(UUID.randomUUID(), "BEDROCK", "new-model",
                 1_000L, 200L, 5))).isNull();
-        assertThat(calculator.estimate(new AiUsageResponse(UUID.randomUUID(), "GEMINI", "text-model",
+        assertThat(calculator.estimate(new AiUsageResponse(UUID.randomUUID(), "BEDROCK", "text-model",
                 1_000L, null, 5))).isNull();
-        assertThat(calculator.estimate(new AiUsageResponse(UUID.randomUUID(), "GEMINI", "text-model",
+        assertThat(calculator.estimate(new AiUsageResponse(UUID.randomUUID(), "BEDROCK", "text-model",
                 null, 200L, 5))).isNull();
     }
 }

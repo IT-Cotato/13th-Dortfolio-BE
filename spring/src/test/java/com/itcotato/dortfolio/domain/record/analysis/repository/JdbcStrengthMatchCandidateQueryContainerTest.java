@@ -27,7 +27,7 @@ import org.testcontainers.utility.DockerImageName;
 @Testcontainers(disabledWithoutDocker = true)
 class JdbcStrengthMatchCandidateQueryContainerTest {
 
-	private static final String MODEL = "gemini-embedding-2";
+	private static final String MODEL = "cohere-embed-v4";
 
 	@Container
 	private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(

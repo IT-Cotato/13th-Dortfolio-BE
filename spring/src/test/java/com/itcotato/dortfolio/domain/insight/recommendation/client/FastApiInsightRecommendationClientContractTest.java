@@ -69,7 +69,7 @@ class FastApiInsightRecommendationClientContractTest {
                             ))
                             .toList(),
                     "usage", java.util.Map.of(
-                            "requestId", requestId, "provider", "GEMINI", "modelId", "test-generation",
+                            "requestId", requestId, "provider", "BEDROCK", "modelId", "test-generation",
                             "inputTokens", 100, "outputTokens", 70, "latencyMs", 15
                     ),
                     "metadata", java.util.Map.of(
@@ -104,7 +104,7 @@ class FastApiInsightRecommendationClientContractTest {
                                 1,
                                 5,
                                 0.0,
-                                "gemini-embedding-2",
+                                "cohere-embed-v4",
                                 2,
                                 Duration.ZERO,
                                 Duration.ofSeconds(2)

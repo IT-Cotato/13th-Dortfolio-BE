@@ -192,6 +192,29 @@ IAM → 사용자 → 사용자 생성 (이름 `dotfolio-s3`) → 콘솔 액세�
 
 ---
 
+### Bedrock 호출 권한
+
+AI 생성(Claude Haiku 4.5)과 임베딩(Cohere Embed v4)은 AWS Bedrock으로 호출하며,
+FastAPI가 위 IAM 사용자의 액세스 키를 그대로 사용합니다. 같은 인라인 정책에 아래 Statement를 추가합니다.
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+  "Resource": "*"
+}
+```
+
+Bedrock 콘솔의 모델 카탈로그에서 두 모델의 모델 ID(또는 추론 프로파일 ID)를 확인해
+`.env`의 `BEDROCK_GENERATION_MODEL_ID`, `BEDROCK_EMBEDDING_MODEL_ID`에 넣습니다.
+Spring의 AI 비용 집계도 같은 값을 단가 조회 키로 쓰므로 두 서비스가 같은 `.env`를 읽어야 합니다.
+모델이 `AWS_REGION`과 다른 리전에만 있으면 `BEDROCK_REGION`을 지정합니다.
+
+`EMBEDDING_MODEL_NAME`(기본 `cohere-embed-v4`)은 DB에 저장되는 이름이며 벡터 인덱스가 이 값에 묶여 있습니다.
+Bedrock 모델 ID를 바꾸더라도 같은 임베딩 모델이라면 이 값은 그대로 둡니다.
+
+---
+
 ## 3-2. 도메인과 HTTPS
 
 Let's Encrypt는 IP 주소로는 인증서를 발급하지 않으므로 도메인이 필요합니다.
@@ -303,7 +326,7 @@ docker exec dortfolio-postgres pg_dump -U dortfolio dortfolio > backup_$(date +%
 
 | 명령 | 동작 |
 |---|---|
-| `GENERATE_MISSING` | Spring의 `insight.embedding-model`을 기준으로 누락된 임베딩만 생성한 뒤 전체 완료 상태를 검증합니다. 운영 Compose는 Spring의 `INSIGHT_EMBEDDING_MODEL`에 FastAPI와 같은 `GEMINI_EMBEDDING_MODEL` 값을 전달합니다. |
+| `GENERATE_MISSING` | Spring의 `insight.embedding-model`을 기준으로 누락된 임베딩만 생성한 뒤 전체 완료 상태를 검증합니다. 운영 Compose는 Spring의 `INSIGHT_EMBEDDING_MODEL`에 FastAPI와 같은 `EMBEDDING_MODEL_NAME` 값을 전달합니다. |
 | `VERIFY` | 외부 AI API를 호출하지 않고 전체 개수, 생성 개수, 누락 개수와 누락 ID를 검증합니다. |
 
 ### 로컬 실행
@@ -383,6 +406,31 @@ docker compose -f docker-compose.prod.yml run --rm \
 실패 또는 누락이 하나라도 남으면 명령이 실패하므로 원인을 해결한 뒤 같은 명령을 다시 실행합니다.
 이미 생성된 현재 모델의 임베딩은 건너뛰므로 재실행해도 중복 저장되지 않습니다.
 자동 배포에서는 임베딩 생성이 끝난 뒤 준비 전 상태(`RA008`)로 실패했던 기록만 한 번 재분석합니다.
+
+### 임베딩 모델 전환 후 재생성 (V24)
+
+V24 마이그레이션은 임베딩 모델을 `gemini-embedding-2`(3072차원)에서 `cohere-embed-v4`(1536차원)로 바꾸면서
+기존 임베딩을 모두 삭제합니다. 서로 다른 모델의 벡터는 비교할 수 없기 때문입니다.
+삭제된 임베딩은 되돌릴 수 없으므로 배포 전에 DB를 백업합니다.
+
+배포 직후에는 임베딩이 비어 있어 새 기록 분석이 준비 전 상태(`RA008`)로 실패하고,
+AI 매칭과 인사이트 추천에 기존 기록이 잡히지 않습니다. 배포가 끝나면 바로 아래 명령을 한 번 실행합니다.
+강점 태그·직무 역량 임베딩을 새 모델로 만든 뒤, V24가 재분석 대상으로 표시한 기존 기록을 다시 분석합니다.
+
+```bash
+docker compose -f docker-compose.prod.yml run --rm \
+  -e JOB_COMPETENCY_EMBEDDING_BATCH_ENABLED=true \
+  -e JOB_COMPETENCY_EMBEDDING_BATCH_COMMAND=GENERATE_MISSING \
+  -e STRENGTH_TAG_EMBEDDING_BATCH_ENABLED=true \
+  -e STRENGTH_TAG_EMBEDDING_BATCH_COMMAND=GENERATE_MISSING \
+  -e RECORD_ANALYSIS_RETRY_NOT_READY_BATCH_ENABLED=true \
+  -e SPRING_MAIN_WEB_APPLICATION_TYPE=none \
+  spring
+```
+
+재분석은 기록마다 임베딩 1회와 생성 1회를 호출하므로 기록 수에 비례해 시간과 비용이 듭니다.
+재분석이 끝나기 전까지 기존 요약은 그대로 보입니다. 모델이 바뀌면 유사도 분포도 달라지므로
+`RECORD_ANALYSIS_STRENGTH_MIN_SIMILARITY`, `MATCHING_MIN_MATCH_RATE` 같은 임계값은 결과를 보고 다시 조정합니다.
 
 ---
 

@@ -37,7 +37,7 @@ class RedisMatchingUsageLimiterTest {
 				3,
 				10,
 				10,
-				3072,
+				1536,
 				java.util.List.of("test-embedding"),
 				500,
 				30,

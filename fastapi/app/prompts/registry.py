@@ -24,9 +24,10 @@ class PromptDefinition:
         return GenerationMetadata(
             promptVersion=f"{self.feature}.{self.version}",
             schemaVersion=f"{self.feature}.{self.schema_version}",
-            model=settings.gemini_generation_model,
+            model=settings.bedrock_generation_model_id,
             maxOutputTokens=getattr(settings, f"{self.feature}_max_output_tokens"),
-            thinkingLevel=getattr(settings, f"{self.feature}_thinking_level"),
+            # 구조화 출력을 위해 도구 호출을 강제하며, 이 방식은 확장 사고와 함께 쓸 수 없다.
+            thinkingLevel=None,
         )
 
 

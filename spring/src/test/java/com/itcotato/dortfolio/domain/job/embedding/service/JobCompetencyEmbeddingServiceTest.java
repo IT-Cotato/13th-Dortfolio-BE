@@ -80,7 +80,7 @@ class JobCompetencyEmbeddingServiceTest {
 
     @Test
     void generatesAndStoresEmbedding() {
-        when(insightProperties.embeddingModel()).thenReturn("gemini-embedding-2");
+        when(insightProperties.embeddingModel()).thenReturn("cohere-embed-v4");
 
         UUID competencyId = UUID.randomUUID();
         JobCompetency competency = competency();
@@ -93,10 +93,10 @@ class JobCompetencyEmbeddingServiceTest {
         when(jobCompetencyRepository.findWithDetailsById(competencyId))
                 .thenReturn(Optional.of(competency));
         when(embeddingClient.embed(request))
-                .thenReturn(new EmbeddingResponse("gemini-embedding-2", vector));
+                .thenReturn(new EmbeddingResponse("cohere-embed-v4", vector));
         when(embeddingWriter.saveIfAbsent(
                 competencyId,
-                "gemini-embedding-2",
+                "cohere-embed-v4",
                 vector
         )).thenReturn(true);
 
@@ -107,7 +107,7 @@ class JobCompetencyEmbeddingServiceTest {
                 .isEqualTo(JobCompetencyEmbeddingGenerationStatus.GENERATED);
         verify(embeddingWriter).saveIfAbsent(
                 competencyId,
-                "gemini-embedding-2",
+                "cohere-embed-v4",
                 vector
         );
     }
@@ -115,10 +115,10 @@ class JobCompetencyEmbeddingServiceTest {
     @Test
     void skipsStoreWhenSameModelAlreadyExists() {
         UUID competencyId = UUID.randomUUID();
-        when(insightProperties.embeddingModel()).thenReturn("gemini-embedding-2");
+        when(insightProperties.embeddingModel()).thenReturn("cohere-embed-v4");
         when(embeddingRepository.existsByJobCompetency_IdAndEmbeddingModel(
                 competencyId,
-                "gemini-embedding-2"
+                "cohere-embed-v4"
         )).thenReturn(true);
 
         JobCompetencyEmbeddingGenerationStatus result =
@@ -137,13 +137,13 @@ class JobCompetencyEmbeddingServiceTest {
 
     @Test
     void rejectsWrongEmbeddingDimensionWithCommonErrorCode() {
-        when(insightProperties.embeddingModel()).thenReturn("gemini-embedding-2");
+        when(insightProperties.embeddingModel()).thenReturn("cohere-embed-v4");
 
         UUID competencyId = UUID.randomUUID();
         when(jobCompetencyRepository.findWithDetailsById(competencyId))
                 .thenReturn(Optional.of(competency()));
         when(embeddingClient.embed(org.mockito.ArgumentMatchers.any()))
-                .thenReturn(new EmbeddingResponse("gemini-embedding-2", new float[2]));
+                .thenReturn(new EmbeddingResponse("cohere-embed-v4", new float[2]));
 
         assertThatThrownBy(() -> service.generate(competencyId))
                 .isInstanceOf(CustomException.class)
@@ -153,7 +153,7 @@ class JobCompetencyEmbeddingServiceTest {
 
     @Test
     void convertsAiClientFailureToCommonErrorCode() {
-        when(insightProperties.embeddingModel()).thenReturn("gemini-embedding-2");
+        when(insightProperties.embeddingModel()).thenReturn("cohere-embed-v4");
 
         UUID competencyId = UUID.randomUUID();
         when(jobCompetencyRepository.findWithDetailsById(competencyId))
@@ -170,7 +170,7 @@ class JobCompetencyEmbeddingServiceTest {
 
     @Test
     void retriesTransientAiClientFailure() {
-        when(insightProperties.embeddingModel()).thenReturn("gemini-embedding-2");
+        when(insightProperties.embeddingModel()).thenReturn("cohere-embed-v4");
 
         UUID competencyId = UUID.randomUUID();
         float[] vector = embedding();
@@ -178,10 +178,10 @@ class JobCompetencyEmbeddingServiceTest {
                 .thenReturn(Optional.of(competency()));
         when(embeddingClient.embed(any()))
                 .thenThrow(new RestClientException("temporary failure"))
-                .thenReturn(new EmbeddingResponse("gemini-embedding-2", vector));
+                .thenReturn(new EmbeddingResponse("cohere-embed-v4", vector));
         when(embeddingWriter.saveIfAbsent(
                 competencyId,
-                "gemini-embedding-2",
+                "cohere-embed-v4",
                 vector
         )).thenReturn(true);
 
@@ -197,14 +197,14 @@ class JobCompetencyEmbeddingServiceTest {
     void reportsSkippedWhenConcurrentExecutionStoresFirst() {
         UUID competencyId = UUID.randomUUID();
         float[] vector = embedding();
-        when(insightProperties.embeddingModel()).thenReturn("gemini-embedding-2");
+        when(insightProperties.embeddingModel()).thenReturn("cohere-embed-v4");
         when(jobCompetencyRepository.findWithDetailsById(competencyId))
                 .thenReturn(Optional.of(competency()));
         when(embeddingClient.embed(any()))
-                .thenReturn(new EmbeddingResponse("gemini-embedding-2", vector));
+                .thenReturn(new EmbeddingResponse("cohere-embed-v4", vector));
         when(embeddingWriter.saveIfAbsent(
                 competencyId,
-                "gemini-embedding-2",
+                "cohere-embed-v4",
                 vector
         )).thenReturn(false);
 
@@ -219,14 +219,14 @@ class JobCompetencyEmbeddingServiceTest {
     void generatesOnlyMissingItemsAndAggregatesResult() {
         UUID firstMissingId = UUID.randomUUID();
         UUID secondMissingId = UUID.randomUUID();
-        when(insightProperties.embeddingModel()).thenReturn("gemini-embedding-2");
+        when(insightProperties.embeddingModel()).thenReturn("cohere-embed-v4");
         when(jobCompetencyRepository.count()).thenReturn(5L);
-        when(jobCompetencyRepository.findMissingEmbeddingIdsByModel("gemini-embedding-2"))
+        when(jobCompetencyRepository.findMissingEmbeddingIdsByModel("cohere-embed-v4"))
                 .thenReturn(List.of(firstMissingId, secondMissingId));
         when(jobCompetencyRepository.findWithDetailsById(any()))
                 .thenReturn(Optional.of(competency()));
         when(embeddingClient.embed(any()))
-                .thenReturn(new EmbeddingResponse("gemini-embedding-2", embedding()));
+                .thenReturn(new EmbeddingResponse("cohere-embed-v4", embedding()));
         when(embeddingWriter.saveIfAbsent(any(), any(), any()))
                 .thenReturn(true);
 
@@ -251,14 +251,14 @@ class JobCompetencyEmbeddingServiceTest {
         UUID firstId = UUID.randomUUID();
         UUID failedId = UUID.randomUUID();
         UUID lastId = UUID.randomUUID();
-        when(insightProperties.embeddingModel()).thenReturn("gemini-embedding-2");
+        when(insightProperties.embeddingModel()).thenReturn("cohere-embed-v4");
         when(jobCompetencyRepository.count()).thenReturn(3L);
-        when(jobCompetencyRepository.findMissingEmbeddingIdsByModel("gemini-embedding-2"))
+        when(jobCompetencyRepository.findMissingEmbeddingIdsByModel("cohere-embed-v4"))
                 .thenReturn(List.of(firstId, failedId, lastId));
         when(jobCompetencyRepository.findWithDetailsById(any()))
                 .thenReturn(Optional.of(competency()));
         when(embeddingClient.embed(any()))
-                .thenReturn(new EmbeddingResponse("gemini-embedding-2", embedding()));
+                .thenReturn(new EmbeddingResponse("cohere-embed-v4", embedding()));
         when(embeddingWriter.saveIfAbsent(any(), any(), any()))
                 .thenReturn(true)
                 .thenThrow(new IllegalStateException("database unavailable"))
@@ -282,14 +282,14 @@ class JobCompetencyEmbeddingServiceTest {
     void retriesOnlyStillMissingItemWithoutDuplicatingSuccessfulItem() {
         UUID completedId = UUID.randomUUID();
         UUID retryId = UUID.randomUUID();
-        when(insightProperties.embeddingModel()).thenReturn("gemini-embedding-2");
+        when(insightProperties.embeddingModel()).thenReturn("cohere-embed-v4");
         when(jobCompetencyRepository.count()).thenReturn(2L);
-        when(jobCompetencyRepository.findMissingEmbeddingIdsByModel("gemini-embedding-2"))
+        when(jobCompetencyRepository.findMissingEmbeddingIdsByModel("cohere-embed-v4"))
                 .thenReturn(List.of(completedId, retryId), List.of(retryId));
         when(jobCompetencyRepository.findWithDetailsById(any()))
                 .thenReturn(Optional.of(competency()));
         when(embeddingClient.embed(any()))
-                .thenReturn(new EmbeddingResponse("gemini-embedding-2", embedding()));
+                .thenReturn(new EmbeddingResponse("cohere-embed-v4", embedding()));
         when(embeddingWriter.saveIfAbsent(any(), any(), any()))
                 .thenReturn(true)
                 .thenThrow(new IllegalStateException("temporary failure"))
@@ -314,16 +314,16 @@ class JobCompetencyEmbeddingServiceTest {
     @Test
     void inspectsCoverageForCurrentModel() {
         UUID missingId = UUID.randomUUID();
-        when(insightProperties.embeddingModel()).thenReturn("gemini-embedding-2");
+        when(insightProperties.embeddingModel()).thenReturn("cohere-embed-v4");
         when(jobCompetencyRepository.count()).thenReturn(5L);
-        when(embeddingRepository.countByEmbeddingModel("gemini-embedding-2"))
+        when(embeddingRepository.countByEmbeddingModel("cohere-embed-v4"))
                 .thenReturn(4L);
-        when(jobCompetencyRepository.findMissingEmbeddingIdsByModel("gemini-embedding-2"))
+        when(jobCompetencyRepository.findMissingEmbeddingIdsByModel("cohere-embed-v4"))
                 .thenReturn(List.of(missingId));
 
         JobCompetencyEmbeddingCoverage coverage = service.inspectCoverage();
 
-        assertThat(coverage.embeddingModel()).isEqualTo("gemini-embedding-2");
+        assertThat(coverage.embeddingModel()).isEqualTo("cohere-embed-v4");
         assertThat(coverage.totalCount()).isEqualTo(5);
         assertThat(coverage.embeddedCount()).isEqualTo(4);
         assertThat(coverage.missingCount()).isEqualTo(1);

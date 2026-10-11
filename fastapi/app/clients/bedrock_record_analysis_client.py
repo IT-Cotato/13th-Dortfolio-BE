@@ -1,23 +1,27 @@
-import json
 from time import perf_counter
 from uuid import UUID
 
-from google import genai
-from google.genai import types
+from app.clients.bedrock_runtime import (
+    PROVIDER,
+    create_bedrock_runtime_client,
+    extract_tool_input,
+    tool_config,
+)
 from app.core.config import Settings
-from app.core.generation import generation_config, check_generation_response
+from app.core.generation import check_generation_response, inference_config
 from app.prompts.registry import RECORD_ANALYSIS_PROMPT
-from app.schemas.ai_observability import AiUsage, billable_output_tokens
+from app.schemas.ai_observability import AiUsage
 from app.schemas.record_analysis import RecordAnalysisRequest, RecordAnalysisOutput, RecordAnalysisResponse
 
 
-class GeminiRecordAnalysisClient:
+RECORD_ANALYSIS_TOOL_NAME = "submit_record_analysis"
+RECORD_ANALYSIS_TOOL_DESCRIPTION = "기록 분석 결과(요약, 근거 문장, 강점 태그)를 제출합니다."
+
+
+class BedrockRecordAnalysisClient:
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.client = genai.Client(
-            api_key=settings.gemini_api_key,
-            http_options=types.HttpOptions(timeout=int(settings.gemini_http_timeout_seconds * 1000)),
-        )
+        self.client = create_bedrock_runtime_client(settings)
 
     def analyze_record(
         self,
@@ -28,34 +32,33 @@ class GeminiRecordAnalysisClient:
 
         started_at = perf_counter()
         try:
-            response = self.client.models.generate_content(
-                model=self.settings.gemini_generation_model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=RecordAnalysisOutput,
-                    **generation_config(self.settings, "record_analysis"),
+            response = self.client.converse(
+                modelId=self.settings.bedrock_generation_model_id,
+                messages=[{"role": "user", "content": [{"text": prompt}]}],
+                inferenceConfig=inference_config(self.settings, "record_analysis"),
+                toolConfig=tool_config(
+                    RECORD_ANALYSIS_TOOL_NAME,
+                    RECORD_ANALYSIS_TOOL_DESCRIPTION,
+                    RecordAnalysisOutput.model_json_schema(),
                 ),
             )
         finally:
             latency_ms = int((perf_counter() - started_at) * 1000)
 
         check_generation_response(response, "record_analysis")
-        payload = json.loads(response.text or "{}")
+        payload = extract_tool_input(response, RECORD_ANALYSIS_TOOL_NAME)
         summary, evidence_snippets, strength_tag_ids = parse_analysis_payload(
             payload,
             request,
         )
 
-        metadata = response.usage_metadata
+        token_usage = response.get("usage") or {}
         usage = AiUsage(
             requestId=request_id,
-            provider="GEMINI",
-            modelId=self.settings.gemini_generation_model,
-            inputTokens=(
-                metadata.prompt_token_count if metadata is not None else None
-            ),
-            outputTokens=billable_output_tokens(metadata),
+            provider=PROVIDER,
+            modelId=self.settings.bedrock_generation_model_id,
+            inputTokens=token_usage.get("inputTokens"),
+            outputTokens=token_usage.get("outputTokens"),
             latencyMs=latency_ms,
         )
 
@@ -64,27 +67,6 @@ class GeminiRecordAnalysisClient:
             strengthTagIds=strength_tag_ids, usage=usage,
             metadata=RECORD_ANALYSIS_PROMPT.metadata(self.settings),
         )
-
-    def embed_record(self, text: str, request_id: UUID) -> tuple[list[float], AiUsage]:
-        started_at = perf_counter()
-        try:
-            result = self.client.models.embed_content(
-                model=self.settings.gemini_embedding_model,
-                contents=text,
-            )
-        finally:
-            latency_ms = int((perf_counter() - started_at) * 1000)
-        embedding = extract_embedding_values(result)
-        metadata = getattr(result, "usage_metadata", None)
-        usage = AiUsage(
-            requestId=request_id,
-            provider="GEMINI",
-            modelId=self.settings.gemini_embedding_model,
-            inputTokens=getattr(metadata, "prompt_token_count", None),
-            outputTokens=getattr(metadata, "candidates_token_count", None),
-            latencyMs=latency_ms,
-        )
-        return embedding, usage
 
 
 def build_analysis_prompt(request: RecordAnalysisRequest) -> str:
@@ -126,52 +108,36 @@ def parse_analysis_payload(
     request: RecordAnalysisRequest,
 ) -> tuple[str, list[str], list[UUID]]:
     if not isinstance(payload, dict):
-        raise ValueError("Gemini analysis response must be a JSON object.")
+        raise ValueError("Bedrock analysis response must be a JSON object.")
     required_fields = {"summary", "evidenceSnippets", "strengthTagIds"}
     if not required_fields.issubset(payload):
-        raise ValueError("Gemini analysis response is missing required fields.")
+        raise ValueError("Bedrock analysis response is missing required fields.")
 
     summary = payload["summary"]
     evidence_snippets = payload["evidenceSnippets"]
     raw_strength_tag_ids = payload["strengthTagIds"]
     if not isinstance(summary, str):
-        raise ValueError("Gemini analysis summary must be a string.")
+        raise ValueError("Bedrock analysis summary must be a string.")
     if not isinstance(evidence_snippets, list) or not all(
         isinstance(item, str) and item.strip()
         for item in evidence_snippets
     ):
-        raise ValueError("Gemini analysis evidenceSnippets must contain non-blank strings.")
+        raise ValueError("Bedrock analysis evidenceSnippets must contain non-blank strings.")
     if not 1 <= len(evidence_snippets) <= 5:
-        raise ValueError("Gemini analysis evidenceSnippets must contain between 1 and 5 items.")
+        raise ValueError("Bedrock analysis evidenceSnippets must contain between 1 and 5 items.")
     if not isinstance(raw_strength_tag_ids, list):
-        raise ValueError("Gemini analysis strengthTagIds must be an array.")
+        raise ValueError("Bedrock analysis strengthTagIds must be an array.")
 
     candidate_ids = {candidate.id for candidate in request.strengthTagCandidates}
     try:
         strength_tag_ids = [UUID(strength_tag_id) for strength_tag_id in raw_strength_tag_ids]
     except (TypeError, ValueError) as exception:
-        raise ValueError("Gemini analysis strengthTagIds are malformed.") from exception
+        raise ValueError("Bedrock analysis strengthTagIds are malformed.") from exception
     if len(strength_tag_ids) != len(set(strength_tag_ids)):
-        raise ValueError("Gemini analysis strengthTagIds must be unique.")
+        raise ValueError("Bedrock analysis strengthTagIds must be unique.")
     if len(strength_tag_ids) > request.maxStrengthCount:
-        raise ValueError("Gemini analysis selected too many strength tags.")
+        raise ValueError("Bedrock analysis selected too many strength tags.")
     if not set(strength_tag_ids).issubset(candidate_ids):
-        raise ValueError("Gemini analysis selected a strength tag outside the candidates.")
+        raise ValueError("Bedrock analysis selected a strength tag outside the candidates.")
 
     return summary, evidence_snippets, strength_tag_ids
-
-
-def extract_embedding_values(result) -> list[float]:
-    embeddings = getattr(result, "embeddings", None)
-    if embeddings:
-        first_embedding = embeddings[0]
-        values = getattr(first_embedding, "values", None)
-        if values is not None:
-            return list(values)
-
-    embedding = getattr(result, "embedding", None)
-    if embedding is not None:
-        values = getattr(embedding, "values", embedding)
-        return list(values)
-
-    raise ValueError("Gemini embedding response is empty.")

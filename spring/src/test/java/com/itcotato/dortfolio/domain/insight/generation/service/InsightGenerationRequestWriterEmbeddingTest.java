@@ -98,7 +98,7 @@ class InsightGenerationRequestWriterEmbeddingTest {
                 .thenReturn(java.util.Optional.of(userJob));
         when(jobCompetencyRepository.findAllByJob_IdOrderBySortOrderAsc(JOB_ID))
                 .thenReturn(competencies);
-        when(insightProperties.embeddingModel()).thenReturn("gemini-embedding-2");
+        when(insightProperties.embeddingModel()).thenReturn("cohere-embed-v4");
     }
 
     @Test
@@ -107,12 +107,12 @@ class InsightGenerationRequestWriterEmbeddingTest {
         for (int index = 0; index < 4; index++) {
             when(embeddingRepository.existsByJobCompetency_IdAndEmbeddingModel(
                     competencies.get(index).getId(),
-                    "gemini-embedding-2"
+                    "cohere-embed-v4"
             )).thenReturn(true);
         }
         when(embeddingRepository.existsByJobCompetency_IdAndEmbeddingModel(
                 missingId,
-                "gemini-embedding-2"
+                "cohere-embed-v4"
         )).thenReturn(false);
 
         assertThatThrownBy(() -> writer.createPending(USER_ID, SNAPSHOT_AT))
@@ -126,7 +126,7 @@ class InsightGenerationRequestWriterEmbeddingTest {
     void createsInsightCommandAfterAllCompetencyEmbeddingsAreReady() {
         when(embeddingRepository.existsByJobCompetency_IdAndEmbeddingModel(
                 any(UUID.class),
-                eq("gemini-embedding-2")
+                eq("cohere-embed-v4")
         )).thenReturn(true);
         when(userRepository.findById(USER_ID))
                 .thenReturn(java.util.Optional.of(mock(User.class)));
