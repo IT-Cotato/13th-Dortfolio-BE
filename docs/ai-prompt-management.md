@@ -14,19 +14,19 @@
 
 ## 응답과 저장
 
-Gemini에는 `RecordAnalysisOutput` 또는 `InsightRecommendationOutput` 스키마만 전달한다. 버전 정보는 Gemini가 생성하지 않는다. 검증에 성공한 뒤 FastAPI가 다음 `metadata`를 응답에 붙인다.
+모델(AWS Bedrock의 Claude)에는 `RecordAnalysisOutput` 또는 `InsightRecommendationOutput` 스키마만 도구 입력 스키마로 전달하고, 그 도구 호출을 강제해 JSON 객체를 받는다. 버전 정보는 모델이 생성하지 않는다. 검증에 성공한 뒤 FastAPI가 다음 `metadata`를 응답에 붙인다.
 
 ```json
 {
   "promptVersion": "record_analysis.v1",
   "schemaVersion": "record_analysis.v1",
-  "model": "gemini-3.6-flash",
+  "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
   "maxOutputTokens": 8192,
   "thinkingLevel": null
 }
 ```
 
-`model`은 실제 요청에 사용한 모델 ID이다. 모델 별칭의 정확한 공급자 내부 버전을 고정하는 값은 아니다. `thinkingLevel: null`은 설정을 보내지 않고 모델 기본 동작을 사용했다는 뜻이다.
+`model`은 실제 요청에 사용한 Bedrock 모델 ID(`BEDROCK_GENERATION_MODEL_ID`)이다. 모델 별칭의 정확한 공급자 내부 버전을 고정하는 값은 아니다. `thinkingLevel`은 항상 `null`이다. 도구 호출을 강제하는 방식은 Claude의 확장 사고와 함께 쓸 수 없어 사고 설정을 보내지 않는다. 컬럼과 필드는 이전 결과와의 호환을 위해 남겨 둔다.
 
 Spring은 이 정보를 `record_analysis`와 `insights`의 `prompt_version`, `schema_version`, `generation_model`, `max_output_tokens`, `thinking_level` 컬럼에 결과와 같은 트랜잭션으로 저장한다. 인사이트 메타데이터는 AI 직무 역량 추천 단계의 정보이며, 코드로 계산하는 강점·템플릿 통계의 버전을 뜻하지 않는다.
 
@@ -42,13 +42,11 @@ V21 마이그레이션은 기존 결과를 수정하지 않고 nullable 컬럼�
 |---|---|---|
 | `RECORD_ANALYSIS_MAX_OUTPUT_TOKENS` | `8192` | 기록 분석 생성 상한 |
 | `INSIGHT_RECOMMENDATION_MAX_OUTPUT_TOKENS` | `8192` | 직무 역량 추천 생성 상한 |
-| `RECORD_ANALYSIS_THINKING_LEVEL` | 빈 값 | 기록 분석 사고 수준 |
-| `INSIGHT_RECOMMENDATION_THINKING_LEVEL` | 빈 값 | 직무 역량 추천 사고 수준 |
 
-상한은 양의 정수여야 한다. 사고 수준은 빈 값 또는 `minimal`, `low`, `medium`, `high`를 받는다. 모델별 지원 값이 다르므로 실제 운영 모델의 지원 여부를 확인하고 설정한다. 이번 변경은 Gemini 3 계열의 사고 수준 설정을 대상으로 하며 Gemini 2.5의 `thinking_budget` 설정은 추가하지 않는다. 기존 SDK `google-genai==1.55.0`이 필요한 설정 필드를 제공하므로 의존성은 변경하지 않는다.
+상한은 양의 정수여야 한다. Gemini 사용 시 있던 사고 수준 설정(`RECORD_ANALYSIS_THINKING_LEVEL`, `INSIGHT_RECOMMENDATION_THINKING_LEVEL`)은 Bedrock 전환과 함께 제거했다.
 
-8192는 평가 전 시작값이며 정상 응답을 보장하는 최소값이나 비용 절감 효과가 검증된 값이 아니다. 기본 사고 수준을 유지한 상태에서 입력·출력·사고 토큰과 종료 사유를 로그로 측정하고, 같은 한국어 평가셋에서 상한과 사고 수준을 각각 비교한다. [Gemini 공식 안내](https://ai.google.dev/gemini-api/docs/generate-content/thinking?hl=en)에 따르면 출력 상한에는 사고 토큰도 포함된다. 작은 상한으로 사고를 억제하려고 하지 말고 사고 수준을 별도로 조정한다.
+8192는 평가 전 시작값이며 정상 응답을 보장하는 최소값이나 비용 절감 효과가 검증된 값이 아니다. 입력·출력 토큰과 종료 사유를 로그로 측정하고, 같은 한국어 평가셋에서 상한을 비교해 조정한다.
 
-`MAX_TOKENS` 응답은 JSON이 파싱 가능하더라도 성공 결과로 저장하지 않는다. FastAPI는 422를 반환하고 Spring의 기존 정책이 자동 재시도를 중단한다. 이 경우 입력 길이와 출력·사고 토큰을 확인해 설정을 조정한다. 공급자 장애의 기존 재시도 정책은 유지한다. 로그에는 생성 결과 전문을 남기지 않는다.
+출력 상한에 걸린 응답(`stopReason: max_tokens`)은 JSON이 파싱 가능하더라도 성공 결과로 저장하지 않는다. FastAPI는 422를 반환하고 Spring의 기존 정책이 자동 재시도를 중단한다. 이 경우 입력 길이와 출력 토큰을 확인해 설정을 조정한다. 공급자 장애의 기존 재시도 정책은 유지한다. 로그에는 생성 결과 전문을 남기지 않는다.
 
-PR에서는 동일한 평가 입력으로 JSON 성공 여부, 후보 외 ID, 근거 정확도, 입력·출력·사고 토큰, 지연을 비교한다. 프롬프트 v1 분리는 기존 렌더링 내용과 동일하며, 실제 Gemini 품질·비용 평가는 별도 운영 키와 평가셋으로 수행한다.
+PR에서는 동일한 평가 입력으로 JSON 성공 여부, 후보 외 ID, 근거 정확도, 입력·출력 토큰, 지연을 비교한다. 프롬프트 v1 분리는 기존 렌더링 내용과 동일하며, 실제 모델 품질·비용 평가는 별도 운영 키와 평가셋으로 수행한다.

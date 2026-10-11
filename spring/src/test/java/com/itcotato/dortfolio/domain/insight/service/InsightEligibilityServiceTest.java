@@ -81,7 +81,7 @@ class InsightEligibilityServiceTest {
                         1,
                         5,
                         0.0,
-                        "gemini-embedding-2",
+                        "cohere-embed-v4",
                         2,
                         Duration.ZERO,
                         Duration.ofSeconds(10)

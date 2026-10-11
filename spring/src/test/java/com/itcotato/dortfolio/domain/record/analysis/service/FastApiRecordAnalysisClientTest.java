@@ -103,7 +103,7 @@ class FastApiRecordAnalysisClientTest {
 			  "evidenceSnippets": ["근거"],
 			  "strengthTagIds": [],
               "usage": {
-                "requestId": "%s", "provider": "GEMINI", "modelId": "test-generation",
+                "requestId": "%s", "provider": "BEDROCK", "modelId": "test-generation",
                 "inputTokens": 100, "outputTokens": 70, "latencyMs": 15
               },
               "metadata": {

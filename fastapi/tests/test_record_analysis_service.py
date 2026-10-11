@@ -4,42 +4,42 @@ from unittest.mock import patch
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
-from google.genai import errors
 
-from app.clients.gemini_record_analysis_client import (
+from app.clients.bedrock_record_analysis_client import (
     build_analysis_prompt,
     parse_analysis_payload,
 )
 from app.core.ai_error import AiError
+from bedrock_fixtures import client_error
 from app.schemas.record_analysis import RecordAnalysisRequest, RecordAnalysisResponse
 from app.services.record_analysis_service import analyze_record
 
 
 class RecordAnalysisServiceTest(unittest.TestCase):
-    @patch("app.services.record_analysis_service.get_settings")
-    def test_analyze_record_rejects_request_when_gemini_key_is_absent(self, get_settings):
-        get_settings.return_value = SimpleNamespace(gemini_api_key=None)
-
+    @patch("app.services.record_analysis_service.bedrock_credentials_available", return_value=False)
+    def test_analyze_record_rejects_request_when_aws_credentials_are_absent(self, _credentials):
         with self.assertRaises(HTTPException) as context:
             analyze_record(None, uuid4())
 
         self.assertEqual(context.exception.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
 
-    @patch("app.services.record_analysis_service.GeminiRecordAnalysisClient")
+    @patch("app.services.record_analysis_service.bedrock_credentials_available", return_value=True)
+    @patch("app.services.record_analysis_service.BedrockRecordAnalysisClient")
     @patch("app.services.record_analysis_service.get_settings")
-    def test_analyze_record_returns_sanitized_gemini_error(
+    def test_analyze_record_returns_sanitized_bedrock_error(
         self,
         get_settings,
         client_type,
+        _credentials,
     ):
         request, _ = analysis_request()
         get_settings.return_value = SimpleNamespace(
-            gemini_api_key="test-key",
-            gemini_generation_model="gemini-3.6-flash",
+            bedrock_generation_model_id="test-generation-model",
         )
-        client_type.return_value.analyze_record.side_effect = errors.APIError(
-            504,
-            {"error": {"message": "Gateway timeout"}},
+        client_type.return_value.analyze_record.side_effect = client_error(
+            "ModelTimeoutException",
+            408,
+            message="Model timed out",
         )
 
         request_id = uuid4()
@@ -47,10 +47,11 @@ class RecordAnalysisServiceTest(unittest.TestCase):
             analyze_record(request, request_id)
 
         self.assertEqual(context.exception.request_id, request_id)
-        self.assertEqual(context.exception.http_status, status.HTTP_504_GATEWAY_TIMEOUT)
-        self.assertEqual(context.exception.error_code, "HTTP_504")
-        self.assertEqual(context.exception.model_id, "gemini-3.6-flash")
-        self.assertNotIn("Gateway timeout", str(context.exception))
+        self.assertEqual(context.exception.http_status, status.HTTP_408_REQUEST_TIMEOUT)
+        self.assertEqual(context.exception.status, "TIMEOUT")
+        self.assertEqual(context.exception.error_code, "HTTP_408")
+        self.assertEqual(context.exception.model_id, "test-generation-model")
+        self.assertNotIn("Model timed out", str(context.exception))
 
     def test_prompt_includes_strength_judgement_context_and_maximum_count(self):
         request, candidate_ids = analysis_request()

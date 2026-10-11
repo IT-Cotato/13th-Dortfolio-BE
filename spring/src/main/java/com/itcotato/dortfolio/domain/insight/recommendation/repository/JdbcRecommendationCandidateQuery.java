@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class JdbcRecommendationCandidateQuery
         implements RecommendationCandidateQuery {
 
-    private static final int EMBEDDING_DIMENSION = 3072;
+    private static final int EMBEDDING_DIMENSION = 1536;
 
     private static final TypeReference<List<String>>
             STRING_LIST_TYPE = new TypeReference<>() {};

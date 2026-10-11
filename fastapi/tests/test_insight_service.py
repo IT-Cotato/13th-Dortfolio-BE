@@ -5,14 +5,15 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from fastapi import HTTPException
-from google.genai import errors
+from botocore.exceptions import ReadTimeoutError
 from pydantic import ValidationError
 
-from app.clients.gemini_insight_client import (
+from app.clients.bedrock_insight_client import (
     build_recommendation_prompt,
     parse_recommendation_response,
 )
 from app.core.ai_error import AiError
+from bedrock_fixtures import client_error
 from app.schemas.insight import (
     InsightRecommendationCandidate,
     InsightRecommendationCompetency,
@@ -64,9 +65,8 @@ class InsightServiceTest(unittest.TestCase):
             for competency in request.competencies
         ]
 
-    @patch("app.services.insight_service.get_settings")
-    def test_rejects_when_api_key_is_missing(self, get_settings):
-        get_settings.return_value = SimpleNamespace(gemini_api_key=None)
+    @patch("app.services.insight_service.bedrock_credentials_available", return_value=False)
+    def test_rejects_when_aws_credentials_are_missing(self, _credentials):
 
         with self.assertRaises(HTTPException) as context:
             generate_insight_recommendation(self.request(), uuid4())
@@ -190,47 +190,44 @@ class InsightServiceTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid"):
             parse_recommendation_response("not-json", self.request())
 
-    @patch("app.services.insight_service.GeminiInsightClient")
+    @patch("app.services.insight_service.bedrock_credentials_available", return_value=True)
+    @patch("app.services.insight_service.BedrockInsightClient")
     @patch("app.services.insight_service.get_settings")
-    def test_preserves_gemini_rate_limit_status(
+    def test_preserves_bedrock_throttling_status(
         self,
         get_settings,
         client_type,
+        _credentials,
     ):
         get_settings.return_value = SimpleNamespace(
-            gemini_api_key="test-key",
-            gemini_generation_model="gemini-3.6-flash",
+            bedrock_generation_model_id="test-generation-model",
         )
         client_type.return_value.generate_recommendation.side_effect = (
-            errors.APIError(
-                429,
-                {"error": {"message": "Resource exhausted"}},
-                SimpleNamespace(headers={"retry-after": "30"}),
-            )
+            client_error("ThrottlingException", 429, {"retry-after": "30"})
         )
 
         with self.assertRaises(AiError) as context:
             generate_insight_recommendation(self.request(), uuid4())
 
         self.assertEqual(context.exception.http_status, 429)
+        self.assertEqual(context.exception.status, "RATE_LIMITED")
         self.assertEqual(context.exception.retry_after, "30")
+        self.assertEqual(context.exception.provider, "BEDROCK")
 
-    @patch("app.services.insight_service.GeminiInsightClient")
+    @patch("app.services.insight_service.bedrock_credentials_available", return_value=True)
+    @patch("app.services.insight_service.BedrockInsightClient")
     @patch("app.services.insight_service.get_settings")
-    def test_preserves_non_retryable_gemini_status(
+    def test_preserves_non_retryable_bedrock_status(
         self,
         get_settings,
         client_type,
+        _credentials,
     ):
         get_settings.return_value = SimpleNamespace(
-            gemini_api_key="test-key",
-            gemini_generation_model="gemini-3.6-flash",
+            bedrock_generation_model_id="test-generation-model",
         )
         client_type.return_value.generate_recommendation.side_effect = (
-            errors.APIError(
-                403,
-                {"error": {"message": "Permission denied"}},
-            )
+            client_error("AccessDeniedException", 403)
         )
 
         with self.assertRaises(AiError) as context:
@@ -238,6 +235,28 @@ class InsightServiceTest(unittest.TestCase):
 
         self.assertEqual(context.exception.http_status, 403)
         self.assertEqual(context.exception.error_code, "HTTP_403")
+
+    @patch("app.services.insight_service.bedrock_credentials_available", return_value=True)
+    @patch("app.services.insight_service.BedrockInsightClient")
+    @patch("app.services.insight_service.get_settings")
+    def test_reports_read_timeout_as_gateway_timeout(
+        self,
+        get_settings,
+        client_type,
+        _credentials,
+    ):
+        get_settings.return_value = SimpleNamespace(
+            bedrock_generation_model_id="test-generation-model",
+        )
+        client_type.return_value.generate_recommendation.side_effect = (
+            ReadTimeoutError(endpoint_url="https://bedrock-runtime.test")
+        )
+
+        with self.assertRaises(AiError) as context:
+            generate_insight_recommendation(self.request(), uuid4())
+
+        self.assertEqual(context.exception.http_status, 504)
+        self.assertEqual(context.exception.status, "TIMEOUT")
 
 
 if __name__ == "__main__":

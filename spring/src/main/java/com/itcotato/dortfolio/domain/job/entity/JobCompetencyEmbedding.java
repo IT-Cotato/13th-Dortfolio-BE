@@ -33,7 +33,7 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class JobCompetencyEmbedding extends BaseEntity {
 
-    public static final int EMBEDDING_DIMENSION = 3072;
+    public static final int EMBEDDING_DIMENSION = 1536;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(
@@ -54,7 +54,7 @@ public class JobCompetencyEmbedding extends BaseEntity {
     @Column(
             name = "embedding",
             nullable = false,
-            columnDefinition = "vector(3072)"
+            columnDefinition = "vector(" + EMBEDDING_DIMENSION + ")"
     )
     private float[] embedding;
 
@@ -86,7 +86,7 @@ public class JobCompetencyEmbedding extends BaseEntity {
             throw new IllegalArgumentException("임베딩 모델명은 비어 있을 수 없습니다.");
         }
         if (embedding == null || embedding.length != EMBEDDING_DIMENSION) {
-            throw new IllegalArgumentException("임베딩 벡터는 3072차원이어야 합니다.");
+            throw new IllegalArgumentException("임베딩 벡터는 1536차원이어야 합니다.");
         }
         for (float value : embedding) {
             if (!Float.isFinite(value)) {

@@ -16,7 +16,7 @@ class InsightPropertiesTest {
                 1,
                 20,
                 0.0,
-                "gemini-embedding-2",
+                "cohere-embed-v4",
                 2,
                 Duration.ZERO,
                 Duration.ofSeconds(10)
@@ -34,7 +34,7 @@ class InsightPropertiesTest {
                 1,
                 20,
                 0.0,
-                "gemini-embedding-2",
+                "cohere-embed-v4",
                 2,
                 Duration.ZERO,
                 Duration.ofSeconds(10)
@@ -52,7 +52,7 @@ class InsightPropertiesTest {
                 5,
                 4,
                 0.0,
-                "gemini-embedding-2",
+                "cohere-embed-v4",
                 2,
                 Duration.ZERO,
                 Duration.ofSeconds(10)
@@ -70,7 +70,7 @@ class InsightPropertiesTest {
                 1,
                 20,
                 1.1,
-                "gemini-embedding-2",
+                "cohere-embed-v4",
                 2,
                 Duration.ZERO,
                 Duration.ofSeconds(10)
@@ -88,7 +88,7 @@ class InsightPropertiesTest {
                 1,
                 20,
                 Double.NaN,
-                "gemini-embedding-2",
+                "cohere-embed-v4",
                 2,
                 Duration.ZERO,
                 Duration.ofSeconds(10)
@@ -106,7 +106,7 @@ class InsightPropertiesTest {
                 0,
                 20,
                 0.0,
-                "gemini-embedding-2",
+                "cohere-embed-v4",
                 2,
                 Duration.ZERO,
                 Duration.ofSeconds(10)
@@ -142,7 +142,7 @@ class InsightPropertiesTest {
                 1,
                 5,
                 0.0,
-                "gemini-embedding-2",
+                "cohere-embed-v4",
                 0,
                 Duration.ZERO,
                 Duration.ofSeconds(10)
@@ -160,7 +160,7 @@ class InsightPropertiesTest {
                 1,
                 5,
                 0.0,
-                "gemini-embedding-2",
+                "cohere-embed-v4",
                 2,
                 Duration.ZERO,
                 Duration.ZERO
@@ -178,7 +178,7 @@ class InsightPropertiesTest {
                 1,
                 5,
                 0.0,
-                "gemini-embedding-2",
+                "cohere-embed-v4",
                 2,
                 Duration.ofSeconds(-1),
                 Duration.ofSeconds(10)

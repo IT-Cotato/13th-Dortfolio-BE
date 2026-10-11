@@ -17,7 +17,7 @@ class MatchingQuestionTagServiceTest {
 				3,
 				10,
 				10,
-				3072,
+				1536,
 				List.of("test-embedding"),
 				500,
 				30,

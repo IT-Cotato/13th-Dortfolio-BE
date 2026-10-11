@@ -26,7 +26,7 @@ import org.testcontainers.utility.DockerImageName;
 @Testcontainers(disabledWithoutDocker = true)
 class JdbcRecommendationCandidateQueryContainerTest {
 
-    private static final String MODEL = "gemini-embedding-2";
+    private static final String MODEL = "cohere-embed-v4";
 
     @Container
     private static final PostgreSQLContainer<?> POSTGRES =
@@ -291,7 +291,7 @@ class JdbcRecommendationCandidateQueryContainerTest {
     private static String vector(int activeIndex) {
         List<String> values =
                 new java.util.ArrayList<>(
-                        Collections.nCopies(3072, "0")
+                        Collections.nCopies(1536, "0")
                 );
         values.set(activeIndex, "1");
         return "[" + String.join(",", values) + "]";
@@ -300,7 +300,7 @@ class JdbcRecommendationCandidateQueryContainerTest {
     private static String vector(double first, double second) {
         List<String> values =
                 new java.util.ArrayList<>(
-                        Collections.nCopies(3072, "0")
+                        Collections.nCopies(1536, "0")
                 );
         values.set(0, Double.toString(first));
         values.set(1, Double.toString(second));

@@ -32,7 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class StrengthTagEmbeddingServiceTest {
 
-	private static final String MODEL = "gemini-embedding-2";
+	private static final String MODEL = "cohere-embed-v4";
 
 	@Mock
 	private StrengthTagRepository strengthTagRepository;
@@ -108,7 +108,7 @@ class StrengthTagEmbeddingServiceTest {
 			.thenReturn(false);
 		when(strengthTagRepository.findById(strengthTagId)).thenReturn(Optional.of(strengthTag()));
 		when(embeddingClient.embed(org.mockito.ArgumentMatchers.any()))
-			.thenReturn(new EmbeddingResponse("another-model", new float[3072]));
+			.thenReturn(new EmbeddingResponse("another-model", new float[1536]));
 
 		assertThatThrownBy(() -> service.generate(strengthTagId))
 			.isInstanceOfSatisfying(CustomException.class, exception ->

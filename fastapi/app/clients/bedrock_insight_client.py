@@ -2,14 +2,18 @@ import json
 from time import perf_counter
 from uuid import UUID
 
-from google import genai
-from google.genai import types
 from pydantic import ValidationError
 
+from app.clients.bedrock_runtime import (
+    PROVIDER,
+    create_bedrock_runtime_client,
+    extract_tool_input,
+    tool_config,
+)
 from app.core.config import Settings
-from app.core.generation import generation_config, check_generation_response
+from app.core.generation import check_generation_response, inference_config
 from app.prompts.registry import INSIGHT_RECOMMENDATION_PROMPT
-from app.schemas.ai_observability import AiUsage, billable_output_tokens
+from app.schemas.ai_observability import AiUsage
 from app.schemas.insight import (
     InsightRecommendationRequest,
     InsightRecommendationResponse,
@@ -17,17 +21,14 @@ from app.schemas.insight import (
 )
 
 
-class GeminiInsightClient:
+INSIGHT_RECOMMENDATION_TOOL_NAME = "submit_insight_recommendations"
+INSIGHT_RECOMMENDATION_TOOL_DESCRIPTION = "직무 역량별 추천 기록 판단 결과를 제출합니다."
+
+
+class BedrockInsightClient:
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.client = genai.Client(
-            api_key=settings.gemini_api_key,
-            http_options=types.HttpOptions(
-                timeout=int(
-                    settings.gemini_http_timeout_seconds * 1000
-                )
-            ),
-        )
+        self.client = create_bedrock_runtime_client(settings)
 
     def generate_recommendation(
         self,
@@ -38,30 +39,35 @@ class GeminiInsightClient:
 
         started_at = perf_counter()
         try:
-            response = self.client.models.generate_content(
-                model=self.settings.gemini_generation_model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=InsightRecommendationOutput,
-                    **generation_config(self.settings, "insight_recommendation"),
+            response = self.client.converse(
+                modelId=self.settings.bedrock_generation_model_id,
+                messages=[{"role": "user", "content": [{"text": prompt}]}],
+                inferenceConfig=inference_config(self.settings, "insight_recommendation"),
+                toolConfig=tool_config(
+                    INSIGHT_RECOMMENDATION_TOOL_NAME,
+                    INSIGHT_RECOMMENDATION_TOOL_DESCRIPTION,
+                    InsightRecommendationOutput.model_json_schema(),
                 ),
             )
         finally:
             latency_ms = int((perf_counter() - started_at) * 1000)
 
         check_generation_response(response, "insight_recommendation")
-        result = parse_recommendation_response(response.text, request)
-        metadata = response.usage_metadata
+        payload = extract_tool_input(response, INSIGHT_RECOMMENDATION_TOOL_NAME)
+        result = parse_recommendation_response(
+            json.dumps(payload, ensure_ascii=False),
+            request,
+        )
+        token_usage = response.get("usage") or {}
         return InsightRecommendationResponse(
             recommendations=result.recommendations,
             metadata=INSIGHT_RECOMMENDATION_PROMPT.metadata(self.settings),
             usage=AiUsage(
                 requestId=request_id,
-                provider="GEMINI",
-                modelId=self.settings.gemini_generation_model,
-                inputTokens=getattr(metadata, "prompt_token_count", None),
-                outputTokens=billable_output_tokens(metadata),
+                provider=PROVIDER,
+                modelId=self.settings.bedrock_generation_model_id,
+                inputTokens=token_usage.get("inputTokens"),
+                outputTokens=token_usage.get("outputTokens"),
                 latencyMs=latency_ms,
             ),
         )
@@ -92,7 +98,7 @@ def parse_recommendation_response(
 ) -> InsightRecommendationOutput:
     if not response_text:
         raise ValueError(
-            "Gemini recommendation response is empty."
+            "Bedrock recommendation response is empty."
         )
 
     try:
@@ -106,7 +112,7 @@ def parse_recommendation_response(
         TypeError,
     ) as exception:
         raise ValueError(
-            "Gemini recommendation response is invalid."
+            "Bedrock recommendation response is invalid."
         ) from exception
 
     request_by_id = {
@@ -120,12 +126,12 @@ def parse_recommendation_response(
 
     if len(response_by_id) != len(response.recommendations):
         raise ValueError(
-            "Gemini returned duplicate job competencies."
+            "Bedrock returned duplicate job competencies."
         )
 
     if response_by_id.keys() != request_by_id.keys():
         raise ValueError(
-            "Gemini returned missing or unknown job competencies."
+            "Bedrock returned missing or unknown job competencies."
         )
 
     for competency_id, recommendation in response_by_id.items():
@@ -139,7 +145,7 @@ def parse_recommendation_response(
             and recommendation.recordId not in candidate_ids
         ):
             raise ValueError(
-                "Gemini selected a record outside candidates."
+                "Bedrock selected a record outside candidates."
             )
 
     return InsightRecommendationOutput(

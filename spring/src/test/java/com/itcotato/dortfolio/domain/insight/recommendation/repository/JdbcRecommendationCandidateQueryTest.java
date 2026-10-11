@@ -40,7 +40,7 @@ class JdbcRecommendationCandidateQueryTest {
                 );
 
         String sql = query.buildCandidateSql(
-                "gemini-embedding-2"
+                "cohere-embed-v4"
         );
 
         assertThat(sql)
@@ -52,7 +52,7 @@ class JdbcRecommendationCandidateQueryTest {
                 .contains("record.completed_at <= ?")
                 .contains("analysis.ai_analysis_status = 'COMPLETED'")
                 .contains("analysis.analyzed_record_updated_at")
-                .contains("record_embedding.embedding_model = 'gemini-embedding-2'")
+                .contains("record_embedding.embedding_model = 'cohere-embed-v4'")
                 .contains(") > ?")
                 .contains("record.id asc")
                 .contains("limit ?");
@@ -78,7 +78,7 @@ class JdbcRecommendationCandidateQueryTest {
                 1,
                 5,
                 0.0,
-                "gemini-embedding-2",
+                "cohere-embed-v4",
                 2,
                 Duration.ZERO,
                 Duration.ofSeconds(10)

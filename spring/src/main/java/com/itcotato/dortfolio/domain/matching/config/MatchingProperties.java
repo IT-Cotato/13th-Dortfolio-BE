@@ -40,7 +40,7 @@ public record MatchingProperties(
 	@Valid
 	List<QuestionTag> questionTags
 ) {
-	public static final int SUPPORTED_EMBEDDING_DIMENSION = 3072;
+	public static final int SUPPORTED_EMBEDDING_DIMENSION = 1536;
 
 	@AssertTrue(message = "maxRecordLimit must be greater than or equal to defaultRecordLimit")
 	public boolean isRecordLimitValid() {

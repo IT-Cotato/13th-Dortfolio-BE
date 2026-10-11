@@ -178,7 +178,7 @@ class RecordAnalysisServiceTest {
 		assertThat(metadata.getThinkingLevel()).isEqualTo("low");
 		assertThat(stubRecordEmbeddingWriter.recordId).isEqualTo(record.id());
 		assertThat(stubRecordEmbeddingWriter.embeddingModel).isEqualTo("test-embedding");
-		assertThat(stubRecordEmbeddingWriter.embedding).hasSize(3072);
+		assertThat(stubRecordEmbeddingWriter.embedding).hasSize(1536);
 		assertThat(recordStrengthTagRepository.findAllByRecord_Id(record.id()))
 			.singleElement()
 			.satisfies(tag -> {
@@ -244,7 +244,7 @@ class RecordAnalysisServiceTest {
 		RecordResponse record = recordService.createRecord(user.getId(), new RecordCreateRequest(
 			activity.getId(), template.getId(), "영 벡터 기록", List.of(), List.of(), RecordStatus.COMPLETED
 		));
-		stubEmbeddingClient.embedding = new float[3072];
+		stubEmbeddingClient.embedding = new float[1536];
 
 		recordAnalysisService.analyze(record.id());
 
@@ -868,7 +868,7 @@ class RecordAnalysisServiceTest {
 		}
 
 		private static float[] validEmbedding() {
-			float[] embedding = new float[3072];
+			float[] embedding = new float[1536];
 			embedding[0] = 1.0f;
 			return embedding;
 		}

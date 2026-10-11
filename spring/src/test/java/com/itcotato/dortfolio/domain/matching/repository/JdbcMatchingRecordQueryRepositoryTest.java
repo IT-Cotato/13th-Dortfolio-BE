@@ -27,8 +27,8 @@ import org.testcontainers.utility.DockerImageName;
 @Testcontainers(disabledWithoutDocker = true)
 class JdbcMatchingRecordQueryRepositoryTest {
 
-	private static final String EMBEDDING_MODEL = "gemini-embedding-2";
-	private static final int EMBEDDING_DIMENSION = 3072;
+	private static final String EMBEDDING_MODEL = "cohere-embed-v4";
+	private static final int EMBEDDING_DIMENSION = 1536;
 
 	@Container
 	private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
@@ -88,15 +88,15 @@ class JdbcMatchingRecordQueryRepositoryTest {
 				select count(*)
 				from pg_indexes
 				where tablename = 'record_embeddings'
-					and indexdef like '%halfvec(3072)%'
+					and indexdef like '%halfvec(1536)%'
 					and indexdef like '%halfvec_cosine_ops%'
-					and indexdef like '%gemini-embedding-2%'
+					and indexdef like '%cohere-embed-v4%'
 				""", Integer.class);
 		assertThat(indexCount).isEqualTo(1);
 
 		List<String> plan = explainVectorCandidateQuery(userId);
 
-		assertThat(String.join("\n", plan)).contains("Index Scan using idx_record_embeddings_gemini_embedding_2_hvc");
+		assertThat(String.join("\n", plan)).contains("Index Scan using idx_record_embeddings_cohere_embed_v4_hvc");
 	}
 
 	private List<String> explainVectorCandidateQuery(UUID userId) {
@@ -332,10 +332,10 @@ class JdbcMatchingRecordQueryRepositoryTest {
 
 	private void createVectorIndexForTest() {
 		jdbcTemplate.execute("""
-				create index idx_record_embeddings_gemini_embedding_2_hvc
+				create index idx_record_embeddings_cohere_embed_v4_hvc
 				on record_embeddings
-				using hnsw ((embedding::halfvec(3072)) halfvec_cosine_ops)
-				where embedding_model = 'gemini-embedding-2'
+				using hnsw ((embedding::halfvec(1536)) halfvec_cosine_ops)
+				where embedding_model = 'cohere-embed-v4'
 			""");
 	}
 

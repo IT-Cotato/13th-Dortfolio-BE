@@ -41,7 +41,7 @@ class MatchingReadServiceTest {
 				3,
 				10,
 				10,
-				3072,
+				1536,
 				List.of("test-embedding"),
 				500,
 				30,
@@ -58,7 +58,7 @@ class MatchingReadServiceTest {
 	@Test
 	void findMatchingRecordsFiltersByMinimumRateAndRequestedLimit() {
 		UUID userId = UUID.randomUUID();
-		float[] embedding = new float[3072];
+		float[] embedding = new float[1536];
 		MatchingRecordCandidate first = candidate("첫 번째", 0.91);
 		MatchingRecordCandidate second = candidate("두 번째", 0.82);
 		MatchingRecordCandidate third = candidate("세 번째", 0.76);
@@ -81,7 +81,7 @@ class MatchingReadServiceTest {
 	@Test
 	void findMatchingRecordsSkipsAnswerQueryWhenNoCandidateExists() {
 		UUID userId = UUID.randomUUID();
-		float[] embedding = new float[3072];
+		float[] embedding = new float[1536];
 		when(matchingRecordQueryRepository.findVectorCandidates(userId, "test-embedding", embedding, 10))
 			.thenReturn(List.of());
 

@@ -34,7 +34,7 @@ class JobCompetencyEmbeddingBatchRunnerTest {
         );
         when(embeddingService.inspectCoverage()).thenReturn(
                 new JobCompetencyEmbeddingCoverage(
-                        "gemini-embedding-2", 5, 5, List.of()
+                        "cohere-embed-v4", 5, 5, List.of()
                 )
         );
 
@@ -60,7 +60,7 @@ class JobCompetencyEmbeddingBatchRunnerTest {
         );
         when(embeddingService.inspectCoverage()).thenReturn(
                 new JobCompetencyEmbeddingCoverage(
-                        "gemini-embedding-2", 5, 4, List.of(failedId)
+                        "cohere-embed-v4", 5, 4, List.of(failedId)
                 )
         );
 
@@ -79,7 +79,7 @@ class JobCompetencyEmbeddingBatchRunnerTest {
         );
         when(embeddingService.inspectCoverage()).thenReturn(
                 new JobCompetencyEmbeddingCoverage(
-                        "gemini-embedding-2", 5, 5, List.of()
+                        "cohere-embed-v4", 5, 5, List.of()
                 )
         );
 
@@ -99,7 +99,7 @@ class JobCompetencyEmbeddingBatchRunnerTest {
         );
         when(embeddingService.inspectCoverage()).thenReturn(
                 new JobCompetencyEmbeddingCoverage(
-                        "gemini-embedding-2", 5, 4, List.of(missingId)
+                        "cohere-embed-v4", 5, 4, List.of(missingId)
                 )
         );
 

@@ -26,7 +26,7 @@ class AiCallObserverTest {
     @Test
     void trackingFailurePreservesSuccessfulResponse() {
         UUID requestId = UUID.randomUUID();
-        AiUsageResponse usage = new AiUsageResponse(requestId, "GEMINI", "model", 12L, 3L, 15);
+        AiUsageResponse usage = new AiUsageResponse(requestId, "BEDROCK", "model", 12L, 3L, 15);
         doThrow(new RestClientException("tracking failed"))
                 .when(tracker).recordSuccess(requestId, 1, usage);
 
@@ -48,7 +48,7 @@ class AiCallObserverTest {
     @Test
     void trackingFailurePreservesSchemaValidationError() {
         UUID requestId = UUID.randomUUID();
-        AiUsageResponse usage = new AiUsageResponse(requestId, "GEMINI", "model", 12L, 3L, 15);
+        AiUsageResponse usage = new AiUsageResponse(requestId, "BEDROCK", "model", 12L, 3L, 15);
         IllegalArgumentException original = new IllegalArgumentException("invalid schema");
         doThrow(new IllegalStateException("tracking failed")).when(tracker).recordFailure(
                 eq(requestId), eq(1), eq(usage), eq(AiCallStatus.INVALID_RESPONSE),
@@ -89,7 +89,7 @@ class AiCallObserverTest {
     @Test
     void recordsSuccessWithUsageMetadataOnly() {
         UUID requestId = UUID.randomUUID();
-        AiUsageResponse usage = new AiUsageResponse(requestId, "GEMINI", "model", 12L, 3L, 15);
+        AiUsageResponse usage = new AiUsageResponse(requestId, "BEDROCK", "model", 12L, 3L, 15);
 
         String response = observer.attempt(requestId, 1, () -> "private response text", ignored -> usage);
 
@@ -115,7 +115,7 @@ class AiCallObserverTest {
     @Test
     void invalidSchemaKeepsUsageForCostEstimationWithoutSavingBody() {
         UUID requestId = UUID.randomUUID();
-        AiUsageResponse usage = new AiUsageResponse(requestId, "GEMINI", "model", 100L, 20L, 15);
+        AiUsageResponse usage = new AiUsageResponse(requestId, "BEDROCK", "model", 100L, 20L, 15);
 
         assertThatThrownBy(() -> observer.attempt(requestId, 2,
                 () -> "private answer", ignored -> usage,

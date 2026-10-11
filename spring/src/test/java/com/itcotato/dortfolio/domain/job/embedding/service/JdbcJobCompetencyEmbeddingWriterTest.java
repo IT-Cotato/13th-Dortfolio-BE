@@ -34,12 +34,12 @@ class JdbcJobCompetencyEmbeddingWriterTest {
 
         boolean first = writer.saveIfAbsent(
                 jobCompetencyId,
-                "gemini-embedding-2",
+                "cohere-embed-v4",
                 embedding
         );
         boolean duplicate = writer.saveIfAbsent(
                 jobCompetencyId,
-                "gemini-embedding-2",
+                "cohere-embed-v4",
                 embedding
         );
 
